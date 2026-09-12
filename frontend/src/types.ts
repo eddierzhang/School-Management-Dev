@@ -678,3 +678,81 @@ export interface StudentSchedule {
   clashes: number
   waitlisted: number
 }
+
+// ---- class improvement plans ------------------------------------------------
+export type ClassStatus = 'needs-plan' | 'watch' | 'strong' | 'no-data'
+
+export interface ClassPerformance {
+  code: string
+  title: string
+  dept: string
+  teacher: string
+  students: number
+  mean: number | null
+  median: number | null
+  below_line: number
+  completion: number | null
+  trend: number | null
+  improving: number
+  declining: number
+  needs_plan: number
+  strands: { strand: string; mean: number; below_line: number; cohort: number; share_below: number }[]
+  kinds: { kind: string; mean: number | null; handed_in: number }[]
+  status: ClassStatus
+  issues: string[]
+}
+
+export interface ClassPlan {
+  id: number
+  course_code: string
+  title: string
+  diagnosis: string
+  focus_strands: string[]
+  actions: string[]
+  goal: string
+  owner: string
+  status: 'active' | 'completed' | 'retired'
+  outcome: string | null
+  opened_on: string
+  review_on: string | null
+  closed_on: string | null
+  run_id: number | null
+  progress: { measure: string; baseline: number | null; now: number | null; change: number | null }[]
+}
+
+export interface PlanDraft {
+  id: number
+  run_id: number | null
+  summary: string
+  payload: { course_code: string; title: string; diagnosis: string; focus_strands: string[]; actions: string[]; goal: string }
+  created_at: string | null
+}
+
+export interface DraftRun {
+  id: number
+  status: 'running' | 'done' | 'failed'
+  summary: string
+  error: string | null
+  steps_used: number
+  duration_ms: number
+  proposals: number
+  started_at: string | null
+}
+
+export interface ClassImprovement {
+  performance: ClassPerformance
+  plans: ClassPlan[]
+  drafts: PlanDraft[]
+  latest_run: DraftRun | null
+}
+
+export interface ClassNeedRow {
+  code: string
+  title: string
+  teacher: string
+  status: ClassStatus
+  mean: number | null
+  issues: string[]
+  active_plan: string | null
+  drafts_waiting: number
+}

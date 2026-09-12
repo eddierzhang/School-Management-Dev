@@ -15,6 +15,7 @@ const KIND_LABEL: Record<string, string> = {
   support_plan: 'Open a support plan',
   budget_transfer: 'Move budget',
   transaction_review: 'Hold a charge for review',
+  class_plan: 'Adopt a class improvement plan',
 }
 
 /** Shown in the run hint; the shortcut itself accepts either modifier. */

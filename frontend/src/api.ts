@@ -1,4 +1,5 @@
 import type {
+  ClassImprovement, ClassNeedRow, ClassPlan, DraftRun,
   SchoolSchedule, StudentSchedule,
   DemandReport, NewClass, NewSection, Opened, Openings,
   AgentRun, CourseDetail, CourseRow, Fleet, Intervention, InventoryDetail, InventoryPatch,
@@ -55,6 +56,14 @@ export const api = {
   schedule: () => req<SchoolSchedule>('/schedule'),
   courses: () => req<CourseRow[]>('/courses'),
   course: (code: string) => req<CourseDetail>(`/courses/${encodeURIComponent(code)}`),
+  improvement: (code: string) => req<ClassImprovement>(`/courses/${encodeURIComponent(code)}/improvement`),
+  improvementAll: () => req<ClassNeedRow[]>('/improvement'),
+  draftClassPlan: (code: string, note?: string) =>
+    req<DraftRun>(`/courses/${encodeURIComponent(code)}/improvement/draft`, {
+      method: 'POST', body: JSON.stringify({ note: note ?? null }),
+    }),
+  closeClassPlan: (id: number, status: 'completed' | 'retired', outcome?: string) =>
+    req<ClassPlan>(`/improvement-plans/${id}`, { method: 'PATCH', body: JSON.stringify({ status, outcome: outcome ?? null }) }),
   demand: () => req<DemandReport>('/courses/demand'),
   openings: (period: number) => req<Openings>('/courses/openings' + qs({ period })),
   openClass: (body: NewClass) =>

@@ -4,7 +4,7 @@ the API.
 """
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -517,3 +517,75 @@ class StudentScheduleOut(Base):
     free_periods: list[int]
     clashes: int
     waitlisted: int
+
+
+# ---- class improvement plans -------------------------------------------------
+class PlanProgressRow(BaseModel):
+    measure: str
+    baseline: float | None = None
+    now: float | None = None
+    change: float | None = None
+
+
+class ClassPlanOut(BaseModel):
+    id: int
+    course_code: str
+    title: str
+    diagnosis: str
+    focus_strands: list[str]
+    actions: list[str]
+    goal: str
+    owner: str
+    status: str                 # active | completed | retired
+    outcome: str | None = None
+    opened_on: date
+    review_on: date | None = None
+    closed_on: date | None = None
+    run_id: int | None = None
+    progress: list[PlanProgressRow]
+
+
+class PlanDraftOut(BaseModel):
+    id: int                     # the pending proposal
+    run_id: int | None = None
+    summary: str
+    payload: dict
+    created_at: datetime | None = None
+
+
+class DraftRunOut(BaseModel):
+    id: int
+    status: str                 # running | done | failed
+    summary: str = ""
+    error: str | None = None
+    steps_used: int = 0
+    duration_ms: int = 0
+    proposals: int = 0
+    started_at: datetime | None = None
+
+
+class ClassImprovementOut(BaseModel):
+    performance: dict           # app/class_plans.ClassPerformance.as_dict()
+    plans: list[ClassPlanOut]
+    drafts: list[PlanDraftOut]
+    latest_run: DraftRunOut | None = None
+
+
+class ClassNeedRow(BaseModel):
+    code: str
+    title: str
+    teacher: str
+    status: str                 # needs-plan | watch | strong | no-data
+    mean: float | None = None
+    issues: list[str]
+    active_plan: str | None = None
+    drafts_waiting: int = 0
+
+
+class DraftRequest(BaseModel):
+    note: str | None = Field(default=None, max_length=1000)
+
+
+class ClassPlanPatch(BaseModel):
+    status: str = Field(pattern="^(completed|retired)$")
+    outcome: str | None = Field(default=None, max_length=2000)

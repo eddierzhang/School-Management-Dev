@@ -11,14 +11,17 @@ receipt. Nothing reaches the database until a person approves it.
 """
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..analytics import build_signals, skill_gaps
+from ..class_plans import (active_plan, all_performance, canonical_strands, performance,
+                           miscounted, unaddressed_causes, uncited_percentages, unknown_strands)
 from ..config import get_settings
-from ..models import Course, Enrollment, InventoryItem, Intervention, Student
+from ..models import Course, Enrollment, InventoryItem, Intervention, Proposal, Student
 from ..stock import cost_to_par, short_by, status_of
 from ..timetable import clashes
 from .toolkit import Tool, ToolError
@@ -404,3 +407,114 @@ def propose_transaction_review(db: Session, ctx: dict, transaction_id: int, conc
                     [{"id": t.id, "line": t.line.code, "vendor": t.vendor, "amount": t.amount,
                       "posted_on": t.posted_on.isoformat(), "reference": t.reference,
                       "rules": [r["rule"] + ": " + r["detail"] for r in rules]}])
+
+
+# ===================== class improvement ===============================
+def _pct_int(v: float | None) -> int | None:
+    return round(v) if v is not None else None
+
+
+def _class_row(p) -> dict:
+    """Whole numbers throughout: a model cites what it is shown, so show it numbers
+    that the plan checks in app/class_plans.py will recognise."""
+    return {"code": p.code, "title": p.title, "teacher": p.teacher, "status": p.status,
+            "class_average": _pct_int(p.mean), "students": p.students,
+            "work_handed_in_pct": _pct_int(100 * p.completion) if p.completion is not None else None,
+            "trend_points": p.trend, "weakest_strands": [s.strand for s in p.strands[:2]],
+            "issues": p.issues[:3]}
+
+
+def list_classes_by_need(db: Session, ctx: dict) -> dict:
+    rows = []
+    for p in all_performance(db):
+        if p.status == "no-data":
+            continue
+        plan = active_plan(db, p.code)
+        rows.append(_class_row(p) | {"has_active_plan": plan is not None})
+    return _capped(rows) | {"note_on_status": "needs-plan first, then watch, then strong. "
+                                              "A class with has_active_plan=true already has one."}
+
+
+def get_class_performance(db: Session, ctx: dict, course_code: str) -> dict:
+    code = course_code.strip().upper()
+    p = performance(db, code)
+    if p is None:
+        raise ToolError(f"No class with code {course_code!r}. Call list_classes_by_need for real codes.")
+    if p.status == "no-data":
+        raise ToolError(f"{code} has no graded work yet, so there is nothing to plan from.")
+    plan = active_plan(db, code)
+    return _class_row(p) | {
+        "median": _pct_int(p.median),
+        "below_the_72_line": f"{p.below_line} of {p.students}",
+        "improving_students": p.improving, "declining_students": p.declining,
+        "students_needing_individual_plans": p.needs_plan,
+        "strands": [{"strand": s.strand, "average": _pct_int(s.mean),
+                     "below_line": f"{s.below_line} of {s.cohort}",
+                     "share_below_pct": _pct_int(100 * s.share_below)} for s in p.strands],
+        "by_kind_of_work": [{"kind": k.kind, "average": _pct_int(k.mean),
+                             "handed_in_pct": _pct_int(100 * k.handed_in)} for k in p.kinds],
+        "active_plan": plan.title if plan else None,
+    }
+
+
+def propose_class_plan(db: Session, ctx: dict, course_code: str, title: str, diagnosis: str,
+                       focus_strands: list, actions: list, goal: str) -> dict:
+    code = course_code.strip().upper()
+    scope = ctx.get("only_course")
+    if scope and code != scope:
+        raise ToolError(f"This run is only for {scope}. Propose a plan for {scope}, not {code}.")
+    p = performance(db, code)
+    if p is None:
+        raise ToolError(f"No class with code {course_code!r}. Call list_classes_by_need for real codes.")
+    if p.status == "no-data":
+        raise ToolError(f"{code} has no graded work yet, so there is nothing to plan from.")
+    if active_plan(db, code):
+        raise ToolError(f"{code} already has an active improvement plan. Choose another class, or stop.")
+    if any(x["kind"] == "class_plan" and x["payload"]["course_code"] == code for x in ctx.get("proposals", [])):
+        raise ToolError(f"You already proposed a plan for {code} in this run. Do not propose a second.")
+    waiting = [x for x in db.scalars(select(Proposal).where(Proposal.kind == "class_plan",
+                                                            Proposal.status == "pending")).all()
+               if (x.payload or {}).get("course_code") == code]
+    if waiting:
+        raise ToolError(f"A draft plan for {code} is already waiting for approval. Stop, or choose another class.")
+
+    strands = [str(s).strip() for s in focus_strands if str(s).strip()]
+    if not 1 <= len(strands) <= 2:
+        raise ToolError("focus_strands must name one or two strands from get_class_performance.")
+    wrong = unknown_strands(strands, p)
+    if wrong:
+        raise ToolError(f"{code} does not teach: {', '.join(wrong)}. "
+                        f"Its strands are: {', '.join(s.strand for s in p.strands)}.")
+
+    steps = [str(a).strip() for a in actions if str(a).strip()]
+    if not 2 <= len(steps) <= 5:
+        raise ToolError("actions must list two to five separate, concrete steps.")
+    short = [a for a in steps if len(a) < 20]
+    if short:
+        raise ToolError(f"Each action must say what happens, who does it and when. Too vague: {short[0]!r}.")
+    if len({a.lower() for a in steps}) < len(steps):
+        raise ToolError("Two of the actions are the same. Give distinct steps.")
+    if not re.search(r"\d", goal):
+        raise ToolError("The goal must be measurable: name a number to reach, e.g. 'word problems average to 72%'.")
+
+    ignored = unaddressed_causes(steps, p)
+    if ignored:
+        raise ToolError(f"The plan misses a cause in the data: {ignored[0]}. Add an action for it and "
+                        "propose again.")
+
+    wrong_counts = miscounted(diagnosis, p)
+    if wrong_counts:
+        raise ToolError(f"These counts do not match the class data: {', '.join(wrong_counts)}. "
+                        f"The class has {p.below_line} of {p.students} below the line overall; each strand "
+                        "has its own below_line count in get_class_performance. Use the one for what you name.")
+
+    invented = uncited_percentages(" ".join([diagnosis, *steps]), p)
+    if invented:
+        raise ToolError(f"These figures are not in the class data: {', '.join(invented)}. "
+                        "Cite only numbers returned by get_class_performance.")
+
+    focus = canonical_strands(strands, p)
+    return _propose(ctx, "class_plan", f"{p.title} ({code}): {title.strip()[:120]}", diagnosis.strip()[:600],
+                    {"course_code": code, "title": title.strip()[:200], "diagnosis": diagnosis.strip()[:1200],
+                     "focus_strands": focus, "actions": [a[:300] for a in steps], "goal": goal.strip()[:300]},
+                    [_class_row(p)])

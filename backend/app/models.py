@@ -187,6 +187,8 @@ class AgentRun(Base):
     tool_errors: Mapped[int] = mapped_column(Integer, default=0)
     duration_ms: Mapped[int] = mapped_column(Integer, default=0)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # What a scoped run is about, e.g. "course:MAT-150"; None for a sweep.
+    subject: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     started_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
@@ -306,4 +308,33 @@ class BudgetTransfer(Base):
     amount: Mapped[float] = mapped_column(Float)
     reason: Mapped[str] = mapped_column(Text, default="")
     approved_by: Mapped[str] = mapped_column(String(120), default="Business office")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class ClassPlan(Base):
+    """An improvement plan for a class, adopted from an agent's draft.
+
+    `baseline` is the class's performance snapshot on the day it was adopted
+    (app/class_plans.py), so progress is read against real numbers rather than
+    anyone's memory of how the class was doing.
+    """
+
+    __tablename__ = "class_plans"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    course_code: Mapped[str] = mapped_column(String(16), index=True)
+    title: Mapped[str] = mapped_column(String(200))
+    diagnosis: Mapped[str] = mapped_column(Text, default="")
+    focus_strands: Mapped[list] = mapped_column(JSON, default=list)
+    actions: Mapped[list] = mapped_column(JSON, default=list)
+    goal: Mapped[str] = mapped_column(Text, default="")
+    owner: Mapped[str] = mapped_column(String(120), default="")
+    status: Mapped[str] = mapped_column(String(16), default="active")  # active | completed | retired
+    baseline: Mapped[dict] = mapped_column(JSON, default=dict)
+    outcome: Mapped[str | None] = mapped_column(Text, nullable=True)
+    opened_on: Mapped[date] = mapped_column(Date)
+    review_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    closed_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    run_id: Mapped[int | None] = mapped_column(ForeignKey("agent_runs.id", ondelete="SET NULL"), nullable=True)
+    proposal_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
