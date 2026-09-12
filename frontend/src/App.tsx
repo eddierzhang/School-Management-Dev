@@ -4,6 +4,7 @@ import { useApi } from './useApi'
 import { StudentDrawer } from './components/StudentDrawer'
 import { Agents } from './views/Agents'
 import { Classes } from './views/Classes'
+import { Demand } from './views/Demand'
 import { Overview } from './views/Overview'
 import { Plans } from './views/Plans'
 import { SkillGaps } from './views/SkillGaps'
@@ -12,10 +13,10 @@ import { Finance } from './views/Finance'
 import { Strengths, Watchlist } from './views/Watchlist'
 import { ErrorNote } from './components/ui'
 
-type Tab = 'overview' | 'watchlist' | 'strengths' | 'classes' | 'skills' | 'plans'
+type Tab = 'overview' | 'watchlist' | 'strengths' | 'classes' | 'demand' | 'skills' | 'plans'
   | 'stockroom' | 'finance' | 'agents'
 
-const TAB_IDS: Tab[] = ['overview', 'watchlist', 'strengths', 'classes', 'skills', 'plans',
+const TAB_IDS: Tab[] = ['overview', 'watchlist', 'strengths', 'classes', 'demand', 'skills', 'plans',
   'stockroom', 'finance', 'agents']
 
 /* The URL is the view: #/watchlist, #/classes, #/watchlist/S-1507 with a student
@@ -38,6 +39,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'watchlist', label: 'Struggling' },
   { id: 'strengths', label: 'Excelling' },
   { id: 'classes', label: 'Classes' },
+  { id: 'demand', label: 'Class demand' },
   { id: 'skills', label: 'What they struggle on' },
   { id: 'plans', label: 'Support plans' },
   { id: 'stockroom', label: 'Stockroom' },
@@ -136,7 +138,8 @@ export default function App() {
         )}
         {tab === 'watchlist' && <Watchlist key={refresh} onOpenStudent={setOpenSid} />}
         {tab === 'strengths' && <Strengths key={refresh} onOpenStudent={setOpenSid} />}
-        {tab === 'classes' && <Classes onOpenStudent={setOpenSid} />}
+        {tab === 'classes' && <Classes key={refresh} onOpenStudent={setOpenSid} />}
+        {tab === 'demand' && <Demand onChanged={bump} />}
         {tab === 'skills' && <SkillGaps />}
         {tab === 'plans' && <Plans onOpenStudent={setOpenSid} onChanged={bump} />}
         {tab === 'stockroom' && <Stockroom onChanged={bump} />}

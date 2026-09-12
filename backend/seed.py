@@ -120,6 +120,7 @@ def build(keep: bool = False) -> None:
             c = Course(**({"title": row["title"], "dept": row["dept"]} | catalog_fields(row["code"])),
                        code=row["code"], teacher=row["teacher"], period=row.get("period") or 0,
                        room=row.get("room") or "TBD", capacity=row["capacity"],
+                       signups=[int(n or 0) for n in row.get("signups") or []],
                        term=row.get("term") or settings.term)
             db.add(c)
             courses[c.code] = c
