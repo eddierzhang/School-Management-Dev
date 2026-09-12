@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from ..analytics import build_signals, skill_gaps
 from ..class_plans import (active_plan, all_performance, canonical_strands, performance,
                            miscounted, unaddressed_causes, uncited_percentages, unknown_strands)
+from .. import study_plans as SP
 from ..config import get_settings
 from ..models import Course, Enrollment, InventoryItem, Intervention, Proposal, Student
 from ..stock import cost_to_par, short_by, status_of
@@ -624,3 +625,82 @@ def propose_class_plan(db: Session, ctx: dict, course_code: str, title: str, dia
                     {"course_code": code, "title": title.strip()[:200], "diagnosis": diagnosis.strip()[:1200],
                      "focus_strands": focus, "actions": [a[:300] for a in steps], "goal": goal.strip()[:300]},
                     [_class_row(p)])
+
+
+# ===================== study plans (one student, one class) ==============
+def _work_row(w: "SP.ClassWork") -> dict:
+    return {"sid": w.sid, "class": w.course_code, "grade_pct": round(w.pct), "class_average_pct":
+            round(w.class_pct) if w.class_pct is not None else None, "missing": len(w.missing),
+            "findings": [f.code for f in w.findings][:4]}
+
+
+def list_students_for_study_plans(db: Session, ctx: dict) -> dict:
+    rows = [_work_row(w) for w in SP.students_needing_plans(db)]
+    return _capped(rows) | {"how_to_read": "Each row is one student in one class with no study plan yet, "
+                                           "lowest grade first. Open one with get_student_class_work."}
+
+
+def _r(v: float | None) -> int | None:
+    return round(v) if v is not None else None
+
+
+def get_student_class_work(db: Session, ctx: dict, sid: str, course_code: str) -> dict:
+    """Whole numbers, and only what a plan needs: a 4B model cites what it is shown."""
+    sid, code = sid.strip().upper(), course_code.strip().upper()
+    w = SP.class_work(db, sid, code)
+    if w is None:
+        raise ToolError(f"{sid} has no graded work in {code}. Call list_students_for_study_plans for real pairs.")
+    return {
+        "sid": w.sid, "class": w.course_code, "title": w.course_title, "teacher": w.teacher,
+        "grade_pct": _r(w.pct), "class_average_pct": _r(w.class_pct), "trend_points": round(w.trend),
+        "findings": [{"code": f.code, "what": f.text} for f in w.findings],
+        "strands": [{"strand": s.strand, "gradebook_pct": _r(s.pct), "on_work_handed_in_pct": _r(s.handed_in_pct),
+                     "class_average_pct": _r(s.class_pct), "missing": s.missing} for s in w.strands],
+        "by_kind_of_work": [{"kind": k.kind, "average_pct": _r(k.pct), "handed_in": f"{k.handed_in} of {k.due}"}
+                            for k in w.kinds],
+        "missing_assignments": [{"id": a.id, "title": a.title, "strand": a.strand, "due": a.due_on}
+                                for a in w.missing[:8]],
+        "recent_assignments": [{"id": a.id, "title": a.title, "kind": a.kind, "strand": a.strand,
+                                "pct": _r(a.pct), "class_pct": _r(a.class_pct)}
+                               for a in w.assignments[-8:] if a.pct is not None],
+        "has_active_study_plan": SP.active_plan(db, sid, code) is not None,
+    }
+
+
+def propose_study_plan(db: Session, ctx: dict, student_sid: str, course_code: str, title: str,
+                       diagnosis: str, focus_strands: list, sessions: list, goal: str,
+                       catch_up_assignments: list | None = None) -> dict:
+    sid, code = student_sid.strip().upper(), course_code.strip().upper()
+    for key, want in (("only_student", sid), ("only_course", code)):
+        if ctx.get(key) and ctx[key] != want:
+            raise ToolError(f"This run is only for {ctx['only_student']} in {ctx['only_course']}. Propose for that.")
+    w = SP.class_work(db, sid, code)
+    if w is None:
+        raise ToolError(f"{sid} has no graded work in {code}. Call list_students_for_study_plans for real pairs.")
+    if SP.active_plan(db, sid, code):
+        raise ToolError(f"{sid} already has an active study plan for {code}. Choose another student, or stop.")
+    if any(x["kind"] == "study_plan" and (x["payload"]["student_sid"], x["payload"]["course_code"]) == (sid, code)
+           for x in ctx.get("proposals", [])):
+        raise ToolError(f"You already proposed a study plan for {sid} in {code} in this run.")
+    if any((x.payload or {}).get("student_sid") == sid and (x.payload or {}).get("course_code") == code
+           for x in db.scalars(select(Proposal).where(Proposal.kind == "study_plan",
+                                                      Proposal.status == "pending")).all()):
+        raise ToolError(f"A draft study plan for {sid} in {code} is already waiting for approval.")
+
+    strands = [str(s).strip() for s in focus_strands if str(s).strip()]
+    steps = [str(s).strip() for s in sessions if str(s).strip()]
+    try:
+        catch_up = [int(i) for i in (catch_up_assignments or [])]
+    except (TypeError, ValueError):
+        raise ToolError("catch_up_assignments must be assignment ids (numbers) from missing_assignments.") from None
+    problems = SP.problems_with(w, focus_strands=strands, sessions=steps, catch_up=catch_up,
+                                goal=goal, diagnosis=diagnosis)
+    if problems:
+        raise ToolError(" ".join(problems) + " Fix these and propose again.")
+
+    return _propose(ctx, "study_plan", f"{sid} in {code}: {title.strip()[:120]}", diagnosis.strip()[:600],
+                    {"student_sid": sid, "course_code": code, "title": title.strip()[:200],
+                     "diagnosis": diagnosis.strip()[:1200], "focus_strands": SP.canonical_strands(strands, w),
+                     "sessions": [s[:300] for s in steps], "catch_up_assignments": catch_up,
+                     "goal": goal.strip()[:300]},
+                    [_work_row(w) | {"findings": [f.text for f in w.findings]}])

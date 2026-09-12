@@ -1,6 +1,7 @@
 import type {
   BudgetMove, FinanceNeeds,
   ClassImprovement, ClassNeedRow, ClassPlan, DraftRun,
+  ClassWork, StudentStudy, StudyPlan,
   SchoolSchedule, StudentSchedule,
   DemandReport, NewClass, NewSection, Opened, Openings,
   AgentRun, CourseDetail, CourseRow, Fleet, Intervention, InventoryDetail, InventoryPatch,
@@ -65,6 +66,15 @@ export const api = {
     }),
   closeClassPlan: (id: number, status: 'completed' | 'retired', outcome?: string) =>
     req<ClassPlan>(`/improvement-plans/${id}`, { method: 'PATCH', body: JSON.stringify({ status, outcome: outcome ?? null }) }),
+  study: (sid: string) => req<StudentStudy>(`/students/${encodeURIComponent(sid)}/study`),
+  classWork: (sid: string, code: string) =>
+    req<ClassWork>(`/students/${encodeURIComponent(sid)}/classes/${encodeURIComponent(code)}/work`),
+  draftStudyPlan: (sid: string, code: string, note?: string) =>
+    req<DraftRun>(`/students/${encodeURIComponent(sid)}/classes/${encodeURIComponent(code)}/study-plan/draft`, {
+      method: 'POST', body: JSON.stringify({ note: note ?? null }),
+    }),
+  closeStudyPlan: (id: number, status: 'completed' | 'retired', outcome?: string) =>
+    req<StudyPlan>(`/study-plans/${id}`, { method: 'PATCH', body: JSON.stringify({ status, outcome: outcome ?? null }) }),
   demand: () => req<DemandReport>('/courses/demand'),
   openings: (period: number) => req<Openings>('/courses/openings' + qs({ period })),
   openClass: (body: NewClass) =>

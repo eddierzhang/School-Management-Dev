@@ -7,6 +7,7 @@ import { TipRows } from './charts'
 import { BandPill, Delta, ErrorNote, Icon, Loading, Meter, Pill, StandingMeter, gradeStatus, pctText } from './ui'
 import { PlanDialog } from './PlanDialog'
 import { DocumentsBlock } from './Documents'
+import { StudyPlansBlock } from './StudyPlans'
 import { Timetable } from './Timetable'
 
 export function StudentDrawer({ sid, onClose, onChanged }: {
@@ -79,6 +80,8 @@ export function StudentDrawer({ sid, onClose, onChanged }: {
                   ))}
                 </div>
               )}
+
+              <StudyPlansBlock sid={data.sid} onChanged={onChanged} />
 
               <DocumentsBlock sid={data.sid} name={data.name} onOpenPlan={openPlan} />
 

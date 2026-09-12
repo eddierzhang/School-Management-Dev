@@ -757,6 +757,92 @@ export interface ClassNeedRow {
   drafts_waiting: number
 }
 
+// ---- study plans (one student, one class) -----------------------------------
+export interface StudyClassRow {
+  code: string
+  title: string
+  teacher: string
+  pct: number
+  class_pct: number | null
+  needs_plan: boolean
+  findings: string[]
+  active_plan_id: number | null
+  drafts_waiting: number
+  latest_run: DraftRun | null
+}
+
+export interface StudyProgressRow {
+  measure: string
+  baseline: number | null
+  now: number | null
+  change: number | null
+  unit: '%' | ''
+}
+
+export interface StudyPlan {
+  id: number
+  student_sid: string
+  course_code: string
+  title: string
+  diagnosis: string
+  focus_strands: string[]
+  sessions: string[]
+  catch_up: { id: number; title: string; due_on: string }[]
+  goal: string
+  owner: string
+  status: 'active' | 'completed' | 'retired'
+  outcome: string | null
+  opened_on: string
+  review_on: string | null
+  closed_on: string | null
+  run_id: number | null
+  progress: StudyProgressRow[]
+}
+
+export interface StudyDraft {
+  id: number
+  run_id: number | null
+  summary: string
+  payload: {
+    student_sid: string; course_code: string; title: string; diagnosis: string
+    focus_strands: string[]; sessions: string[]; catch_up_assignments: number[]; goal: string
+  }
+  created_at: string | null
+}
+
+export interface StudentStudy {
+  sid: string
+  classes: StudyClassRow[]
+  plans: StudyPlan[]
+  drafts: StudyDraft[]
+}
+
+export interface ClassWorkAssignment {
+  id: number
+  title: string
+  kind: string
+  strand: string
+  due_on: string
+  pct: number | null
+  class_pct: number | null
+  late: boolean
+}
+
+export interface ClassWork {
+  sid: string
+  course_code: string
+  course_title: string
+  pct: number
+  class_pct: number | null
+  assignments: ClassWorkAssignment[]
+  strands: {
+    strand: string; pct: number; handed_in_pct: number | null; class_pct: number | null
+    graded: number; missing: number
+  }[]
+  kinds: { kind: string; pct: number | null; handed_in: number; due: number }[]
+  findings: { code: string; text: string; strand: string | null }[]
+}
+
 // ---- budget needs, new lines and revisions ----------------------------------
 export interface LineNeed {
   code: string

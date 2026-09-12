@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..class_plans import adopt
+from .. import study_plans
 from ..config import get_settings
 from ..models import Course, Enrollment, InventoryItem, Intervention, Proposal, Student
 from ..timetable import SchedulingError, open_section
@@ -171,6 +172,18 @@ def _apply_class_plan(db: Session, p: Proposal) -> str:
             f"review on {plan.review_on:%b} {plan.review_on.day}.")
 
 
+def _apply_study_plan(db: Session, p: Proposal) -> str:
+    try:
+        plan = study_plans.adopt(db, run_id=p.run_id, proposal_id=p.id, **{k: p.payload.get(k) or [] if k in (
+            "focus_strands", "sessions", "catch_up_assignments") else p.payload[k] for k in (
+            "student_sid", "course_code", "title", "diagnosis", "focus_strands", "sessions",
+            "catch_up_assignments", "goal")})
+    except ValueError as e:
+        raise ApplyError(str(e)) from e
+    return (f"Adopted a study plan for {plan.student_sid} in {plan.course_code}, owned by {plan.owner}; "
+            f"review on {plan.review_on:%b} {plan.review_on.day}.")
+
+
 HANDLERS = {
     "requisition": _apply_requisition,
     "reorder_point": _apply_reorder_point,
@@ -182,6 +195,7 @@ HANDLERS = {
     "class_plan": _apply_class_plan,
     "budget_line": _apply_budget_line,
     "budget_revision": _apply_budget_revision,
+    "study_plan": _apply_study_plan,
 }
 
 
