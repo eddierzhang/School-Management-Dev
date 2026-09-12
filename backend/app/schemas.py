@@ -589,3 +589,44 @@ class DraftRequest(BaseModel):
 class ClassPlanPatch(BaseModel):
     status: str = Field(pattern="^(completed|retired)$")
     outcome: str | None = Field(default=None, max_length=2000)
+
+
+# ---- study plans (one student, one class) -------------------------------------
+class StudyClassRow(BaseModel):
+    code: str
+    title: str
+    teacher: str
+    pct: float
+    class_pct: float | None = None
+    needs_plan: bool
+    findings: list[str] = []
+    active_plan_id: int | None = None
+    drafts_waiting: int = 0
+    latest_run: DraftRunOut | None = None
+
+
+class StudyPlanOut(BaseModel):
+    id: int
+    student_sid: str
+    course_code: str
+    title: str
+    diagnosis: str
+    focus_strands: list[str]
+    sessions: list[str]
+    catch_up: list[dict]
+    goal: str
+    owner: str
+    status: str
+    outcome: str | None = None
+    opened_on: date
+    review_on: date | None = None
+    closed_on: date | None = None
+    run_id: int | None = None
+    progress: list[dict] = []
+
+
+class StudentStudyOut(BaseModel):
+    sid: str
+    classes: list[StudyClassRow]
+    plans: list[StudyPlanOut]
+    drafts: list[PlanDraftOut]

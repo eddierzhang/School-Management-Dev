@@ -314,7 +314,63 @@ CLASSES = Agent(
     ],
 )
 
-FLEET: dict[str, Agent] = {a.name: a for a in (SUPPORT, CLASSES, REGISTRAR, STOCKROOM, FINANCE)}
+STUDY = Agent(
+    name="study",
+    title="Study plan agent",
+    domain="One student in one class: what exactly they struggle on, and a week-by-week study plan.",
+    system=(
+        "You are the study plan agent for Halverson Ridge Middle School. You write a detailed study plan "
+        "for one student in one class, from their actual assignments.\n\n"
+        "Work in this order: read the student's class work, decide what exactly is wrong from the "
+        "findings, then call propose_study_plan once. Match the sessions to the cause:\n"
+        "- strand-gap: the student, not the class, is weak on a strand. Sessions redo that strand's "
+        "assignments with worked examples, then a short self-check.\n"
+        "- strand-missing: the strand is low only because work is missing. Hand that work in first; "
+        "do not reteach what they already understand.\n"
+        "- class-gap: the whole class is weak too. Keep sessions short and ask the teacher for a reteach.\n"
+        "- tests-below-practice: practice quizzes under timed test conditions.\n"
+        "- missing-work: list the missing assignment ids in catch_up_assignments and give a session to hand them in.\n"
+        "- sliding or declining: review the earlier material before new work.\n"
+        "Write three to eight sessions. Each says when (e.g. 'Mon week 1'), what exactly the student does, "
+        "who helps if anyone, and for how many minutes. Name the focus strand in its sessions. The goal "
+        "is a number to reach within three weeks. Cite only numbers the tools returned.\n\n" + COMMON_RULES
+    ),
+    default_task="Find the students whose class work most needs a study plan and draft a detailed plan "
+                 "for the worst one or two, matched to what exactly they are struggling on.",
+    opening=("list_students_for_study_plans", {}),
+    tools=[
+        _tool(T.list_students_for_study_plans, "list_students_for_study_plans",
+              "Students in a class whose work calls for a study plan and who have none, lowest grade first.",
+              {"type": "object", "properties": {}, "required": []}),
+        _tool(T.get_student_class_work, "get_student_class_work",
+              "One student's work in one class: findings, every strand against the class, each kind of work, "
+              "missing and recent assignments.",
+              {"type": "object", "properties": {
+                  "sid": {"type": "string", "description": "Exact student ID, e.g. S-1507."},
+                  "course_code": {"type": "string", "description": "Exact course code, e.g. MAT-150."}},
+               "required": ["sid", "course_code"]}),
+        _tool(T.propose_study_plan, "propose_study_plan",
+              "Propose a detailed study plan for one student in one class. Sessions must match the findings.",
+              {"type": "object", "properties": {
+                  "student_sid": {"type": "string"},
+                  "course_code": {"type": "string"},
+                  "title": {"type": "string", "description": "The plan in a few words, e.g. 'Catch up and relearn word problems'."},
+                  "diagnosis": {"type": "string",
+                                "description": "What exactly the student struggles on and why, in two or three "
+                                               "sentences, citing numbers from get_student_class_work."},
+                  "focus_strands": {"type": "array", "items": {"type": "string"},
+                                    "description": "One to three strand names exactly as get_student_class_work lists them."},
+                  "sessions": {"type": "array", "items": {"type": "string"},
+                               "description": "Three to eight study sessions: when, what exactly, who helps, how many minutes."},
+                  "catch_up_assignments": {"type": "array", "items": {"type": "integer"},
+                                           "description": "Ids from missing_assignments to hand in. Empty if none are missing."},
+                  "goal": {"type": "string", "description": "A number to reach in three weeks, e.g. 'word problems to 72%'."}},
+               "required": ["student_sid", "course_code", "title", "diagnosis", "focus_strands", "sessions", "goal"]},
+              proposes="study_plan"),
+    ],
+)
+
+FLEET: dict[str, Agent] = {a.name: a for a in (SUPPORT, CLASSES, STUDY, REGISTRAR, STOCKROOM, FINANCE)}
 
 # The general manager sits over the fleet and reads FLEET itself, so it registers
 # after the specialists exist.

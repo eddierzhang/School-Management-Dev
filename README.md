@@ -357,6 +357,47 @@ PATCH /api/improvement-plans/{id}             complete or retire, with an outcom
 
 ---
 
+## Study plans for one student
+
+A support plan routes a student to a person. A study plan says what that
+student actually does, session by session, in one class. The **study plan
+agent** drafts it from every past-due assignment, and a person adopts it from
+the student's record under **Study plans**.
+
+**What exactly they struggle on** (`app/study_plans.py`). The reading sets each
+strand and each kind of work against the class average, and keeps *missing*
+separate from *wrong*. Its findings:
+
+| Finding | Means | The plan should |
+|---|---|---|
+| `strand-gap` | weak on a strand the class is fine on | redo that strand with worked examples |
+| `strand-missing` | strand is low only because pieces were never handed in | hand them in, not reteach |
+| `class-gap` | the whole class is weak there too | keep it short, ask the teacher for a reteach |
+| `tests-below-practice` | tests and quizzes 10+ points under homework, labs, projects | timed practice |
+| `missing-work` | assignments not handed in, by id | list them to catch up |
+| `sliding` / `declining` | a strand's latest piece, or the class overall, dropping | review before new work |
+
+**Checks on a draft.** The same pattern as class plans. A draft goes back to the
+model with what to fix if:
+- a percentage isn't in the reading
+- an "N of M" count belongs to a different strand or kind of work
+- a strand isn't one the class assesses
+- a session lacks a duration or never names a focus strand
+- a catch-up id isn't really missing
+- missing work or a test gap has no matching session
+
+Adopting keeps the reading as a baseline. Progress then shows the class grade,
+each focus strand and the missing count against it.
+
+Measured on qwen3:4b, for S-1507 in MAT-150: one scoped run, 164 s, zero tool
+errors. The first draft passed every check: all three missing assignments by id,
+real figures, four timed sessions. Its weak points: it put every session in
+week 1, and it still scheduled relearning on a strand marked `strand-missing`.
+Read the draft before adopting it.
+
+API: `GET /api/students/{sid}/study`, `GET /api/students/{sid}/classes/{code}/work`,
+`POST /api/students/{sid}/classes/{code}/study-plan/draft`, `PATCH /api/study-plans/{id}`.
+
 ## Reading documents about a student
 
 Open any student's record and upload a teacher note, report card, assessment or
