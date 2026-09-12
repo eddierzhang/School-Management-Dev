@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from sqlalchemy import (JSON, Date, DateTime, Float, ForeignKey, Integer, String, Text,
+from sqlalchemy import (JSON, Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text,
                         UniqueConstraint, func)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -48,6 +48,16 @@ class Course(Base):
     room: Mapped[str] = mapped_column(String(32), default="TBD")
     capacity: Mapped[int] = mapped_column(Integer, default=24)
     term: Mapped[str] = mapped_column(String(32), default="Fall 2026")
+    # From the course of study (app/catalog.py).
+    description: Mapped[str] = mapped_column(Text, default="")
+    length: Mapped[str] = mapped_column(String(16), default="year")
+    credits: Mapped[float] = mapped_column(Float, default=1.0)
+    prerequisite: Mapped[str] = mapped_column(String(200), default="")
+    uc_approved: Mapped[bool] = mapped_column(Boolean, default=False)
+    extra_period: Mapped[bool] = mapped_column(Boolean, default=False)
+    graded: Mapped[bool] = mapped_column(Boolean, default=True)
+    catalog_page: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    legacy_title: Mapped[str] = mapped_column(String(120), default="")
 
     enrollments: Mapped[list[Enrollment]] = relationship(back_populates="course", cascade="all, delete-orphan")
     assessments: Mapped[list[Assessment]] = relationship(back_populates="course", cascade="all, delete-orphan")

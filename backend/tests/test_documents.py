@@ -148,12 +148,12 @@ def test_a_strand_named_in_the_finding_is_matched(talia):
 
 
 def test_a_word_is_not_stretched_to_a_whole_department(talia):
-    """Regression: "writing" matched all of Humanities and cited Model UN's grade
-    as evidence about short stories."""
+    """Regression: "writing" matched a whole department and cited a debate course's
+    grade as evidence about short stories."""
     g = D.corroborate({"area": "narrative structure", "type": "strength",
                        "quote": "Her short stories in Creative Writing have a clear narrative structure"}, talia)
     sources = " ".join(e["source"] for e in g["evidence"])
-    assert "Model UN" not in sources
+    assert "SOC-130" not in sources
     assert "ENG-201" in sources
 
 

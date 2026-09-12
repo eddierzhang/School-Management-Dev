@@ -122,6 +122,7 @@ def _section_row(db: Session, c: Course) -> dict:
         Enrollment.course_id == c.id, Enrollment.status == "waitlist")).all())
     return {"code": c.code, "title": c.title, "teacher": c.teacher, "period": c.period,
             "room": c.room, "enrolled": enrolled, "capacity": c.capacity,
+            "length": c.length, "prerequisite": c.prerequisite,
             "seats_open": max(0, c.capacity - enrolled), "waitlist": waiting}
 
 

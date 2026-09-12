@@ -25,20 +25,20 @@ for (let i = 0; i < 60; i++) {
 
 // ---- courses -------------------------------------------------------------
 const COURSES = [
-  {code:'SCI-210', title:'Forensic Science',            dept:'Science',      teacher:'R. Okonkwo',   period:4, room:'S-214', capacity:24, enrolled:24, wait:19, isNew:true,  signups:[4,6,5,11,14,17,15,12], desc:'Evidence handling, fingerprint lifting, and chromatography labs built around a term-long case file.'},
-  {code:'TEC-130', title:'Esports & Game Design',       dept:'Technology',   teacher:'J. Whitfield', period:7, room:'T-102', capacity:20, enrolled:20, wait:17, isNew:true,  signups:[2,5,9,12,13,16,14,13], desc:'Students build a playable level, then run a structured league with match analytics.'},
-  {code:'CTE-118', title:'Intro to Robotics',           dept:'Career & Tech',teacher:'M. Delacroix', period:2, room:'T-108', capacity:18, enrolled:18, wait:14, isNew:true,  signups:[3,4,7,9,11,12,10,9],  desc:'Drivetrain assembly, sensor wiring, and an end-of-term table-top competition.'},
-  {code:'PE-160',  title:'Rock Climbing',               dept:'Athletics',    teacher:'D. Boone',     period:6, room:'Gym Annex', capacity:16, enrolled:16, wait:9, isNew:true, signups:[2,3,6,8,9,10,8,7],  desc:'Top-rope technique and belay certification on the annex wall.'},
-  {code:'ART-140', title:'Ceramics & Wheel Throwing',   dept:'Arts',         teacher:'L. Moreau',    period:3, room:'A-120', capacity:20, enrolled:20, wait:11, isNew:false, signups:[3,4,5,6,8,9,7,6],   desc:'Hand-building through glaze chemistry, finishing with a kiln-fired portfolio piece.'},
-  {code:'ART-112', title:'Digital Photography',         dept:'Arts',         teacher:'L. Moreau',    period:5, room:'A-114', capacity:20, enrolled:19, wait:6,  isNew:true,  signups:[2,3,4,6,7,8,7,6],   desc:'Exposure fundamentals on loaner DSLRs, darkroom-free editing, and a print show.'},
-  {code:'CTE-122', title:'Culinary Basics',             dept:'Career & Tech',teacher:'A. Ferraro',   period:5, room:'C-101', capacity:16, enrolled:15, wait:3,  isNew:false, signups:[2,2,3,4,4,5,4,4],   desc:'Knife skills, food-safety certification, and a family-night service.'},
-  {code:'MAT-150', title:'Algebra Foundations',         dept:'Mathematics',  teacher:'S. Frankel',   period:1, room:'M-205', capacity:30, enrolled:28, wait:2,  isNew:false, signups:[6,5,4,4,3,3,2,2],   desc:'Linear reasoning and function notation; placement-tested entry.'},
-  {code:'MAT-210', title:'Geometry',                    dept:'Mathematics',  teacher:'S. Frankel',   period:3, room:'M-207', capacity:30, enrolled:19, wait:0,  isNew:false, signups:[4,3,3,2,2,1,1,1],   desc:'Proof writing, transformations, and a scale-model capstone.'},
-  {code:'SCI-118', title:'Life Science',                dept:'Science',      teacher:'R. Okonkwo',   period:2, room:'S-210', capacity:30, enrolled:27, wait:0,  isNew:false, signups:[5,4,4,3,3,2,2,2],   desc:'Cell structure through ecosystems, anchored by the courtyard pond study.'},
-  {code:'ENG-201', title:'Creative Writing Workshop',   dept:'Humanities',   teacher:'T. Ellery',    period:6, room:'E-118', capacity:22, enrolled:17, wait:0,  isNew:false, signups:[4,3,3,3,2,2,2,1],   desc:'Weekly workshop cycle ending in a bound student anthology.'},
-  {code:'WLD-101', title:'Spanish I',                   dept:'Humanities',   teacher:'C. Quintero',  period:1, room:'E-104', capacity:28, enrolled:25, wait:0,  isNew:false, signups:[5,4,4,3,3,2,2,2],   desc:'Present-tense conversation, with a spring exchange-letter project.'},
-  {code:'MUS-105', title:'Jazz Band',                   dept:'Arts',         teacher:'P. Sandoval',  period:7, room:'A-101', capacity:28, enrolled:22, wait:0,  isNew:false, signups:[4,4,3,3,2,2,2,2],   desc:'Combo and big-band repertoire; audition or director approval.'},
-  {code:'SOC-130', title:'Model UN',                    dept:'Humanities',   teacher:'T. Ellery',    period:4, room:'E-122', capacity:24, enrolled:11, wait:0,  isNew:false, signups:[3,2,2,1,1,1,0,1],   desc:'Position-paper research and two regional conference delegations.'}
+  {code:'SCI-210', title:'Forensic Science',            dept:'Science',      teacher:'R. Okonkwo',   period:4, room:'S-214', capacity:24, enrolled:24, wait:19, isNew:true,  signups:[4,6,5,11,14,17,15,12], desc:'Techniques of a forensic laboratory: hair and fiber analysis, blood spatter, fingerprinting and forensic DNA analysis.'},
+  {code:'TEC-130', title:'Digital World',       dept:'Computer Science',   teacher:'J. Whitfield', period:7, room:'T-102', capacity:20, enrolled:20, wait:17, isNew:true,  signups:[2,5,9,12,13,16,14,13], desc:'Current topics in computer science: digital representation, architecture and networking, programming, and ethics and privacy.'},
+  {code:'CTE-118', title:'Robotics Principles: Hardware',           dept:'Computer Science',teacher:'M. Delacroix', period:2, room:'T-108', capacity:18, enrolled:18, wait:14, isNew:true,  signups:[3,4,7,9,11,12,10,9],  desc:'Drive trains, electrical systems, sensors and manipulators, designed in CAD and built onto small ground robots.'},
+  {code:'PE-160',  title:'Personal Fitness',               dept:'Physical Education',    teacher:'D. Boone',     period:6, room:'Gym Annex', capacity:16, enrolled:16, wait:9, isNew:true, signups:[2,3,6,8,9,10,8,7],  desc:'Cardio-respiratory and muscular endurance, strength and flexibility, and designing a well-rounded workout routine.'},
+  {code:'ART-140', title:'Foundations: Ceramics',   dept:'Visual Arts',         teacher:'L. Moreau',    period:3, room:'A-120', capacity:20, enrolled:20, wait:11, isNew:false, signups:[3,4,5,6,8,9,7,6],   desc:'Clay as idea, material and process: pinch, coil, slab and throwing on the potter\'s wheel.'},
+  {code:'ART-112', title:'Foundations: Photography',         dept:'Visual Arts',         teacher:'L. Moreau',    period:5, room:'A-114', capacity:20, enrolled:19, wait:6,  isNew:true,  signups:[2,3,4,6,7,8,7,6],   desc:'Photographic concepts, image capture and camera functions on digital cameras, each paired with contemporary theory.'},
+  {code:'CTE-122', title:'Biotechnology',             dept:'Science',teacher:'A. Ferraro',   period:5, room:'C-101', capacity:16, enrolled:15, wait:3,  isNew:false, signups:[2,2,3,4,4,5,4,4],   desc:'Lab-based introduction to biotechnology techniques, with novel research on the local environment and the ethics of the field.'},
+  {code:'MAT-150', title:'Algebra 1',         dept:'Mathematics',  teacher:'S. Frankel',   period:1, room:'M-205', capacity:30, enrolled:28, wait:2,  isNew:false, signups:[6,5,4,4,3,3,2,2],   desc:'Expressions, equations and inequalities, factoring polynomials and systems of equations, concluding with the quadratic formula.'},
+  {code:'MAT-210', title:'Geometry',                    dept:'Mathematics',  teacher:'S. Frankel',   period:3, room:'M-207', capacity:30, enrolled:19, wait:0,  isNew:false, signups:[4,3,3,2,2,1,1,1],   desc:'Euclidean geometry built on inductive and deductive reasoning: congruence, similarity, transformations and written proof.'},
+  {code:'SCI-118', title:'Biology',                dept:'Science',      teacher:'R. Okonkwo',   period:2, room:'S-210', capacity:30, enrolled:27, wait:0,  isNew:false, signups:[5,4,4,3,3,2,2,2],   desc:'Introductory lab science: biochemistry, ecology, cell structure and function, and classical genetics.'},
+  {code:'ENG-201', title:'English 4: Art of Poetry and Fiction',   dept:'English',   teacher:'T. Ellery',    period:6, room:'E-118', capacity:22, enrolled:17, wait:0,  isNew:false, signups:[4,3,3,3,2,2,2,1],   desc:'Study of poetry and fiction craft, then original writing discussed in workshop, with constant revision.'},
+  {code:'WLD-101', title:'Spanish 1',                   dept:'Modern and Classical Languages',   teacher:'C. Quintero',  period:1, room:'E-104', capacity:28, enrolled:25, wait:0,  isNew:false, signups:[5,4,4,3,3,2,2,2],   desc:'Basic elements of Spanish and the cultures of the Spanish-speaking world, across listening, speaking, reading and writing.'},
+  {code:'MUS-105', title:'Jazz Band',                   dept:'Performing Arts',         teacher:'P. Sandoval',  period:7, room:'A-101', capacity:28, enrolled:22, wait:0,  isNew:false, signups:[4,4,3,3,2,2,2,2],   desc:'The primary jazz ensemble, also the pep band; CMEA festivals, homecoming and two annual concerts.'},
+  {code:'SOC-130', title:'Introduction to Speech and Debate',                    dept:'Speech and Debate',   teacher:'T. Ellery',    period:4, room:'E-122', capacity:24, enrolled:11, wait:0,  isNew:false, signups:[3,2,2,1,1,1,0,1],   desc:'Public speaking and argumentation through public forum, Lincoln-Douglas and congressional debate.'}
 ];
 
 function dayOffset(n) {
@@ -94,9 +94,9 @@ const INV = [
   ['TEC-SRV-STD','Standard servo motor','Career & Tech','unit',22,24,60,'T-108 bench','VEX Robotics',13.40,'2026-09-06',['CTE-118']],
   ['TEC-HDS-USB','Headset, USB wired','Technology','unit',14,16,24,'T-102 lab','Central District Warehouse',31.00,'2026-09-01',['TEC-130']],
   ['TEC-MSE-GAM','Gaming mouse','Technology','unit',9,10,20,'T-102 lab','Central District Warehouse',27.50,'2026-09-01',['TEC-130']],
-  ['CUL-APR-STD','Kitchen apron, student','Career & Tech','unit',18,14,32,'C-101 pantry','WebstaurantStore',9.60,'2026-08-30',['CTE-122']],
-  ['CUL-KNF-CHF','Chef knife, 8 in','Career & Tech','unit',16,12,20,'C-101 locked drawer','WebstaurantStore',21.75,'2026-08-30',['CTE-122']],
-  ['PE-HRN-CLB','Climbing harness, youth','Athletics','unit',12,14,24,'Gym annex cage','Petzl Education',58.00,'2026-09-07',['PE-160']],
+  ['CUL-APR-STD','Kitchen apron, student','Career & Tech','unit',18,14,32,'C-101 pantry','WebstaurantStore',9.60,'2026-08-30',[]],
+  ['CUL-KNF-CHF','Chef knife, 8 in','Career & Tech','unit',16,12,20,'C-101 locked drawer','WebstaurantStore',21.75,'2026-08-30',[]],
+  ['PE-HRN-CLB','Climbing harness, youth','Athletics','unit',12,14,24,'Gym annex cage','Petzl Education',58.00,'2026-09-07',[]],
   ['PE-CHK-BAG','Chalk bag','Athletics','unit',19,10,24,'Gym annex cage','Petzl Education',12.00,'2026-09-07',['PE-160']],
   ['MUS-RED-ALT','Alto sax reed, box of 10','Arts','box',15,8,24,'A-101 storage','Woodwind & Brasswind',27.90,'2026-08-25',['MUS-105']],
   ['GEN-PPR-CAS','Copy paper, case of 10 ream','Facilities','case',31,20,60,'Main supply room','Central District Warehouse',42.00,'2026-09-10',[]],
@@ -109,7 +109,7 @@ const INITS = [
   {id:'INIT-01', title:'Sunrise Coding Club', kind:'Club', proposedBy:'M. Delacroix, Career & Tech', interest:94, askCapacity:30, status:'proposed', window:'Tue/Thu 7:15a', note:'Students want a before-school build session; robotics waitlist is the main feeder.', source:'September interest survey'},
   {id:'INIT-02', title:'Second section of Forensic Science', kind:'Course section', proposedBy:'R. Okonkwo, Science', interest:88, askCapacity:24, status:'proposed', window:'Period 6', note:'Waitlist already exceeds a full section. Lab bench capacity is the constraint, not staffing.', source:'Waitlist rollover'},
   {id:'INIT-03', title:'Student Podcast Studio', kind:'Program', proposedBy:'T. Ellery, Humanities', interest:71, askCapacity:16, status:'piloting', window:'Period 7', note:'Pilot running in E-118 with borrowed mics; needs a permanent room to scale.', source:'September interest survey'},
-  {id:'INIT-04', title:'Climbing Team (competitive)', kind:'Club', proposedBy:'D. Boone, Athletics', interest:63, askCapacity:20, status:'proposed', window:'After school, M/W', note:'Rock Climbing filled in four days with nine still waiting; a team gives the overflow somewhere to go.', source:'Waitlist rollover'},
+  {id:'INIT-04', title:'Climbing Team (competitive)', kind:'Club', proposedBy:'D. Boone, Athletics', interest:63, askCapacity:20, status:'proposed', window:'After school, M/W', note:'Personal Fitness filled in four days with nine still waiting; a climbing team gives the overflow somewhere to go.', source:'Waitlist rollover'},
   {id:'INIT-05', title:'Spanish Conversation Table', kind:'Program', proposedBy:'C. Quintero, Humanities', interest:38, askCapacity:24, status:'proposed', window:'Lunch, Fridays', note:'Low-cost, no room conflict. Would run in the cafeteria alcove.', source:'Teacher proposal'},
   {id:'INIT-06', title:'Repair Cafe (fix-it workshop)', kind:'Club', proposedBy:'J. Whitfield, Technology', interest:29, askCapacity:18, status:'proposed', window:'After school, Thu', note:'Families bring broken small appliances; students diagnose under supervision.', source:'Family night feedback'},
   {id:'INIT-07', title:'Morning Jazz Combo', kind:'Course section', proposedBy:'P. Sandoval, Arts', interest:17, askCapacity:12, status:'shelved', window:'Period 0', note:'Shelved for Fall: only seventeen signals and Jazz Band still has open seats.', source:'September interest survey'}
@@ -117,8 +117,8 @@ const INITS = [
 
 // ---- campaigns -----------------------------------------------------------
 const CAMPAIGNS = [
-  {id:'CMP-01', target:'TEC-130', targetKind:'course', headline:'Build it, then compete: Esports & Game Design has a waitlist', channel:'Morning bulletin', starts:'2026-09-08', ends:'2026-09-19', status:'running', note:'Pointing overflow toward the Repair Cafe and coding club.'},
-  {id:'CMP-02', target:'SOC-130', targetKind:'course', headline:'Thirteen seats left in Model UN — two conferences this spring', channel:'Homeroom slide', starts:'2026-09-09', ends:'2026-09-26', status:'running', note:'Under-enrolled; conference registration closes in October.'}
+  {id:'CMP-01', target:'TEC-130', targetKind:'course', headline:'Digital World has a waitlist: computer science beyond the screen', channel:'Morning bulletin', starts:'2026-09-08', ends:'2026-09-19', status:'running', note:'Pointing overflow toward the Repair Cafe and coding club.'},
+  {id:'CMP-02', target:'SOC-130', targetKind:'course', headline:'Thirteen seats left in Intro to Speech and Debate — tournaments this spring', channel:'Homeroom slide', starts:'2026-09-09', ends:'2026-09-26', status:'running', note:'Under-enrolled; first tournament registration closes in October.'}
 ];
 
 // ---- write files ---------------------------------------------------------
@@ -148,7 +148,7 @@ put('meta', 'activity', {entries: [
   {at:'2026-09-11T15:20:00Z', text:'Waitlist for Forensic Science passed a full section (19).', kind:'demand'},
   {at:'2026-09-11T11:02:00Z', text:'Fingerprint lifting kit fell below reorder point (7 of 15).', kind:'inventory'},
   {at:'2026-09-10T14:41:00Z', text:'Copy paper counted: 31 cases on hand.', kind:'inventory'},
-  {at:'2026-09-09T09:15:00Z', text:'Campaign "Thirteen seats left in Model UN" started on Homeroom slide.', kind:'promotion'}
+  {at:'2026-09-09T09:15:00Z', text:'Campaign "Thirteen seats left in Intro to Speech and Debate" started on Homeroom slide.', kind:'promotion'}
 ]});
 
 fs.writeFileSync(path.join(__dirname, 'batch.json'), JSON.stringify(files, null, 1));
