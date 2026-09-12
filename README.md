@@ -9,9 +9,9 @@ school, one roster, and one visual identity.
 | **Student support** | Who is struggling, who is excelling, on which topics, and what to do about it | FastAPI backend + React frontend |
 | **Agent fleet** | Three local AI agents — registrar, stockroom, student support — that review their domain and propose changes for approval | Ollama, on this machine |
 
-Both describe the same term at Halverson Ridge Middle School: the same 60
-students, the same 14 classes, generated once by `gen_seed.js` and loaded into
-both halves.
+Both describe the same term at Halverson Ridge High School: the same 60
+students in grades 9–12, the same 26 classes, generated once by `gen_seed.js`
+and loaded into both halves.
 
 ---
 
@@ -239,8 +239,8 @@ POST /api/finance/revisions   several transfers, validated and applied together
 
 ## The course catalog
 
-The 14 running sections are mapped to real courses in the *2026-27 Upper School
-Course of Study* (`backend/app/catalog.py`). Codes, teachers, rooms and periods
+Every section is a real course from the *2026-27 Upper School Course of Study*
+(`backend/app/catalog.py`). The first 14 were mapped onto it. Codes, teachers, rooms and periods
 are unchanged; each section now carries the catalog title, department, length,
 credits, prerequisite, UC-approval flag and page number, shown on the class page.
 
@@ -251,9 +251,25 @@ Science → Biology. Skill strands were renamed position by position, so existin
 scores carry over. Three stockroom items (climbing harness, kitchen apron, chef
 knife) no longer belong to any class and are unlinked.
 
-Known mismatches: the catalog is for grades 9–12 and this school's students are
-6–8, so several prerequisites (Biology needs Chemistry) would not be met; and the
-catalog says P.E. is ungraded, while the gradebook still scores Personal Fitness.
+Twelve more sections come straight from the same document, filling departments
+the first fourteen missed: English 1 and English 3, World History 1, United
+States History, Algebra 2 & Trigonometry, AP Calculus AB, Physics, Chemistry,
+Programming, French 1, Economics and Psychology. `gen_seed.js` builds their
+rosters period by period, so a student is only enrolled where they have no class
+that period and only in the grades a course is meant for (English 1 and Physics
+for grade 9, U.S. History for grade 11, AP Calculus for 11–12). No teacher or room
+is double-booked, and no student gains a clash. Their gradebooks are generated on
+a separate random stream, so the original fourteen sections' scores, attendance
+and plans are exactly what they were.
+
+To bring an existing database up to date without losing plans, proposals or
+documents, run `node gen_seed.js` and then `python seed.py --upgrade` in
+`backend/`: it adds any section missing from the database with its roster and
+gradebook, and takes each student's grade and homeroom from the seed.
+
+The school is a high school, grades 9–12, fifteen students per grade. Known
+mismatch: the catalog says P.E. is ungraded, while the gradebook still scores
+Personal Fitness.
 
 ---
 

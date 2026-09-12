@@ -1,7 +1,7 @@
 """Demand ranking and opening classes.
 
 Every test that opens something removes it again: the API tests assert the
-seeded catalogue has exactly 14 sections.
+seeded catalogue has exactly 26 sections.
 """
 from sqlalchemy import select
 
@@ -46,7 +46,7 @@ def test_bands_cover_every_score():
 def test_demand_ranks_waitlisted_classes_above_half_empty_ones(client):
     r = client.get("/api/courses/demand").json()
     classes = r["classes"]
-    assert len(classes) == 14
+    assert len(classes) == 26
     scores = [c["score"] for c in classes]
     assert scores == sorted(scores, reverse=True)
     top, bottom = classes[0], classes[-1]

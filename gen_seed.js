@@ -18,8 +18,8 @@ for (let i = 0; i < 60; i++) {
   students.push({
     sid: 'S-1' + String(101 + i * 7).padStart(3, '0'),
     name: FIRST[i] + ' ' + LAST[i],
-    grade: 6 + (i % 3),
-    homeroom: ['6A','6B','7A','7B','8A','8B'][i % 6]
+    grade: 9 + (i % 4),
+    homeroom: (9 + (i % 4)) + 'AB'[Math.floor(i / 4) % 2]
   });
 }
 
@@ -74,6 +74,81 @@ const courseDocs = COURSES.map((c, ci) => {
     description: c.desc, signups: c.signups, roster,
     fromInitiative: null, order: ci
   };
+});
+
+// ---- added sections ------------------------------------------------------
+// Twelve more courses from the 2026-27 Upper School Course of Study, filling
+// departments the first fourteen missed. Rosters are period-aware: a student is
+// only enrolled where they have no class that period, and only in the grades the
+// course is meant for, least-loaded first. Enrollment dates come from their own
+// generator, so every document above is unchanged by adding these.
+let s2 = 20260913;
+function rnd2() { s2 = (s2 * 1103515245 + 12345) % 2147483648; return s2 / 2147483648; }
+const ADDED = [
+  {code:"ENG-101", title:"English 1: The Study of Literary Genres", dept:"English", teacher:"H. Ashford", period:6, room:"E-110", capacity:18, enrolled:12, wait:0, grades:[9], signups:[5, 4, 3, 2, 2, 1, 1, 1],
+   desc:"Grade 9 literature across genres: long and short fiction, memoir, drama and lyric poetry, with analytical essays, a personal narrative and researched writing."},
+  {code:"ENG-301", title:"English 3: A Survey of American Literature", dept:"English", teacher:"H. Ashford", period:2, room:"E-110", capacity:16, enrolled:12, wait:0, grades:[11], signups:[4, 4, 3, 2, 2, 1, 1, 0],
+   desc:"Major American authors in chronological order, making thematic connections across literary periods and honing critical reading and argumentation."},
+  {code:"HIS-101", title:"World History 1: Early Civilizations through the Renaissance", dept:"History and Social Science", teacher:"K. Mensah", period:2, room:"H-201", capacity:16, enrolled:12, wait:0, grades:[9], signups:[5, 3, 3, 2, 1, 1, 1, 0],
+   desc:"World history from early river valley civilizations to 1600 C.E. across Europe, Africa, Asia and the Americas, with document evaluation, thesis construction and research."},
+  {code:"HIS-301", title:"United States History", dept:"History and Social Science", teacher:"K. Mensah", period:6, room:"H-201", capacity:18, enrolled:12, wait:0, grades:[11], signups:[4, 4, 3, 2, 2, 1, 1, 1],
+   desc:"The history and culture of the United States from the colonial era to the present, with analytical essay writing and the evaluation of primary source documents."},
+  {code:"MAT-310", title:"Algebra 2 & Trigonometry", dept:"Mathematics", teacher:"N. Lindqvist", period:4, room:"M-209", capacity:26, enrolled:14, wait:0, grades:[10, 11], signups:[5, 4, 4, 3, 2, 2, 1, 1],
+   desc:"Functions studied algebraically, numerically and graphically: polynomial, rational, exponential and logarithmic, then radicals, complex numbers and trigonometric functions."},
+  {code:"MAT-410", title:"AP Calculus AB", dept:"Mathematics", teacher:"N. Lindqvist", period:5, room:"M-209", capacity:12, enrolled:12, wait:4, grades:[11, 12], signups:[2, 2, 3, 3, 4, 4, 3, 3],
+   desc:"College-level calculus of one variable: limits, continuity, derivatives, integration, the fundamental theorem of calculus, and slope fields."},
+  {code:"SCI-101", title:"Physics", dept:"Science", teacher:"V. Petrov", period:4, room:"S-212", capacity:16, enrolled:12, wait:0, grades:[9], signups:[4, 3, 3, 2, 2, 1, 1, 1],
+   desc:"Conceptual introduction to motion, forces, momentum, energy, electric charge, circuits, magnetism and waves, built around lab activities and demonstrations."},
+  {code:"SCI-201", title:"Chemistry", dept:"Science", teacher:"V. Petrov", period:3, room:"S-212", capacity:16, enrolled:12, wait:0, grades:[10], signups:[4, 3, 3, 2, 2, 1, 1, 0],
+   desc:"Conceptual and quantitative chemistry: atomic theory, chemical bonding, acid-base behavior and oxidation-reduction, with many laboratory experiments."},
+  {code:"TEC-140", title:"Programming", dept:"Computer Science", teacher:"J. Whitfield", period:6, room:"T-102", capacity:14, enrolled:14, wait:7, grades:[10, 11, 12], signups:[1, 2, 3, 4, 5, 6, 5, 5],
+   desc:"Algorithmic problem-solving and abstraction through object-oriented programming: classes, methods, inheritance, arrays and strings."},
+  {code:"WLD-110", title:"French 1", dept:"Modern and Classical Languages", teacher:"C. Beaulieu", period:5, room:"E-106", capacity:24, enrolled:12, wait:0, grades:[9, 10, 11, 12], signups:[3, 3, 2, 2, 2, 1, 1, 1],
+   desc:"Basic elements of French and the cultures of the French-speaking world, through active communication, authentic materials and pair and group projects."},
+  {code:"BUS-110", title:"Economics", dept:"Business and Entrepreneurship", teacher:"M. Haddad", period:7, room:"B-102", capacity:20, enrolled:14, wait:0, grades:[10, 11, 12], signups:[2, 3, 3, 3, 3, 2, 2, 2],
+   desc:"Survey of micro- and macroeconomics: supply and demand, elasticity, market structures, the business cycle, monetary and fiscal policy, and personal finance."},
+  {code:"SOC-210", title:"Psychology", dept:"History and Social Science", teacher:"K. Mensah", period:3, room:"H-203", capacity:16, enrolled:14, wait:5, grades:[10, 11, 12], signups:[1, 2, 3, 3, 4, 5, 5, 4],
+   desc:"Introductory psychology: personality and development theory, states of consciousness, abnormal psychology and therapy, learning and memory."}
+];
+const busy = new Map(students.map(st => [st.sid, new Set()]));
+const classes = new Map(students.map(st => [st.sid, 0]));
+const bySid = (a, b) => (a.sid < b.sid ? -1 : a.sid > b.sid ? 1 : 0);
+for (const doc of courseDocs) {
+  for (const e of doc.roster) {
+    if (e.state !== 'enrolled') continue;
+    busy.get(e.sid).add(doc.period);
+    classes.set(e.sid, classes.get(e.sid) + 1);
+  }
+}
+ADDED.forEach((c, ai) => {
+  const clash = courseDocs.find(d => d.period === c.period && (d.room === c.room || d.teacher === c.teacher));
+  if (clash) throw new Error(c.code + ' clashes with ' + clash.code + ' in period ' + c.period);
+  const eligible = students.filter(st => c.grades.includes(st.grade));
+  const enrolled = eligible
+    .filter(st => !busy.get(st.sid).has(c.period))
+    .sort((a, b) => (classes.get(a.sid) - classes.get(b.sid)) || bySid(a, b))
+    .slice(0, Math.min(c.enrolled, c.capacity));
+  const taken = new Set(enrolled.map(st => st.sid));
+  const waiting = eligible
+    .filter(st => !taken.has(st.sid))
+    .sort((a, b) => (classes.get(b.sid) - classes.get(a.sid)) || bySid(a, b))
+    .slice(0, c.wait);
+  const roster = [];
+  for (const st of enrolled) {
+    busy.get(st.sid).add(c.period);
+    classes.set(st.sid, classes.get(st.sid) + 1);
+    roster.push({sid: st.sid, name: st.name, grade: st.grade, state: 'enrolled', at: dayOffset(Math.floor(rnd2() * 22))});
+  }
+  for (const st of waiting) {
+    roster.push({sid: st.sid, name: st.name, grade: st.grade, state: 'waitlist', at: dayOffset(22 + Math.floor(rnd2() * 11))});
+  }
+  courseDocs.push({
+    code: c.code, title: c.title, dept: c.dept, teacher: c.teacher,
+    period: c.period, room: c.room, section: 'A', term: 'Fall 2026',
+    capacity: c.capacity, status: 'open', isNew: true,
+    description: c.desc, signups: c.signups, roster,
+    fromInitiative: null, order: COURSES.length + ai
+  });
 });
 
 // ---- inventory -----------------------------------------------------------
@@ -139,8 +214,8 @@ INITS.forEach(i => put('initiatives', i.id, i));
 CAMPAIGNS.forEach(c => put('campaigns', c.id, c));
 put('catalog', 'students', {list: students, updated: '2026-09-11'});
 put('meta', 'school', {
-  name: 'Halverson Ridge Middle School', shortName: 'Halverson Ridge',
-  term: 'Fall 2026', grades: '6–8', week: 5, weekOf: '2026-09-07',
+  name: 'Halverson Ridge High School', shortName: 'Halverson Ridge',
+  term: 'Fall 2026', grades: '9–12', week: 5, weekOf: '2026-09-07',
   registrar: 'Office of the Registrar', enrollmentTotal: students.length,
   addDropCloses: '2026-09-25'
 });

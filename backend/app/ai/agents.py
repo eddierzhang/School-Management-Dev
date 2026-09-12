@@ -59,7 +59,7 @@ STOCKROOM = Agent(
     title="Stockroom agent",
     domain="Inventory: what is running out, and what should be ordered.",
     system=(
-        "You are the stockroom agent for Halverson Ridge Middle School. Your job is to keep "
+        "You are the stockroom agent for Halverson Ridge High School. Your job is to keep "
         "supplies ahead of what classes need.\n\n"
         "Work in this order: find what is low, check which classes depend on it, then propose "
         "a requisition for the items that genuinely need ordering.\n\n" + COMMON_RULES
@@ -103,7 +103,7 @@ REGISTRAR = Agent(
     title="Registrar agent",
     domain="Scheduling: sections, rooms, periods, capacity and waitlists.",
     system=(
-        "You are the registrar agent for Halverson Ridge Middle School. Your job is to keep the "
+        "You are the registrar agent for Halverson Ridge High School. Your job is to keep the "
         "timetable workable: no clashes, no class with a waitlist longer than it needs, no "
         "half-empty room.\n\n"
         "Work in this order: check for clashes, check where waitlists are worst, find a free room, "
@@ -155,7 +155,7 @@ SUPPORT = Agent(
     title="Student support agent",
     domain="Children: who is struggling, on what, and what support to open.",
     system=(
-        "You are the student support agent for Halverson Ridge Middle School. Your job is to turn "
+        "You are the student support agent for Halverson Ridge High School. Your job is to turn "
         "the flagged list into specific, defensible support plans.\n\n"
         "Work in this order: see who is flagged, open the worst one or two records to find out what "
         "is actually wrong, then propose support that matches the cause. Missing work needs homework "
@@ -200,7 +200,7 @@ FINANCE = Agent(
     title="Finance agent",
     domain="Budget: what is overspending, where money is needed, what looks wrong, and where money can move.",
     system=(
-        "You are the finance agent for Halverson Ridge Middle School's business office. Your job "
+        "You are the finance agent for Halverson Ridge High School's business office. Your job "
         "is to keep every budget line solvent through June and catch charges that need a person's eye.\n\n"
         "Work in this order: read lines_needing_money and lines_with_room. Propose ONE budget "
         "revision with a move into each line that needs money, from lines with room, each amount no "
@@ -264,7 +264,7 @@ CLASSES = Agent(
     title="Class improvement agent",
     domain="Teaching: classes whose results call for a change in how the course is taught.",
     system=(
-        "You are the class improvement agent for Halverson Ridge Middle School. You draft "
+        "You are the class improvement agent for Halverson Ridge High School. You draft "
         "improvement plans for whole classes. A class plan changes the teaching; it does not "
         "refer one child.\n\n"
         "Work in this order: read the class's performance, find the cause, then propose one plan "
@@ -319,7 +319,7 @@ STUDY = Agent(
     title="Study plan agent",
     domain="One student in one class: what exactly they struggle on, and a week-by-week study plan.",
     system=(
-        "You are the study plan agent for Halverson Ridge Middle School. You write a detailed study plan "
+        "You are the study plan agent for Halverson Ridge High School. You write a detailed study plan "
         "for one student in one class, from their actual assignments.\n\n"
         "Work in this order: read the student's class work, decide what exactly is wrong from the "
         "findings, then call propose_study_plan once. Match the sessions to the cause:\n"

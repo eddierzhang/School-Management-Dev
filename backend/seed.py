@@ -14,11 +14,15 @@ while struggling in another.
 
     python seed.py            # rebuild halverson.db from scratch
     python seed.py --keep     # add only what is missing
+    python seed.py --upgrade  # bring an existing database up to the seed: new
+                              # sections and their gradebooks, grades and homerooms;
+                              # plans, proposals and documents are left alone
 """
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import random
 import statistics
 import sys
@@ -27,6 +31,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+from app.catalog import ADDED_SECTIONS                                  # noqa: E402
 from app.catalog import COHORT_GAP as CATALOG_GAP                       # noqa: E402
 from app.catalog import SKILLS as CATALOG_SKILLS, catalog_fields       # noqa: E402
 from app.config import get_settings                                    # noqa: E402
@@ -38,7 +43,7 @@ from app.models import (Assessment, AttendanceDay, Course, Enrollment,  # noqa: 
 settings = get_settings()
 TODAY = settings.today
 TERM_START = date(2026, 8, 10)          # week 1, Monday
-SEED_DIR = Path(__file__).parent.parent / "seed"
+SEED_DIR = Path(os.environ.get("HR_SEED_DIR") or Path(__file__).parent.parent / "seed")
 RNG = random.Random(20260912)
 
 # Four strands per course, and the one the whole cohort finds hard — both from
@@ -84,6 +89,85 @@ def load_console_seed() -> tuple[list[dict], list[dict], list[dict]]:
     return students, courses, inventory
 
 
+def grade_course(db, course: Course, roster: list[Student], archetype: dict[str, str],
+                 affinity: dict[str, dict[str, float]], days: list[date],
+                 rng: random.Random) -> tuple[int, int]:
+    """Assessments and scores for one section. Returns (assessments, scores) added."""
+    code = course.code
+    weeks = [days[i:i + 5] for i in range(0, len(days), 5)]
+    skills = SKILLS.get(code) or ["core skills", "practice", "application", "review"]
+    gap_skill = COHORT_GAP.get(code)
+    course_offset = rng.uniform(-2.5, 2.5)
+
+    plan: list[tuple[str, str, int, int]] = []   # skill, kind, week index, seq
+    for i, skill in enumerate(skills):
+        for j in range(2):
+            plan.append((skill, KINDS[(i + j) % len(KINDS)][0], min(i + j * 2, len(weeks) - 1), j))
+    plan.append((skills[-1], "test", len(weeks) - 1, 9))
+    # Two pieces not yet due, to exercise the "graded so far" boundary.
+    upcoming = [(skills[0], "homework"), (skills[1], "quiz")]
+
+    assessments: list[Assessment] = []
+    for idx, (skill, kind, wk, _seq) in enumerate(plan):
+        mx, weight = next((m, w) for k, m, w in KINDS if k == kind)
+        week_days = weeks[min(wk, len(weeks) - 1)]
+        due = week_days[min(2 + idx % 3, len(week_days) - 1)]
+        a = Assessment(
+            course_id=course.id,
+            title=f"{skill.title()} {kind}" if kind != "test" else f"Unit test — {skill}",
+            kind=kind, skill=skill, max_points=float(mx), weight=weight,
+            assigned_on=due - timedelta(days=5), due_on=due)
+        db.add(a)
+        assessments.append(a)
+    for k, (skill, kind) in enumerate(upcoming):
+        mx, weight = next((m, w) for kk, m, w in KINDS if kk == kind)
+        due = TODAY + timedelta(days=3 + 2 * k)
+        db.add(Assessment(course_id=course.id, title=f"{skill.title()} {kind}",
+                          kind=kind, skill=skill, max_points=float(mx), weight=weight,
+                          assigned_on=TODAY - timedelta(days=1), due_on=due))
+    db.flush()
+
+    n_scores = 0
+    for st in roster:
+        base, drift, miss_p, _ = ARCHETYPES[archetype[st.sid]]
+        for a in assessments:
+            aff = affinity.setdefault(st.sid, {}).setdefault(a.skill, rng.uniform(-5.5, 5.5))
+            if rng.random() < miss_p:
+                # Missing work: sometimes an explicit blank row, sometimes no row.
+                if rng.random() < 0.5:
+                    db.add(Score(assessment_id=a.id, student_id=st.id, points=None))
+                    n_scores += 1
+                continue
+            week_index = max(0, (a.due_on - TERM_START).days // 7)
+            pct = (base + drift * (week_index - 2) + course_offset + aff
+                   + rng.gauss(0, 4.5)
+                   + (-9.0 if a.skill == gap_skill else 0.0)
+                   + (-2.0 if a.kind == "test" else 0.0))
+            pct = max(8.0, min(100.0, pct))
+            late = rng.random() < 0.12
+            db.add(Score(assessment_id=a.id, student_id=st.id,
+                         points=round(a.max_points * pct / 100.0, 1),
+                         late=late, recorded_on=a.due_on + timedelta(days=2)))
+            n_scores += 1
+    db.flush()
+    return len(assessments) + len(upcoming), n_scores
+
+
+def section_rng(code: str) -> random.Random:
+    """Sections added after the original fourteen draw from their own stream, so adding
+    one never reshuffles the scores, attendance or plans generated for the others.
+
+    More classes per student means more chances to be flagged. Of the streams tried,
+    this one keeps the support list nearest its original size (21 needing a plan
+    rather than 19, where others gave 22-27), so the office still has a week's list."""
+    return random.Random(f"1:{code}")
+
+
+def archetypes_for(students: list[Student]) -> dict[str, str]:
+    order = sorted(students, key=lambda s: s.sid)
+    return {s.sid: MIX[i % len(MIX)] for i, s in enumerate(order)}
+
+
 def build(keep: bool = False) -> None:
     if not keep:
         Base.metadata.drop_all(bind=engine)
@@ -109,7 +193,7 @@ def build(keep: bool = False) -> None:
         db.flush()
 
         order = sorted(students.values(), key=lambda s: s.sid)
-        archetype = {s.sid: MIX[i % len(MIX)] for i, s in enumerate(order)}
+        archetype = archetypes_for(order)
         # Per-student affinity per strand: why two students in one class have
         # different weak spots rather than all sagging on the same one.
         affinity = {s.sid: {} for s in order}
@@ -156,65 +240,14 @@ def build(keep: bool = False) -> None:
         n_scores = 0
 
         for code, course in courses.items():
-            skills = SKILLS.get(code) or ["core skills", "practice", "application", "review"]
-            gap_skill = COHORT_GAP.get(code)
-            course_offset = RNG.uniform(-2.5, 2.5)
-
-            plan: list[tuple[str, str, int, int]] = []   # skill, kind, week index, seq
-            for i, skill in enumerate(skills):
-                for j in range(2):
-                    plan.append((skill, KINDS[(i + j) % len(KINDS)][0], min(i + j * 2, len(weeks) - 1), j))
-            plan.append((skills[-1], "test", len(weeks) - 1, 9))
-            # Two pieces not yet due, to exercise the "graded so far" boundary.
-            upcoming = [(skills[0], "homework"), (skills[1], "quiz")]
-
-            assessments: list[Assessment] = []
-            for idx, (skill, kind, wk, _seq) in enumerate(plan):
-                mx, weight = next((m, w) for k, m, w in KINDS if k == kind)
-                week_days = weeks[min(wk, len(weeks) - 1)]
-                due = week_days[min(2 + idx % 3, len(week_days) - 1)]
-                a = Assessment(
-                    course_id=course.id,
-                    title=f"{skill.title()} {kind}" if kind != "test" else f"Unit test — {skill}",
-                    kind=kind, skill=skill, max_points=float(mx), weight=weight,
-                    assigned_on=due - timedelta(days=5), due_on=due)
-                db.add(a)
-                assessments.append(a)
-            for k, (skill, kind) in enumerate(upcoming):
-                mx, weight = next((m, w) for kk, m, w in KINDS if kk == kind)
-                due = TODAY + timedelta(days=3 + 2 * k)
-                db.add(Assessment(course_id=course.id, title=f"{skill.title()} {kind}",
-                                  kind=kind, skill=skill, max_points=float(mx), weight=weight,
-                                  assigned_on=TODAY - timedelta(days=1), due_on=due))
-            db.flush()
-            n_assess += len(assessments) + len(upcoming)
-
+            if code in ADDED_SECTIONS:
+                continue          # graded after the plans below, on their own random stream
             roster = [students[e["sid"]] for e in
                       next(r for r in raw_courses if r["code"] == code).get("roster", [])
                       if e.get("state") == "enrolled" and e["sid"] in students]
-
-            for st in roster:
-                base, drift, miss_p, _ = ARCHETYPES[archetype[st.sid]]
-                for a in assessments:
-                    aff = affinity[st.sid].setdefault(a.skill, RNG.uniform(-5.5, 5.5))
-                    if RNG.random() < miss_p:
-                        # Missing work: sometimes an explicit blank row, sometimes no row.
-                        if RNG.random() < 0.5:
-                            db.add(Score(assessment_id=a.id, student_id=st.id, points=None))
-                            n_scores += 1
-                        continue
-                    week_index = max(0, (a.due_on - TERM_START).days // 7)
-                    pct = (base + drift * (week_index - 2) + course_offset + aff
-                           + RNG.gauss(0, 4.5)
-                           + (-9.0 if a.skill == gap_skill else 0.0)
-                           + (-2.0 if a.kind == "test" else 0.0))
-                    pct = max(8.0, min(100.0, pct))
-                    late = RNG.random() < 0.12
-                    db.add(Score(assessment_id=a.id, student_id=st.id,
-                                 points=round(a.max_points * pct / 100.0, 1),
-                                 late=late, recorded_on=a.due_on + timedelta(days=2)))
-                    n_scores += 1
-            db.flush()
+            a, n = grade_course(db, course, roster, archetype, affinity, days, RNG)
+            n_assess += a
+            n_scores += n
 
         # --- attendance ---------------------------------------------------
         for st in order:
@@ -250,6 +283,16 @@ def build(keep: bool = False) -> None:
             opened += 1
         db.commit()
 
+        for code in sorted(ADDED_SECTIONS & courses.keys()):
+            roster = [students[e["sid"]] for e in
+                      next(r for r in raw_courses if r["code"] == code).get("roster", [])
+                      if e.get("state") == "enrolled" and e["sid"] in students]
+            a, n = grade_course(db, courses[code], roster, archetype, affinity, days, section_rng(code))
+            n_assess += a
+            n_scores += n
+        db.commit()
+        sigs = build_signals(db)
+
         bands: dict[str, int] = {}
         for s in sigs.values():
             bands[s.band] = bands.get(s.band, 0) + 1
@@ -271,7 +314,85 @@ def build(keep: bool = False) -> None:
         db.close()
 
 
+def upgrade() -> None:
+    """Bring an existing database up to the seed without touching what people did in it.
+
+    Adds sections that are in the seed but not the database, with their rosters and
+    gradebooks, and takes each student's grade and homeroom from the seed. A roster
+    entry is skipped when that student is already enrolled in something else that
+    period in this database (an approved new section can have moved them), and the
+    seat goes to another student in the same grades who is free that period.
+    """
+    raw_students, raw_courses, _ = load_console_seed()
+    db = SessionLocal()
+    try:
+        students = {s.sid: s for s in db.query(Student).all()}
+        changed = 0
+        for row in raw_students:
+            st = students.get(row["sid"])
+            if st and (st.grade, st.homeroom) != (row["grade"], row["homeroom"]):
+                st.grade, st.homeroom = row["grade"], row["homeroom"]
+                changed += 1
+        existing = {c.code for c in db.query(Course).all()}
+        archetype = archetypes_for(list(students.values()))
+        days = school_days(TERM_START, TODAY)
+        busy: dict[int, set[int]] = {}
+        for e, c in db.query(Enrollment, Course).join(Course, Enrollment.course_id == Course.id) \
+                      .filter(Enrollment.status == "enrolled").all():
+            if c.period:
+                busy.setdefault(e.student_id, set()).add(c.period)
+        added, skipped, filled = [], 0, 0
+        for row in raw_courses:
+            if row["code"] in existing:
+                continue
+            c = Course(**({"title": row["title"], "dept": row["dept"]} | catalog_fields(row["code"])),
+                       code=row["code"], teacher=row["teacher"], period=row.get("period") or 0,
+                       room=row.get("room") or "TBD", capacity=row["capacity"],
+                       signups=[int(n or 0) for n in row.get("signups") or []],
+                       term=row.get("term") or settings.term)
+            db.add(c)
+            db.flush()
+            roster = []
+            on_roster = {e["sid"] for e in row.get("roster", [])}
+            for entry in row.get("roster", []):
+                st = students.get(entry["sid"])
+                if st is None:
+                    continue
+                state = entry.get("state", "enrolled")
+                if state == "enrolled" and c.period and c.period in busy.get(st.id, set()):
+                    skipped += 1
+                    continue
+                db.add(Enrollment(student_id=st.id, course_id=c.id, status=state))
+                if state == "enrolled":
+                    busy.setdefault(st.id, set()).add(c.period)
+                    roster.append(st)
+            wanted = sum(1 for e in row.get("roster", []) if e.get("state", "enrolled") == "enrolled")
+            grades = {e["grade"] for e in row.get("roster", []) if e.get("grade")}
+            free = sorted((st for st in students.values()
+                           if st.grade in grades and st.sid not in on_roster
+                           and c.period not in busy.get(st.id, set())),
+                          key=lambda st: (len(busy.get(st.id, set())), st.sid))
+            for st in free[:max(0, wanted - len(roster))]:
+                db.add(Enrollment(student_id=st.id, course_id=c.id, status="enrolled"))
+                busy.setdefault(st.id, set()).add(c.period)
+                roster.append(st)
+                filled += 1
+            db.flush()
+            grade_course(db, c, roster, archetype, {}, days, section_rng(c.code))
+            added.append(f"{c.code} ({len(roster)} enrolled)")
+        db.commit()
+        print(f"grades and homerooms updated for {changed} students")
+        print(f"sections added: {len(added)}" + (": " + ", ".join(added) if added else ""))
+        if skipped:
+            print(f"{skipped} roster entries skipped: the student already has a class that period here;"
+                  f" {filled} of those seats went to other free students in the same grades")
+    finally:
+        db.close()
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--keep", action="store_true", help="leave existing records alone")
-    build(**vars(ap.parse_args()))
+    ap.add_argument("--upgrade", action="store_true", help="add new seed sections to an existing database")
+    args = ap.parse_args()
+    upgrade() if args.upgrade else build(keep=args.keep)

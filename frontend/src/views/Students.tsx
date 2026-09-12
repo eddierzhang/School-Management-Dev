@@ -87,7 +87,7 @@ export function Students({ onOpenStudent, group, onGroup, refresh = 0 }: {
           <label htmlFor="st-grade">Grade</label>
           <select id="st-grade" className="inp" value={grade} onChange={(e) => setGrade(e.target.value)}>
             <option value="">All grades</option>
-            <option value="6">6</option><option value="7">7</option><option value="8">8</option>
+            <option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option>
           </select>
         </div>
         <div className="field">

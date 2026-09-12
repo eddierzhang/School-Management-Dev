@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5174,http://127.0.0.1:5174"
     today: date = date(2026, 9, 12)
     term: str = "Fall 2026"
-    school_name: str = "Halverson Ridge Middle School"
+    school_name: str = "Halverson Ridge High School"
 
     # Local inference. Nothing leaves the machine.
     ollama_url: str = "http://localhost:11434"

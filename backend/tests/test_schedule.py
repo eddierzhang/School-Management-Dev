@@ -6,7 +6,7 @@ from app.models import Course, Enrollment, Student
 
 def test_school_schedule_places_every_section_once(client):
     s = client.get("/api/schedule").json()
-    assert len(s["sections"]) == 14
+    assert len(s["sections"]) == 26
     assert s["periods"][:7] == [1, 2, 3, 4, 5, 6, 7]
     assert all(sec["period"] in s["periods"] for sec in s["sections"])
     assert set(s["rooms"]) == {sec["room"] for sec in s["sections"]}
