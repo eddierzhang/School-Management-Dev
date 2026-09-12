@@ -222,3 +222,33 @@ def test_marking_work_missing_is_recordable(client):
     r = client.put("/api/scores", json={"assessment_id": aid, "student_sid": sid, "points": None})
     assert r.status_code == 200
     assert r.json()["points"] is None and r.json()["pct"] is None
+
+
+def test_class_page_has_description_teacher_and_performance(client):
+    d = client.get("/api/courses/MAT-150").json()
+    c = d["course"]
+    assert c["description"] and c["teacher"] == "S. Frankel"
+
+    s = d["stats"]
+    assert s["students"] == len(d["students"])
+    assert 0 <= s["completion_rate"] <= 1 and 0 <= s["late_rate"] <= 1 and 0 <= s["absence_rate"] <= 1
+    assert s["improving"] + s["declining"] <= s["students"]
+
+    # graded work only, in due order, and every enrolled student accounted for on each piece
+    dues = [a["due_on"] for a in d["assessments"]]
+    assert dues == sorted(dues) and dues
+    assert all(a["submitted"] + a["missing"] <= s["students"] for a in d["assessments"])
+
+    # the teacher block lists this section among the teacher's sections
+    assert "MAT-150" in {t["code"] for t in d["teacher"]["sections"]}
+    assert d["teacher"]["students_taught"] >= s["students"]
+
+    assert {i["sku"] for i in d["supplies"]} >= {"MAT-CAL-GRA"}
+    assert all(p["sid"] for p in d["plans"])
+
+
+def test_class_page_completion_matches_the_students_missing_work(client):
+    d = client.get("/api/courses/SCI-210").json()
+    graded = sum(r["graded_items"] for r in d["students"])
+    missing = sum(r["missing"] for r in d["students"])
+    assert d["stats"]["completion_rate"] == pytest.approx(1 - missing / graded, abs=0.001)

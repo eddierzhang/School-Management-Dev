@@ -153,11 +153,76 @@ class DistributionBucket(Base):
     count: int
 
 
+class CourseStats(Base):
+    students: int
+    median: float | None = None
+    completion_rate: float | None = None      # share of graded work handed in
+    late_rate: float | None = None
+    mean_trend: float | None = None           # mean change, recent vs earlier work
+    improving: int = 0
+    declining: int = 0
+    absence_rate: float | None = None         # mean over the enrolled students
+    needs_plan: int = 0
+    watch: int = 0
+
+
+class CourseAssessmentRow(Base):
+    id: int
+    title: str
+    kind: str
+    skill: str
+    due_on: date
+    class_mean: float | None = None
+    submitted: int
+    missing: int
+    late: int
+
+
+class TeacherSectionRow(Base):
+    code: str
+    title: str
+    period: int
+    room: str
+    enrolled: int
+    class_mean: float | None = None
+
+
+class CourseTeacher(Base):
+    name: str
+    sections: list[TeacherSectionRow]
+    students_taught: int
+
+
+class CoursePlanRow(Base):
+    id: int
+    sid: str
+    student_name: str
+    kind: str
+    title: str
+    owner: str
+    status: str
+
+
+class CourseSupplyRow(Base):
+    sku: str
+    name: str
+    on_hand: int
+    par: int
+    status: str
+    status_label: str
+    requisitioned: bool
+
+
 class CourseDetail(Base):
     course: CourseRow
     students: list[CourseStudentRow]
     skills: list[SkillGapOut]
     distribution: list[DistributionBucket]
+    stats: CourseStats | None = None
+    assessments: list[CourseAssessmentRow] = []
+    teacher: CourseTeacher | None = None
+    plans: list[CoursePlanRow] = []
+    supplies: list[CourseSupplyRow] = []
 
 
 # ---- demand and opening classes ---------------------------------------------

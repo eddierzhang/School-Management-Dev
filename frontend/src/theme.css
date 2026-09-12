@@ -236,6 +236,9 @@ svg .hit { fill: transparent; cursor: pointer; }
 
 /* misc */
 .split { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+/* A grid item's minimum width defaults to its content, so a chart with a min-width
+   pushed a single-column split past a phone screen. Its own .chart-scroll scrolls instead. */
+.split > * { min-width: 0; }
 @media (max-width: 900px) { .split { grid-template-columns: 1fr; } }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
 .icard { background: var(--card); border: 1px solid var(--rule); border-radius: 8px; padding: 14px 15px; display: flex; flex-direction: column; gap: 9px; box-shadow: var(--shadow-1); }
