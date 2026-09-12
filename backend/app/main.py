@@ -5,7 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
 from .db import Base, engine
-from .routers import agents, courses, interventions, meta, scores, students, support
+from .routers import (agents, courses, interventions, inventory, meta, scores, students,
+                      support)
 
 settings = get_settings()
 
@@ -35,5 +36,5 @@ app.add_middleware(
 )
 
 for r in (meta.router, students.router, courses.router, support.router,
-          interventions.router, scores.router, agents.router):
+          interventions.router, scores.router, agents.router, inventory.router):
     app.include_router(r, prefix="/api")

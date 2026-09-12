@@ -37,6 +37,11 @@ student is sliding across unrelated subjects, an attendance plan when grades are
 following absence, and an enrichment placement when there is something to build
 on. Opening a plan turns a computed recommendation into something a person owns.
 
+**What the stockroom holds** — 24 items with counts, reorder points and par
+levels, each tied to the classes that consume it. A class filling up shows here
+before it runs short, and the number of students depending on an item is what
+ranks a shortage against the others.
+
 **What to reteach** — the same strand data aggregated per cohort. One student
 below on a strand is a referral; half the class below on it is a lesson to run
 again, and no amount of tutoring fixes that one student at a time.
@@ -132,14 +137,45 @@ backend/
     analytics.py     the signal engine — indices, reasons, recommendations, cohort gaps
     models.py        students, courses, enrollments, assessments, scores, attendance, plans
     schemas.py       wire shapes, mirrored by frontend/src/types.ts
-    routers/         students · courses · support · interventions · scores · meta
+    routers/         students · courses · support · interventions · scores · inventory ·
+                     agents · meta
+    stock.py         the one definition of "low", shared by the API and the agent
   seed.py            generates the gradebook from the shared roster
   tests/
 frontend/
   src/
-    views/           overview · struggling · excelling · classes · strands · plans
+    views/           overview · struggling · excelling · classes · strands · plans ·
+                     stockroom · agents
     components/      charts, student drawer, plan dialog, UI primitives
     api.ts           typed client, one function per endpoint
+```
+
+---
+
+## The stockroom
+
+The Stockroom tab covers what the school holds: on-hand counts, reorder points,
+par levels, suppliers, and the open requisition grouped the way it gets sent —
+one list per supplier.
+
+Two details do the work. Every item is linked to the classes that consume it, so
+each row carries **how many students depend on it**, and a shortage is ranked by
+who it affects rather than by how empty the shelf is. And a **physical count** is
+a different operation from nudging a number: `POST /inventory/{sku}/count`
+replaces the running total and stamps the date, `PATCH` does not — the difference
+between "we think there are six" and "I counted six this morning".
+
+`app/stock.py` holds the one definition of what "low" means. The API, the
+interface and the stockroom agent all read it, because three copies would drift,
+and an agent proposing an order for something the screen calls healthy is worse
+than either being wrong on its own. A test asserts the agent's view and the API's
+view agree.
+
+```
+critical       at or below 55% of the reorder point — nearly out
+below reorder  at or below the reorder point — the flag that triggers ordering
+watch          within 25% above the reorder point — heading that way
+stocked        everything else
 ```
 
 ---

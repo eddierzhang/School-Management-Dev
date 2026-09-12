@@ -188,6 +188,89 @@ class ScoreIn(BaseModel):
     late: bool = False
 
 
+# ---- stockroom ----------------------------------------------------------
+class LinkedCourse(Base):
+    code: str
+    title: str
+    enrolled: int
+
+
+class InventoryRow(Base):
+    sku: str
+    name: str
+    category: str
+    unit: str
+    on_hand: int
+    reorder_point: int
+    par: int
+    location: str
+    supplier: str
+    unit_cost: float
+    last_counted: date | None = None
+    linked_courses: list[str] = []
+    requisitioned: bool = False
+    status: str
+    status_label: str
+    ratio: float
+    short_by: int
+    cost_to_par: float
+    students_affected: int = 0
+    days_since_count: int | None = None
+
+
+class InventoryDetail(InventoryRow):
+    value_on_hand: float
+    classes: list[LinkedCourse] = []
+
+
+class InventoryUpdate(BaseModel):
+    on_hand: int | None = Field(default=None, ge=0, le=100000)
+    reorder_point: int | None = Field(default=None, ge=0, le=100000)
+    par: int | None = Field(default=None, ge=1, le=100000)
+    requisitioned: bool | None = None
+
+
+class CountIn(BaseModel):
+    """A physical count replaces the running total and stamps the date."""
+    on_hand: int = Field(ge=0, le=100000)
+
+
+class InventoryCreate(BaseModel):
+    sku: str = Field(min_length=2, max_length=32)
+    name: str = Field(min_length=2, max_length=160)
+    category: str = "Facilities"
+    unit: str = "unit"
+    on_hand: int = Field(default=0, ge=0, le=100000)
+    reorder_point: int = Field(default=0, ge=0, le=100000)
+    par: int = Field(default=1, ge=1, le=100000)
+    location: str = "Main supply room"
+    supplier: str = "Central District Warehouse"
+    unit_cost: float = Field(default=0.0, ge=0)
+    linked_courses: list[str] = []
+
+
+class RequisitionSupplier(Base):
+    supplier: str
+    lines: list[InventoryRow]
+    cost: float
+
+
+class Requisition(Base):
+    lines: int
+    cost: float
+    by_supplier: list[RequisitionSupplier]
+
+
+class StockroomSummary(Base):
+    items: int
+    needs_attention: int
+    below_reorder: int
+    on_requisition: int
+    value_on_hand: float
+    cost_to_par: float
+    categories: list[str]
+
+
 class BandCount(Base):
     band: str
     count: int

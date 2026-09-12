@@ -7,12 +7,15 @@ import { Classes } from './views/Classes'
 import { Overview } from './views/Overview'
 import { Plans } from './views/Plans'
 import { SkillGaps } from './views/SkillGaps'
+import { Stockroom } from './views/Stockroom'
 import { Strengths, Watchlist } from './views/Watchlist'
 import { ErrorNote } from './components/ui'
 
-type Tab = 'overview' | 'watchlist' | 'strengths' | 'classes' | 'skills' | 'plans' | 'agents'
+type Tab = 'overview' | 'watchlist' | 'strengths' | 'classes' | 'skills' | 'plans'
+  | 'stockroom' | 'agents'
 
-const TAB_IDS: Tab[] = ['overview', 'watchlist', 'strengths', 'classes', 'skills', 'plans', 'agents']
+const TAB_IDS: Tab[] = ['overview', 'watchlist', 'strengths', 'classes', 'skills', 'plans',
+  'stockroom', 'agents']
 
 /* The URL is the view: #/watchlist, #/classes, #/watchlist/S-1507 with a student
    open. A support office bookmarks the watchlist and mails a colleague a link to
@@ -36,6 +39,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'classes', label: 'Classes' },
   { id: 'skills', label: 'What they struggle on' },
   { id: 'plans', label: 'Support plans' },
+  { id: 'stockroom', label: 'Stockroom' },
   { id: 'agents', label: 'Agents' },
 ]
 
@@ -56,6 +60,7 @@ export default function App() {
   const [openSid, setOpenSid] = useState<string | null>(initial.sid)
   const [refresh, setRefresh] = useState(0)
   const summary = useApi(() => api.summary(), [refresh])
+  const stock = useApi(() => api.stockroomSummary(), [refresh])
 
   const bump = useCallback(() => setRefresh((n) => n + 1), [])
 
@@ -76,13 +81,16 @@ export default function App() {
     }
   }, [])
 
-  const counts: Partial<Record<Tab, number>> = summary.data
-    ? {
-        watchlist: summary.data.needs_plan + summary.data.watch,
-        strengths: summary.data.excelling,
-        plans: summary.data.open_interventions,
-      }
-    : {}
+  const counts: Partial<Record<Tab, number>> = {
+    ...(summary.data
+      ? {
+          watchlist: summary.data.needs_plan + summary.data.watch,
+          strengths: summary.data.excelling,
+          plans: summary.data.open_interventions,
+        }
+      : {}),
+    ...(stock.data ? { stockroom: stock.data.needs_attention } : {}),
+  }
 
   return (
     <>
@@ -125,6 +133,7 @@ export default function App() {
         {tab === 'classes' && <Classes onOpenStudent={setOpenSid} />}
         {tab === 'skills' && <SkillGaps />}
         {tab === 'plans' && <Plans key={refresh} onOpenStudent={setOpenSid} />}
+        {tab === 'stockroom' && <Stockroom key={refresh} />}
         {tab === 'agents' && <Agents />}
       </main>
 

@@ -1,6 +1,7 @@
 import type {
-  AgentRun, CourseDetail, CourseRow, Fleet, Intervention, NewIntervention,
-  ProposalRow, Recommendation, SkillGap, StudentDetail, StudentRow, Summary,
+  AgentRun, CourseDetail, CourseRow, Fleet, Intervention, InventoryDetail, InventoryPatch,
+  InventoryRow, NewIntervention, ProposalRow, Recommendation, Requisition, SkillGap,
+  StockroomSummary, StudentDetail, StudentRow, Summary,
 } from './types'
 
 const BASE = '/api'
@@ -59,6 +60,23 @@ export const api = {
   updateIntervention: (id: number, body: Partial<Pick<Intervention, 'status' | 'outcome' | 'owner'>>) =>
     req<Intervention>(`/interventions/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deleteIntervention: (id: number) => req<void>(`/interventions/${id}`, { method: 'DELETE' }),
+
+  // --- stockroom ---
+  inventory: (p: { category?: string; needs_attention?: boolean; q?: string } = {}) =>
+    req<InventoryRow[]>('/inventory' + qs(p)),
+  stockroomSummary: () => req<StockroomSummary>('/inventory/summary'),
+  requisition: () => req<Requisition>('/inventory/requisition'),
+  requisitionAllLow: () =>
+    req<Requisition>('/inventory/requisition/low', { method: 'POST' }),
+  item: (sku: string) => req<InventoryDetail>(`/inventory/${encodeURIComponent(sku)}`),
+  patchItem: (sku: string, body: InventoryPatch) =>
+    req<InventoryDetail>(`/inventory/${encodeURIComponent(sku)}`, {
+      method: 'PATCH', body: JSON.stringify(body),
+    }),
+  countItem: (sku: string, on_hand: number) =>
+    req<InventoryDetail>(`/inventory/${encodeURIComponent(sku)}/count`, {
+      method: 'POST', body: JSON.stringify({ on_hand }),
+    }),
 
   // --- agent fleet ---
   fleet: () => req<Fleet>('/agents'),
