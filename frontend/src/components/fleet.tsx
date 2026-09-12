@@ -15,6 +15,10 @@ const KIND_LABEL: Record<string, string> = {
   support_plan: 'Open a support plan',
 }
 
+/** Shown in the run hint; the shortcut itself accepts either modifier. */
+const MODIFIER = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+  ? '\u2318' : 'Ctrl'
+
 export const secs = (ms: number) => (ms >= 1000 ? `${Math.round(ms / 1000)}s` : `${ms}ms`)
 
 export interface FleetState {
@@ -152,9 +156,7 @@ export function FleetMessages({ f }: { f: FleetState }) {
   )
 }
 
-/** `compact` drops the per-agent task box: the home page runs the default sweep,
-    the Agents tab is where a task gets written by hand. */
-export function FleetCards({ f, compact = false }: { f: FleetState; compact?: boolean }) {
+export function FleetCards({ f }: { f: FleetState }) {
   if (f.fleetLoading) return <Loading what="the fleet" />
   if (f.fleetError) return <ErrorNote error={f.fleetError} onRetry={f.reloadFleet} />
   if (!f.fleet) return null
@@ -187,22 +189,32 @@ export function FleetCards({ f, compact = false }: { f: FleetState; compact?: bo
                 </span>
               ))}
             </div>
-            {!compact && (
-              <div className="field">
-                <label htmlFor={`task-${a.name}`}>Task</label>
-                <textarea id={`task-${a.name}`} className="inp" rows={2}
-                  placeholder={a.default_task}
-                  value={f.tasks[a.name] ?? ''}
-                  onChange={(e) => f.setTasks((t) => ({ ...t, [a.name]: e.target.value }))} />
-              </div>
-            )}
-            {compact && <div className="sub">{a.default_task}</div>}
-            <div style={{ marginTop: 'auto', paddingTop: 4 }}>
+            <div className="field">
+              <label htmlFor={`task-${a.name}`}>Tell it what to do</label>
+              <textarea
+                id={`task-${a.name}`} className="inp" rows={3}
+                placeholder={a.default_task}
+                value={f.tasks[a.name] ?? ''}
+                disabled={!rt.can_run_agents}
+                onChange={(e) => f.setTasks((t) => ({ ...t, [a.name]: e.target.value }))}
+                onKeyDown={(e) => {
+                  const ready = rt.can_run_agents && f.busy !== a.name && !running
+                  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && ready) {
+                    e.preventDefault()
+                    void f.start(a.name)
+                  }
+                }}
+              />
+            </div>
+            <div style={{ marginTop: 'auto', paddingTop: 4, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               <button className="btn primary"
                 disabled={!rt.can_run_agents || f.busy === a.name || !!running}
                 onClick={() => void f.start(a.name)}>
                 {running ? 'Running…' : f.busy === a.name ? 'Starting…' : 'Run agent'}
               </button>
+              <span className="sub">
+                {f.tasks[a.name]?.trim() ? `${MODIFIER}+Enter to run` : 'Blank runs the sweep above'}
+              </span>
             </div>
           </article>
         )

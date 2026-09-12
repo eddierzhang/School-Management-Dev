@@ -259,9 +259,14 @@ was needed.
 ### Where the fleet appears
 
 The home page carries the three agents and anything they are waiting on you to
-approve — one click runs an agent's default sweep. The **Agents** tab keeps the
-full console: a task box per agent for writing a custom instruction, every
-proposal, and the run history with complete transcripts.
+approve. Each card has a prompt box: type a task in your own words, or leave it
+blank to run the sweep shown as the placeholder. ⌘/Ctrl+Enter runs it. The
+**Agents** tab is the same fleet plus the run history and full transcripts.
+
+A typed prompt genuinely steers the run. Told *"only look at Science Lab items,
+ignore every other category"*, the stockroom agent saw all ten low items in its
+opening read — graphing calculators among them, the worst shortage in the school —
+and proposed only the two Science Lab ones.
 
 Both render the same components over one shared state hook (`components/fleet.tsx`),
 so they cannot drift or poll twice. Approving anywhere refreshes the counts that
