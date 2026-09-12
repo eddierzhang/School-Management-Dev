@@ -4,7 +4,7 @@ Everything runs on the machine, which is the main reason to use it here: student
 records never leave the building, so the awkward question of whether a school may
 send a child's grades to a third-party API does not arise.
 
-Two behaviours were measured against qwen3:4b rather than assumed, and both are
+Three behaviours were measured against qwen3:4b rather than assumed, and all are
 load-bearing:
 
 1. `think: true` is REQUIRED, not an optimisation. With thinking disabled the
@@ -15,6 +15,11 @@ load-bearing:
 2. The model sometimes emits a tool call as plain JSON in `content` instead of a
    structured `tool_calls` entry, occasionally wrapped in a stray `</think>`.
    `parse_text_tool_calls` recovers those rather than silently losing the turn.
+3. The context window is NOT what the model card says. qwen3:4b supports 262k
+   tokens, but Ollama runs it at 4,096 unless told otherwise, and overflow is cut
+   to about half the window with no error. `num_ctx` is therefore always sent,
+   oversize input is refused before sending, and truncation is inferred from the
+   token count Ollama reports.
 """
 from __future__ import annotations
 
@@ -41,6 +46,26 @@ class ChatReply:
     tool_calls: list[dict[str, Any]] = field(default_factory=list)
     recovered_from_text: bool = False
     duration_ms: int = 0
+    prompt_tokens: int = 0
+    truncated: bool = False
+
+
+# English prose and JSON average 3-6 characters per token; almost nothing exceeds 8.
+# So a prompt of N characters that Ollama reports as fewer than N/8 tokens was cut.
+CHARS_PER_TOKEN_CEILING = 8
+# Conservative estimate used before sending, to refuse input that cannot fit.
+CHARS_PER_TOKEN_FLOOR = 3
+
+
+def _prompt_chars(messages: list[dict], tools: list[dict] | None, fmt: dict | None) -> int:
+    total = sum(len(str(m.get("content") or "")) + len(json.dumps(m.get("tool_calls") or []))
+                for m in messages)
+    return total + len(json.dumps(tools or [])) + len(json.dumps(fmt or {}))
+
+
+def looks_truncated(prompt_chars: int, prompt_tokens: int) -> bool:
+    """Ollama never reports truncation; infer it from the token count it did report."""
+    return prompt_chars > 8000 and 0 < prompt_tokens < prompt_chars / CHARS_PER_TOKEN_CEILING
 
 
 def _post(path: str, body: dict, timeout: float) -> dict:
@@ -133,12 +158,18 @@ def chat(messages: list[dict], tools: list[dict] | None = None,
     """`fmt` is a JSON schema. Ollama constrains decoding to it, which turns
     "the model must remember to call a tool" into "the model must fill in a
     shape" — the difference between unreliable and reliable at this size."""
+    chars = _prompt_chars(messages, tools, fmt)
+    if chars / CHARS_PER_TOKEN_FLOOR > settings.ollama_num_ctx:
+        raise OllamaError(
+            f"Input of {chars:,} characters may not fit the {settings.ollama_num_ctx:,}-token "
+            "context window, and Ollama would silently cut it. Split it, or raise HR_OLLAMA_NUM_CTX.")
     body: dict[str, Any] = {
         "model": model or settings.ollama_model,
         "stream": False,
         "think": True,                       # see module docstring — required for tool calls
         "messages": messages,
-        "options": {"temperature": settings.ollama_temperature},
+        "options": {"temperature": settings.ollama_temperature,
+                    "num_ctx": settings.ollama_num_ctx},
     }
     if tools:
         body["tools"] = tools
@@ -153,10 +184,13 @@ def chat(messages: list[dict], tools: list[dict] | None = None,
     if not calls and content:
         calls = parse_text_tool_calls(content)
         recovered = bool(calls)
+    prompt_tokens = int(data.get("prompt_eval_count") or 0)
     return ChatReply(
         content=content,
         thinking=(msg.get("thinking") or "")[:4000],
         tool_calls=calls,
         recovered_from_text=recovered,
         duration_ms=int(data.get("total_duration", 0) // 1_000_000),
+        prompt_tokens=prompt_tokens,
+        truncated=looks_truncated(chars, prompt_tokens),
     )

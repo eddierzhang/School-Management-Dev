@@ -6,6 +6,7 @@ import { RankedBars } from './charts'
 import { TipRows } from './charts'
 import { BandPill, Delta, ErrorNote, Icon, Loading, Meter, Pill, gradeStatus, pctText } from './ui'
 import { PlanDialog } from './PlanDialog'
+import { DocumentsBlock } from './Documents'
 
 export function StudentDrawer({ sid, onClose, onChanged }: {
   sid: string; onClose: () => void; onChanged?: () => void
@@ -76,6 +77,8 @@ export function StudentDrawer({ sid, onClose, onChanged }: {
                   ))}
                 </div>
               )}
+
+              <DocumentsBlock sid={data.sid} name={data.name} onOpenPlan={openPlan} />
 
               {data.recommendations.length > 0 && (
                 <div className="block">

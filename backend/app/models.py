@@ -33,6 +33,7 @@ class Student(Base):
     scores: Mapped[list[Score]] = relationship(back_populates="student", cascade="all, delete-orphan")
     attendance: Mapped[list[AttendanceDay]] = relationship(back_populates="student", cascade="all, delete-orphan")
     interventions: Mapped[list[Intervention]] = relationship(back_populates="student", cascade="all, delete-orphan")
+    documents: Mapped[list[StudentDocument]] = relationship(back_populates="student", cascade="all, delete-orphan")
 
 
 class Course(Base):
@@ -204,3 +205,37 @@ class Proposal(Base):
     decided_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     run: Mapped[AgentRun | None] = relationship(back_populates="proposals")
+
+
+class StudentDocument(Base):
+    """A document about one student, and what was found in it.
+
+    Only the extracted text is kept, never the uploaded file: the text is all the
+    analysis needs, and a school should hold as little of a child's paperwork as it
+    can. Deleting the row deletes everything that was read.
+    """
+
+    __tablename__ = "student_documents"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    student_id: Mapped[int] = mapped_column(ForeignKey("students.id", ondelete="CASCADE"), index=True)
+    filename: Mapped[str] = mapped_column(String(255))
+    content_type: Mapped[str] = mapped_column(String(100))
+    kind: Mapped[str] = mapped_column(String(32), default="other")
+    sha256: Mapped[str] = mapped_column(String(64), index=True)
+    pages: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    chars: Mapped[int] = mapped_column(Integer, default=0)
+    text: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(16), default="processing")  # processing | done | failed
+    summary: Mapped[str] = mapped_column(Text, default="")
+    findings: Mapped[list] = mapped_column(JSON, default=list)
+    rejected: Mapped[list] = mapped_column(JSON, default=list)
+    notices: Mapped[list] = mapped_column(JSON, default=list)
+    chunks: Mapped[int] = mapped_column(Integer, default=0)
+    model: Mapped[str] = mapped_column(String(60), default="")
+    duration_ms: Mapped[int] = mapped_column(Integer, default=0)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    analysed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    student: Mapped[Student] = relationship(back_populates="documents")
