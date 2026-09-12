@@ -1,105 +1,195 @@
-# Halverson Ridge Registrar
+# Halverson Ridge — school management
 
-A staff console for running a school's term: the stockroom, class registration,
-and the demand signals that decide what gets promoted or given another section.
+Software for running a school term, in two halves that share one fictional
+school, one roster, and one visual identity.
+
+| | What it does | How it runs |
+|---|---|---|
+| **Registrar console** | Stockroom inventory, class registration with waitlists, and the demand signals behind what gets promoted | A published Claude Artifact — no server |
+| **Student support** | Who is struggling, who is excelling, on which topics, and what to do about it | FastAPI backend + React frontend |
+
+Both describe the same term at Halverson Ridge Middle School: the same 60
+students, the same 14 classes, generated once by `gen_seed.js` and loaded into
+both halves.
+
+---
+
+## Student support (backend + frontend)
+
+### What it answers
+
+**Who is struggling** — a struggle index per student, built from four named
+factors rather than a single grade average.
+
+**Who is excelling** — a separate index on its own axis. A student failing maths
+and top of the class in science appears on *both* lists; averaging the two into
+one number is precisely how such a student gets missed.
+
+**What they are struggling *on*** — every graded piece is tagged with the strand
+it tests, so mastery rolls up per topic. The system says *word problems, not
+graphing*, which is the difference between "behind in maths" and a lesson plan.
+
+**What the school should do** — rule-based recommendations that name an action,
+a reason and an owner: homework recovery when the problem is submission,
+tutoring on a named strand when it is comprehension, a counselor check-in when a
+student is sliding across unrelated subjects, an attendance plan when grades are
+following absence, and an enrichment placement when there is something to build
+on. Opening a plan turns a computed recommendation into something a person owns.
+
+**What to reteach** — the same strand data aggregated per cohort. One student
+below on a strand is a referral; half the class below on it is a lesson to run
+again, and no amount of tutoring fixes that one student at a time.
+
+### The indices
+
+```
+struggle = 0.55·low mastery + 0.20·decline + 0.15·unsubmitted work + 0.10·absence
+excel    = 0.55·high mastery + 0.20·improvement + 0.15·completion + 0.10·consistency
+```
+
+Each is computed per class, then rolled up so the **worst (or best) class sets
+the level** and the others add urgency into the remaining headroom:
+
+```
+student_index = worst + breadth × (100 − worst) × mean(others) ÷ 100
+```
+
+Averaging across classes was wrong twice over — it hid a student failing one
+subject behind five they were fine in, and it quietly punished students who take
+more classes, since the same failing grade diluted further with every extra
+course on the timetable.
+
+Nothing is cached. Every index is recomputed from the gradebook on read, so a
+grade entered through the API moves the ranking on the next request with no
+rebuild step. The weights, the normalisation scales and the band cut-offs all sit
+together at the top of `backend/app/analytics.py`, deliberately separate from the
+policy thresholds in `config.py` — **a real school would calibrate the bands
+against its own grade distribution before trusting the counts.**
+
+Missing past-due work counts as zero toward mastery *and* is tracked separately,
+because "did not submit" and "submitted and scored badly" call for different
+responses.
+
+### First run
+
+```bash
+node gen_seed.js                                   # the shared roster, once
+
+python3 -m venv backend/.venv
+backend/.venv/bin/pip install -r backend/requirements.txt
+backend/.venv/bin/python backend/seed.py           # builds backend/halverson.db
+
+cd frontend && npm install && cd ..
+```
+
+### Running it
+
+```bash
+./dev.sh            # both, together
+```
+
+or separately:
+
+```bash
+cd backend  && .venv/bin/python -m uvicorn app.main:app --reload --port 8000
+cd frontend && npm run dev
+```
+
+- Interface — http://localhost:5174
+- API — http://localhost:8000/api/health
+- Interactive API docs — http://localhost:8000/docs
+
+The Vite dev server proxies `/api` to port 8000, so the browser stays
+same-origin and never needs CORS in development.
+
+The URL is the view: `#/watchlist`, `#/classes`, `#/skills`, and
+`#/watchlist/S-1507` with one student's record open — so a support office can
+bookmark a list or mail a colleague a link to one student.
+
+### Tests
+
+```bash
+cd backend && .venv/bin/python -m pytest -q      # 33 tests
+cd frontend && npm run typecheck
+```
+
+`tests/test_analytics.py` builds a purpose-made record per test, so a failure
+names a rule rather than a dataset. Two of those tests are regressions for real
+calibration bugs: an `excel_index` scaled so that even a near-perfect record
+could not reach its own band cut-off, and a weighting that capped mastery's
+contribution below the "needs a plan" threshold, so a student at 48% with perfect
+attendance read as "steady".
+
+`tests/test_api.py` runs against its own freshly seeded database, never the dev
+one.
+
+### Layout
+
+```
+backend/
+  app/
+    analytics.py     the signal engine — indices, reasons, recommendations, cohort gaps
+    models.py        students, courses, enrollments, assessments, scores, attendance, plans
+    schemas.py       wire shapes, mirrored by frontend/src/types.ts
+    routers/         students · courses · support · interventions · scores · meta
+  seed.py            generates the gradebook from the shared roster
+  tests/
+frontend/
+  src/
+    views/           overview · struggling · excelling · classes · strands · plans
+    components/      charts, student drawer, plan dialog, UI primitives
+    api.ts           typed client, one function per endpoint
+```
+
+---
+
+## Registrar console (the Artifact)
 
 **Live page:** https://claude.ai/code/artifact/a9dc09a4-bc24-446a-bc7b-0206130573b5
 
-This is a working prototype, not a deployed system. There is no server to run and
-no build step — `console.html` is the whole application, published as a Claude
-Artifact. Records live in the artifact's shared document store, so every person
-with the link sees the same numbers and each other's edits as they happen.
+`console.html` is a complete application published as a Claude Artifact. Records
+live in the artifact's shared document store, so everyone with the link sees the
+same numbers and each other's edits as they happen.
 
-## What it does
+**Inventory** — 24 stockroom items with counts, reorder points and par levels,
+each linked to the classes that consume it, so a surge in demand for Forensic
+Science surfaces the fingerprint kits before the class runs short.
 
-**Inventory.** 24 stockroom items with on-hand counts, reorder points and par
-levels. Each row carries a level meter with a tick at its reorder point, and each
-item is linked to the classes that consume it — so a spike in demand for Forensic
-Science surfaces the fingerprint kits before the class runs short. Staff adjust
-counts inline, record a physical count (which stamps the date), and roll flagged
-items into a single requisition grouped by supplier.
+**Registration** — 14 sections with rosters, caps and ordered waitlists. A full
+class waitlists the next student rather than refusing them, and seats are handed
+out under a short lease so two staff registering at once cannot both claim the
+last one.
 
-**Registration.** 14 sections with rosters, caps and ordered waitlists. A full
-class takes the next student onto the waitlist rather than refusing them. Seats
-are handed out under a short lease on the class record, so two people registering
-at the same moment cannot both claim the last one. From a roster you can drop a
-student, move someone off the waitlist, change the cap, or open another section —
-which mints a new section letter and moves waiting students across in order.
+**Demand & promotion** — a published demand index driving what earns another
+section or a bulletin slot, plus an initiatives board that moves student requests
+from proposed to piloting to a real course code.
 
-**Demand & promotion.** One published index per section, from three signals:
-
-    demand = 100 × ( 0.40·seats_filled + 0.35·waitlist÷capacity + 0.25·signups_2wk÷(capacity×0.6) )
-
-High scorers earn a section or a bulletin slot; low scorers get the promotion.
-Separately, an initiatives board tracks things students are asking for that are
-not classes yet (clubs, programs, extra sections) with their interest counts, and
-moves them proposed → piloting → approved → a real course code that appears in
-registration. Campaigns record what is being promoted, on which channel, and for
-how long.
-
-## Data
-
-Six collections in the artifact's store, 50 documents:
-
-| Path | What it holds |
-|---|---|
-| `courses/<CODE>` | section, with its roster and waitlist embedded |
-| `inventory/<SKU>` | stockroom item, counts and thresholds |
-| `initiatives/<ID>` | proposed club, program or section, with interest count |
-| `campaigns/<ID>` | a promotion: headline, channel, run window |
-| `catalog/students` | the 60-student directory, one document |
-| `meta/school`, `meta/activity` | term settings; the last 40 record changes |
-
-Rosters are embedded in the class document rather than split into their own
-collection — it keeps a registration to a single leased write, and keeps the
-document count far under the store's 5,000 cap.
-
-## Running it on localhost
+### Running the console on localhost
 
 ```bash
-node gen_seed.js      # once, to generate seed/
-node dev-server.js    # → http://localhost:5173
+node gen_seed.js
+node dev-server.js     # → http://localhost:5173
 ```
 
-Serving `console.html` with a plain static server will render the layout but no
-data. The page reaches its records through `window.claude`, which exists only
-inside the Claude artifact viewer; on localhost `claude.use("db")` returns `null`
-and the page shows its "not connected" state.
+A plain static server would render the layout with no data: the page reaches its
+records through `window.claude`, which exists only inside the Claude viewer.
+`dev-server.js` composes the viewer's head/body skeleton, a `localStorage`-backed
+stand-in for that store, and `console.html` unmodified. Run
+`resetRegistrarData()` in the devtools console to reload the seed.
 
-`dev-server.js` closes that gap. It composes a local page from three parts: the
-head/body skeleton the viewer normally supplies at publish time, a stand-in
-`window.claude.use("db")` backed by `localStorage`, and `console.html` itself,
-unmodified. There is one source of truth — nothing is duplicated, and nothing in
-the dev server is ever published.
-
-Local edits persist in the browser across reloads. Run `resetRegistrarData()` in
-the console to wipe them and reload from the seed. Pass a port as an argument
-(`node dev-server.js 8080`) if 5173 is taken.
-
-Two differences from the published page worth knowing: seat leases always grant
-locally (there is no second writer to race), and your edits stay in your browser
-rather than reaching anyone else.
-
-## Working on it
-
-Edit `console.html` and republish to the same URL. The file is published as
-Artifact page content, so it deliberately has no `<!doctype>`, `<html>`, `<head>`
-or `<body>` wrapper — those are supplied at publish time.
-
-Seed data is generated, never hardcoded in the page: `node gen_seed.js` writes one
-JSON document per record into `seed/` plus a `batch.json` manifest, which is
-loaded into the store in a single 50-write batch. Re-running it is deterministic. The page renders an explicit "not connected" state rather than
-falling back to sample data, so nothing on screen is ever mistaken for real
-records.
+---
 
 ## Limits worth knowing
 
-- Anyone who can open the page can edit everything. There are no roles, and the
-  console assumes office staff. Student-facing self-registration would need real
-  accounts and permissions.
-- A page that declares a shared store is organization-internal — it cannot be
-  shared publicly by link.
-- Interest signals on initiatives are logged by staff, not collected from
-  students directly.
-- Weekly signup history is seeded, not accumulated; live registrations increment
-  the current week only.
+- **No authentication anywhere.** Both halves assume office staff on a trusted
+  network. The support side handles real student records; putting it in front of
+  anyone would need accounts, roles and an audit trail first.
+- **The indices are heuristics, not assessments.** They rank attention; they do
+  not diagnose. Every number is reported with the reasons behind it precisely so
+  a person can overrule it.
+- **The data is invented.** Halverson Ridge, its students and its staff are
+  fictional, generated deterministically by `gen_seed.js` and `backend/seed.py`.
+- **The clock is pinned** to 2026-09-12 (`HR_TODAY`) so "missing work", trends and
+  attendance rates stay stable whenever the app is run.
+- An artifact that declares a shared store is organization-internal and cannot be
+  shared by public link.
