@@ -624,3 +624,49 @@ export interface Opened {
   moved_from_waitlist: number
   message: string
 }
+
+// ---- schedule ---------------------------------------------------------------
+export interface SectionSlot {
+  code: string
+  title: string
+  dept: string
+  teacher: string
+  room: string
+  period: number              // 0 = outside the timetable
+  length: string
+  credits: number
+  enrolled: number
+  capacity: number
+  waitlist: number
+  base_code: string
+}
+
+export interface SchoolSchedule {
+  periods: number[]
+  sections: SectionSlot[]
+  rooms: string[]
+  teachers: string[]
+  clashes: { kind: 'room' | 'teacher'; who: string; period: number; sections: string[] }[]
+  student_clashes: { sid: string; name: string; grade: number; period: number; sections: string[] }[]
+  students_with_clashes: number
+}
+
+export interface StudentPeriod {
+  period: number
+  enrolled: SectionSlot[]
+  waitlisted: SectionSlot[]
+  clash: boolean
+}
+
+export interface StudentSchedule {
+  sid: string
+  name: string
+  grade: number
+  homeroom: string
+  periods: StudentPeriod[]
+  classes: number
+  credits: number
+  free_periods: number[]
+  clashes: number
+  waitlisted: number
+}

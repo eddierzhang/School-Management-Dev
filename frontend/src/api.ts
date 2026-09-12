@@ -1,4 +1,5 @@
 import type {
+  SchoolSchedule, StudentSchedule,
   DemandReport, NewClass, NewSection, Opened, Openings,
   AgentRun, CourseDetail, CourseRow, Fleet, Intervention, InventoryDetail, InventoryPatch,
   InventoryRow, NewIntervention, ProposalRow, Recommendation, Requisition, SkillGap,
@@ -50,6 +51,8 @@ export const api = {
   students: (p: { band?: string; grade?: number; course?: string; q?: string; sort?: string } = {}) =>
     req<StudentRow[]>('/students' + qs(p)),
   student: (sid: string) => req<StudentDetail>(`/students/${encodeURIComponent(sid)}`),
+  studentSchedule: (sid: string) => req<StudentSchedule>(`/students/${encodeURIComponent(sid)}/schedule`),
+  schedule: () => req<SchoolSchedule>('/schedule'),
   courses: () => req<CourseRow[]>('/courses'),
   course: (code: string) => req<CourseDetail>(`/courses/${encodeURIComponent(code)}`),
   demand: () => req<DemandReport>('/courses/demand'),
