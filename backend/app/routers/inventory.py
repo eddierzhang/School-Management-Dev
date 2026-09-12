@@ -7,8 +7,6 @@ between "we think there are six" and "I counted six this morning".
 """
 from __future__ import annotations
 
-from datetime import date
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -18,7 +16,8 @@ from ..db import get_db
 from ..models import Course, InventoryItem
 from ..schemas import (CountIn, InventoryCreate, InventoryDetail, InventoryRow, InventoryUpdate,
                        LinkedCourse, Requisition, RequisitionSupplier, StockroomSummary)
-from ..stock import cost_to_par, enrolment_by_course, short_by, status_of, students_depending_on
+from ..stock import (add_item, cost_to_par, enrolment_by_course, new_item_problem, short_by, status_of,
+                     students_depending_on)
 
 router = APIRouter(prefix="/inventory", tags=["inventory"])
 settings = get_settings()
@@ -159,21 +158,15 @@ def record_count(sku: str, body: CountIn, db: Session = Depends(get_db)) -> Inve
 
 
 @router.post("", response_model=InventoryDetail, status_code=201)
-def add_item(body: InventoryCreate, db: Session = Depends(get_db)) -> InventoryDetail:
-    sku = body.sku.strip().upper()
-    if db.scalar(select(InventoryItem).where(InventoryItem.sku == sku)):
-        raise HTTPException(409, f"{sku} is already in the stockroom.")
-    if body.reorder_point > body.par:
-        raise HTTPException(422, f"Reorder point ({body.reorder_point}) cannot be above par ({body.par}).")
-    unknown = [c for c in body.linked_courses
-               if db.scalar(select(Course).where(Course.code == c)) is None]
-    if unknown:
-        raise HTTPException(404, f"No class with code: {', '.join(unknown)}")
-    item = InventoryItem(**(body.model_dump() | {"sku": sku, "last_counted": date.today()}))
-    item.last_counted = settings.today
-    db.add(item)
+def create_item(body: InventoryCreate, db: Session = Depends(get_db)) -> InventoryDetail:
+    fields = body.model_dump() | {"linked_courses": [c.strip().upper() for c in body.linked_courses]}
+    problem = new_item_problem(db, fields["sku"], fields["name"], fields["reorder_point"],
+                               fields["par"], fields["linked_courses"])
+    if problem:
+        raise HTTPException(problem.status, problem.message)
+    item = add_item(db, **fields)
     db.commit()
-    return item_detail(sku, db)
+    return item_detail(item.sku, db)
 
 
 @router.delete("/{sku}", status_code=204)

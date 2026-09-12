@@ -14,12 +14,17 @@ describe the same stockroom the same way:
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from .config import get_settings
 from .models import Course, Enrollment, InventoryItem
+
+# Department prefix, then one or two short parts: SCI-FPK-020, PE-CHK-BAG, TST-001.
+SKU = re.compile(r"^[A-Z]{2,4}(-[A-Z0-9]{2,4}){1,2}$")
 
 
 @dataclass
@@ -74,3 +79,47 @@ def students_depending_on(item: InventoryItem, enrolment: dict[str, int]) -> int
     demand for Forensic Science is visible here before the class runs short.
     """
     return sum(enrolment.get(code, 0) for code in (item.linked_courses or []))
+
+
+@dataclass
+class NewItemProblem:
+    status: int    # the HTTP status the API answers with
+    message: str
+
+
+def new_item_problem(db: Session, sku: str, name: str, reorder_point: int, par: int,
+                     linked_courses: list[str]) -> NewItemProblem | None:
+    """Why an item should not be added as asked, or None.
+
+    Shared by the API, the stockroom agent's proposal and the approval step, so a
+    proposal that passed when drafted is re-checked by the same rule when approved.
+    """
+    sku = sku.strip().upper()
+    if not SKU.match(sku):
+        return NewItemProblem(422, f"{sku!r} is not a SKU. Use a department prefix and one or two "
+                                   "short parts, e.g. SCI-FPK-020.")
+    items = db.scalars(select(InventoryItem)).all()
+    if any(i.sku == sku for i in items):
+        return NewItemProblem(409, f"{sku} is already in the stockroom.")
+    wanted = " ".join(name.lower().split())
+    if len(wanted) < 2:
+        return NewItemProblem(422, "The item needs a name.")
+    same = next((i for i in items if " ".join(i.name.lower().split()) == wanted), None)
+    if same:
+        return NewItemProblem(409, f"{same.name!r} is already stocked as {same.sku}.")
+    if reorder_point > par:
+        return NewItemProblem(422, f"Reorder point ({reorder_point}) cannot be above par ({par}).")
+    known = set(db.scalars(select(Course.code)).all())
+    unknown = [c for c in linked_courses if c not in known]
+    if unknown:
+        return NewItemProblem(404, f"No class with code: {', '.join(unknown)}")
+    return None
+
+
+def add_item(db: Session, **fields) -> InventoryItem:
+    """Create an item that has passed `new_item_problem`. The caller commits."""
+    item = InventoryItem(**(fields | {"sku": fields["sku"].strip().upper(),
+                                      "name": fields["name"].strip(),
+                                      "last_counted": get_settings().today}))
+    db.add(item)
+    return item

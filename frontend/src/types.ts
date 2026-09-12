@@ -404,6 +404,20 @@ export interface StockroomSummary {
   categories: string[]
 }
 
+export interface NewInventoryItem {
+  sku: string
+  name: string
+  category: string
+  unit: string
+  on_hand: number
+  reorder_point: number
+  par: number
+  location: string
+  supplier: string
+  unit_cost: number
+  linked_courses: string[]
+}
+
 export interface InventoryPatch {
   on_hand?: number
   reorder_point?: number

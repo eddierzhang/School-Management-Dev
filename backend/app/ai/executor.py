@@ -16,6 +16,7 @@ from ..class_plans import adopt
 from .. import study_plans
 from ..config import get_settings
 from ..models import Course, Enrollment, InventoryItem, Intervention, Proposal, Student
+from ..stock import add_item, new_item_problem
 from ..timetable import SchedulingError, open_section
 
 settings = get_settings()
@@ -47,6 +48,21 @@ def _apply_reorder_point(db: Session, p: Proposal) -> str:
         raise ApplyError(f"Reorder point {new} is outside 0–{item.par} (the par level) for {item.sku}.")
     old, item.reorder_point = item.reorder_point, new
     return f"{item.name}: reorder point {old} → {new}."
+
+
+def _apply_new_item(db: Session, p: Proposal) -> str:
+    d = p.payload
+    problem = new_item_problem(db, d["sku"], d["name"], int(d["reorder_point"]), int(d["par"]),
+                               d.get("linked_courses") or [])
+    if problem:
+        raise ApplyError(problem.message + " The stockroom changed since this was proposed.")
+    # A new item starts with an empty shelf, so it goes straight onto the requisition.
+    item = add_item(db, sku=d["sku"], name=d["name"], category=d["category"], unit=d.get("unit") or "unit",
+                    on_hand=0, reorder_point=int(d["reorder_point"]), par=int(d["par"]),
+                    supplier=d["supplier"], unit_cost=float(d["unit_cost"]),
+                    linked_courses=d.get("linked_courses") or [], requisitioned=True)
+    return (f"Added {item.name} ({item.sku}) to the stockroom and put {item.par} on the requisition "
+            f"(~${item.par * item.unit_cost:,.2f}).")
 
 
 def _apply_new_section(db: Session, p: Proposal) -> str:
@@ -187,6 +203,7 @@ def _apply_study_plan(db: Session, p: Proposal) -> str:
 HANDLERS = {
     "requisition": _apply_requisition,
     "reorder_point": _apply_reorder_point,
+    "new_item": _apply_new_item,
     "new_section": _apply_new_section,
     "capacity_change": _apply_capacity_change,
     "support_plan": _apply_support_plan,

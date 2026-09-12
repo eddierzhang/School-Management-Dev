@@ -23,7 +23,7 @@ from ..class_plans import (active_plan, all_performance, canonical_strands, perf
 from .. import study_plans as SP
 from ..config import get_settings
 from ..models import Course, Enrollment, InventoryItem, Intervention, Proposal, Student
-from ..stock import cost_to_par, short_by, status_of
+from ..stock import cost_to_par, new_item_problem, short_by, status_of
 from ..timetable import clashes
 from .toolkit import Tool, ToolError
 
@@ -117,6 +117,33 @@ def propose_reorder_point(db: Session, ctx: dict, sku: str, new_reorder_point: i
                     f"{item.name}: reorder point {item.reorder_point} → {new_reorder_point}", reason,
                     {"sku": item.sku, "new_reorder_point": int(new_reorder_point)},
                     [_item_row(item)])
+
+
+def propose_new_item(db: Session, ctx: dict, sku: str, name: str, category: str, unit: str,
+                     par: int, reorder_point: int, unit_cost: float, reason: str,
+                     supplier: str | None = None, linked_courses: list | None = None) -> dict:
+    items = db.scalars(select(InventoryItem)).all()
+    categories = sorted({i.category for i in items})
+    if category.strip() not in categories:
+        raise ToolError(f"No category called {category!r}. Categories: {', '.join(categories)}.")
+    if par < 1:
+        raise ToolError(f"Par must be at least 1. Got {par}.")
+    if unit_cost <= 0:
+        raise ToolError("Give a unit cost above zero, so the order can be priced.")
+    courses = [str(c).strip().upper() for c in (linked_courses or []) if str(c).strip()]
+    problem = new_item_problem(db, sku, name, int(reorder_point), int(par), courses)
+    if problem:
+        raise ToolError(problem.message)
+    # Without a supplier, use whoever already supplies most of that category.
+    same = [i.supplier for i in items if i.category == category.strip()]
+    payload = {"sku": sku.strip().upper(), "name": name.strip(), "category": category.strip(),
+               "unit": unit.strip() or "unit", "par": int(par), "reorder_point": int(reorder_point),
+               "unit_cost": round(float(unit_cost), 2), "linked_courses": courses,
+               "supplier": (supplier or "").strip() or max(set(same), key=same.count)}
+    cost = payload["par"] * payload["unit_cost"]
+    return _propose(ctx, "new_item",
+                    f"Stock {payload['name']} ({payload['sku']}) — order {par} for about ${cost:,.2f}",
+                    reason, payload, [payload])
 
 
 # ===================== registrar (scheduling) =========================

@@ -62,7 +62,9 @@ STOCKROOM = Agent(
         "You are the stockroom agent for Halverson Ridge High School. Your job is to keep "
         "supplies ahead of what classes need.\n\n"
         "Work in this order: find what is low, check which classes depend on it, then propose "
-        "a requisition for the items that genuinely need ordering.\n\n" + COMMON_RULES
+        "a requisition for the items that genuinely need ordering.\n\n"
+        "If asked to stock something new, or a class has nothing to draw on for what it needs, "
+        "propose_new_item. It refuses items already stocked, so it is safe to try.\n\n" + COMMON_RULES
     ),
     default_task="Do a stockroom sweep. Find what is running out, check which classes it affects, "
                  "and propose what to order.",
@@ -95,6 +97,22 @@ STOCKROOM = Agent(
                   "new_reorder_point": {"type": "integer"},
                   "reason": {"type": "string"}},
                "required": ["sku", "new_reorder_point", "reason"]}, proposes="reorder_point"),
+        _tool(T.propose_new_item, "propose_new_item",
+              "Propose adding an item the stockroom does not carry yet. It is ordered up to par on approval.",
+              {"type": "object", "properties": {
+                  "sku": {"type": "string", "description": "A new SKU in the house style, e.g. SCI-BKR-250."},
+                  "name": {"type": "string", "description": "What it is, e.g. Glass beaker, 250 ml."},
+                  "category": {"type": "string", "description": "An existing category, e.g. Science Lab or Arts."},
+                  "unit": {"type": "string", "description": "How it is counted: unit, box, kit, pad..."},
+                  "par": {"type": "integer", "description": "A full shelf. Usually enough for the classes that use it."},
+                  "reorder_point": {"type": "integer", "description": "Order again at this many. Not above par."},
+                  "unit_cost": {"type": "number", "description": "Estimated price of one unit in dollars."},
+                  "supplier": {"type": "string", "description": "Optional. Omit to use the category's usual supplier."},
+                  "linked_courses": {"type": "array", "items": {"type": "string"},
+                                     "description": "Exact course codes of the classes that use it."},
+                  "reason": {"type": "string", "description": "One sentence on why the school needs it."}},
+               "required": ["sku", "name", "category", "unit", "par", "reorder_point", "unit_cost", "reason"]},
+              proposes="new_item"),
     ],
 )
 
