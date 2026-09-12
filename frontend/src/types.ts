@@ -259,3 +259,71 @@ export interface ProposalRow {
   created_at: string | null
   decided_at: string | null
 }
+
+
+/* ---- stockroom ---- */
+
+export type StockStatus = 'critical' | 'serious' | 'warning' | 'good'
+
+export interface LinkedCourse {
+  code: string
+  title: string
+  enrolled: number
+}
+
+export interface InventoryRow {
+  sku: string
+  name: string
+  category: string
+  unit: string
+  on_hand: number
+  reorder_point: number
+  par: number
+  location: string
+  supplier: string
+  unit_cost: number
+  last_counted: string | null
+  linked_courses: string[]
+  requisitioned: boolean
+  status: StockStatus
+  status_label: string
+  ratio: number
+  short_by: number
+  cost_to_par: number
+  students_affected: number
+  days_since_count: number | null
+}
+
+export interface InventoryDetail extends InventoryRow {
+  value_on_hand: number
+  classes: LinkedCourse[]
+}
+
+export interface RequisitionSupplier {
+  supplier: string
+  lines: InventoryRow[]
+  cost: number
+}
+
+export interface Requisition {
+  lines: number
+  cost: number
+  by_supplier: RequisitionSupplier[]
+}
+
+export interface StockroomSummary {
+  items: number
+  needs_attention: number
+  below_reorder: number
+  on_requisition: number
+  value_on_hand: number
+  cost_to_par: number
+  categories: string[]
+}
+
+export interface InventoryPatch {
+  on_hand?: number
+  reorder_point?: number
+  par?: number
+  requisitioned?: boolean
+}

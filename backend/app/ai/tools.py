@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from ..analytics import build_signals, skill_gaps
 from ..config import get_settings
 from ..models import Course, Enrollment, InventoryItem, Intervention, Student
+from ..stock import cost_to_par, short_by, status_of
 from .toolkit import Tool, ToolError
 
 settings = get_settings()
@@ -43,9 +44,11 @@ def _propose(ctx: dict, kind: str, summary: str, reason: str, payload: dict, evi
 
 # ===================== stockroom =====================================
 def _item_row(i: InventoryItem) -> dict:
+    """Same status rule the API and the interface use — see app/stock.py."""
+    st = status_of(i)
     return {"sku": i.sku, "name": i.name, "category": i.category, "on_hand": i.on_hand,
             "reorder_point": i.reorder_point, "par": i.par, "unit": i.unit,
-            "short_by": max(0, i.par - i.on_hand), "unit_cost": round(i.unit_cost, 2),
+            "status": st.label, "short_by": short_by(i), "unit_cost": round(i.unit_cost, 2),
             "for_courses": list(i.linked_courses or []), "already_requisitioned": i.requisitioned}
 
 
@@ -91,12 +94,12 @@ def propose_requisition(db: Session, ctx: dict, skus: list, reason: str) -> dict
                         "Call list_low_stock or get_item first and use exact SKUs.")
     if not found:
         raise ToolError("No SKUs given. Pass at least one real SKU.")
-    cost = sum(max(0, i.par - i.on_hand) * i.unit_cost for i in found)
+    cost = sum(cost_to_par(i) for i in found)
     return _propose(ctx, "requisition",
                     f"Order {len(found)} item(s) to par — about ${cost:,.2f}", reason,
                     {"skus": [i.sku for i in found]},
                     [{"sku": i.sku, "name": i.name, "on_hand": i.on_hand,
-                      "reorder_point": i.reorder_point, "to_par": max(0, i.par - i.on_hand)} for i in found])
+                      "reorder_point": i.reorder_point, "to_par": short_by(i)} for i in found])
 
 
 def propose_reorder_point(db: Session, ctx: dict, sku: str, new_reorder_point: int, reason: str) -> dict:
