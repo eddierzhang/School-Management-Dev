@@ -54,6 +54,32 @@ Rosters are embedded in the class document rather than split into their own
 collection — it keeps a registration to a single leased write, and keeps the
 document count far under the store's 5,000 cap.
 
+## Running it on localhost
+
+```bash
+node gen_seed.js      # once, to generate seed/
+node dev-server.js    # → http://localhost:5173
+```
+
+Serving `console.html` with a plain static server will render the layout but no
+data. The page reaches its records through `window.claude`, which exists only
+inside the Claude artifact viewer; on localhost `claude.use("db")` returns `null`
+and the page shows its "not connected" state.
+
+`dev-server.js` closes that gap. It composes a local page from three parts: the
+head/body skeleton the viewer normally supplies at publish time, a stand-in
+`window.claude.use("db")` backed by `localStorage`, and `console.html` itself,
+unmodified. There is one source of truth — nothing is duplicated, and nothing in
+the dev server is ever published.
+
+Local edits persist in the browser across reloads. Run `resetRegistrarData()` in
+the console to wipe them and reload from the seed. Pass a port as an argument
+(`node dev-server.js 8080`) if 5173 is taken.
+
+Two differences from the published page worth knowing: seat leases always grant
+locally (there is no second writer to race), and your edits stay in your browser
+rather than reaching anyone else.
+
 ## Working on it
 
 Edit `console.html` and republish to the same URL. The file is published as
