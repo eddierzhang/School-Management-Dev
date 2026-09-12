@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -23,6 +23,25 @@ class RunRequest(BaseModel):
 
 class RejectRequest(BaseModel):
     note: str | None = None
+
+
+def _reap_stale(db: Session) -> None:
+    """A run whose process died leaves `running` in the table for ever.
+
+    That happens on a server restart, a kill, or a crash mid-inference. Nothing
+    will ever come back to finish it, so any run still open well past the agent's
+    own wall-clock cap is closed out as failed on the next read.
+    """
+    cutoff = datetime.utcnow() - timedelta(seconds=settings.agent_max_seconds + 120)
+    stale = db.scalars(select(AgentRun).where(
+        AgentRun.status == "running", AgentRun.started_at < cutoff)).all()
+    for r in stale:
+        r.status = "failed"
+        r.finished_at = datetime.utcnow()
+        r.error = ("The run stopped without finishing — the server restarted or the process was "
+                   "killed mid-inference. Nothing was recorded.")
+    if stale:
+        db.commit()
 
 
 def _run_out(r: AgentRun, full: bool = False) -> dict:
@@ -88,6 +107,7 @@ def start_run(name: str, body: RunRequest, background: BackgroundTasks,
 
 @router.get("/runs")
 def list_runs(agent: str | None = None, limit: int = 25, db: Session = Depends(get_db)) -> list[dict]:
+    _reap_stale(db)
     stmt = select(AgentRun).order_by(AgentRun.id.desc()).limit(min(limit, 100))
     if agent:
         stmt = stmt.where(AgentRun.agent == agent)
@@ -96,6 +116,7 @@ def list_runs(agent: str | None = None, limit: int = 25, db: Session = Depends(g
 
 @router.get("/runs/{run_id}")
 def get_run(run_id: int, db: Session = Depends(get_db)) -> dict:
+    _reap_stale(db)
     run = db.get(AgentRun, run_id)
     if run is None:
         raise HTTPException(404, f"No run {run_id}")
