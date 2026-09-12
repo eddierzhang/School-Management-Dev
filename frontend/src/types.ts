@@ -156,6 +156,71 @@ export interface CourseDetail {
   students: CourseStudentRow[]
   skills: SkillGap[]
   distribution: { label: string; count: number }[]
+  stats: CourseStats | null
+  assessments: CourseAssessmentRow[]
+  teacher: CourseTeacher | null
+  plans: CoursePlanRow[]
+  supplies: CourseSupplyRow[]
+}
+
+export interface CourseStats {
+  students: number
+  median: number | null
+  completion_rate: number | null
+  late_rate: number | null
+  mean_trend: number | null
+  improving: number
+  declining: number
+  absence_rate: number | null
+  needs_plan: number
+  watch: number
+}
+
+export interface CourseAssessmentRow {
+  id: number
+  title: string
+  kind: string
+  skill: string
+  due_on: string
+  class_mean: number | null
+  submitted: number
+  missing: number
+  late: number
+}
+
+export interface TeacherSectionRow {
+  code: string
+  title: string
+  period: number
+  room: string
+  enrolled: number
+  class_mean: number | null
+}
+
+export interface CourseTeacher {
+  name: string
+  sections: TeacherSectionRow[]
+  students_taught: number
+}
+
+export interface CoursePlanRow {
+  id: number
+  sid: string
+  student_name: string
+  kind: string
+  title: string
+  owner: string
+  status: string
+}
+
+export interface CourseSupplyRow {
+  sku: string
+  name: string
+  on_hand: number
+  par: number
+  status: StockStatus
+  status_label: string
+  requisitioned: boolean
 }
 
 export interface Summary {

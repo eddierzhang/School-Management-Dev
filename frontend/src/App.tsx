@@ -61,7 +61,10 @@ function Crest() {
 export default function App() {
   const initial = readHash()
   const [tab, setTab] = useState<Tab>(initial.tab)
-  const [openSid, setOpenSid] = useState<string | null>(initial.sid)
+  // On the classes tab the second URL segment is a class code (#/classes/MAT-150);
+  // everywhere else it is the open student.
+  const [openSid, setOpenSid] = useState<string | null>(initial.tab === 'classes' ? null : initial.sid)
+  const [openCode, setOpenCode] = useState<string | null>(initial.tab === 'classes' ? initial.sid : null)
   const [refresh, setRefresh] = useState(0)
   const summary = useApi(() => api.summary(), [refresh])
   const stock = useApi(() => api.stockroomSummary(), [refresh])
@@ -69,13 +72,13 @@ export default function App() {
 
   const bump = useCallback(() => setRefresh((n) => n + 1), [])
 
-  useEffect(() => { writeHash(tab, openSid) }, [tab, openSid])
+  useEffect(() => { writeHash(tab, tab === 'classes' ? openCode : openSid) }, [tab, openSid, openCode])
 
   useEffect(() => {
     const onHash = () => {
       const h = readHash()
       setTab(h.tab)
-      setOpenSid(h.sid)
+      if (h.tab === 'classes') { setOpenCode(h.sid); setOpenSid(null) } else setOpenSid(h.sid)
     }
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpenSid(null) }
     window.addEventListener('hashchange', onHash)
@@ -123,7 +126,7 @@ export default function App() {
           {TABS.map((t) => (
             <button
               key={t.id} className="tab" role="tab" aria-selected={tab === t.id}
-              onClick={() => setTab(t.id)}
+              onClick={() => { setTab(t.id); if (t.id === 'classes') setOpenCode(null) }}
             >
               {t.label}
               {counts[t.id] ? <span className="count">{counts[t.id]}</span> : null}
@@ -138,7 +141,10 @@ export default function App() {
         )}
         {tab === 'watchlist' && <Watchlist key={refresh} onOpenStudent={setOpenSid} />}
         {tab === 'strengths' && <Strengths key={refresh} onOpenStudent={setOpenSid} />}
-        {tab === 'classes' && <Classes key={refresh} onOpenStudent={setOpenSid} />}
+        {tab === 'classes' && (
+          <Classes key={refresh} code={openCode} onOpenStudent={setOpenSid}
+            onOpenClass={(code) => { setOpenCode(code); window.scrollTo({ top: 0 }) }} />
+        )}
         {tab === 'demand' && <Demand onChanged={bump} />}
         {tab === 'skills' && <SkillGaps />}
         {tab === 'plans' && <Plans onOpenStudent={setOpenSid} onChanged={bump} />}
