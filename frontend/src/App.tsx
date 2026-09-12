@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { api } from './api'
 import { useApi } from './useApi'
 import { StudentDrawer } from './components/StudentDrawer'
+import { Agents } from './views/Agents'
 import { Classes } from './views/Classes'
 import { Overview } from './views/Overview'
 import { Plans } from './views/Plans'
@@ -9,9 +10,9 @@ import { SkillGaps } from './views/SkillGaps'
 import { Strengths, Watchlist } from './views/Watchlist'
 import { ErrorNote } from './components/ui'
 
-type Tab = 'overview' | 'watchlist' | 'strengths' | 'classes' | 'skills' | 'plans'
+type Tab = 'overview' | 'watchlist' | 'strengths' | 'classes' | 'skills' | 'plans' | 'agents'
 
-const TAB_IDS: Tab[] = ['overview', 'watchlist', 'strengths', 'classes', 'skills', 'plans']
+const TAB_IDS: Tab[] = ['overview', 'watchlist', 'strengths', 'classes', 'skills', 'plans', 'agents']
 
 /* The URL is the view: #/watchlist, #/classes, #/watchlist/S-1507 with a student
    open. A support office bookmarks the watchlist and mails a colleague a link to
@@ -35,6 +36,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'classes', label: 'Classes' },
   { id: 'skills', label: 'What they struggle on' },
   { id: 'plans', label: 'Support plans' },
+  { id: 'agents', label: 'Agents' },
 ]
 
 function Crest() {
@@ -123,6 +125,7 @@ export default function App() {
         {tab === 'classes' && <Classes onOpenStudent={setOpenSid} />}
         {tab === 'skills' && <SkillGaps />}
         {tab === 'plans' && <Plans key={refresh} onOpenStudent={setOpenSid} />}
+        {tab === 'agents' && <Agents />}
       </main>
 
       {openSid && (

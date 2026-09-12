@@ -1,6 +1,6 @@
 import type {
-  CourseDetail, CourseRow, Intervention, NewIntervention,
-  Recommendation, SkillGap, StudentDetail, StudentRow, Summary,
+  AgentRun, CourseDetail, CourseRow, Fleet, Intervention, NewIntervention,
+  ProposalRow, Recommendation, SkillGap, StudentDetail, StudentRow, Summary,
 } from './types'
 
 const BASE = '/api'
@@ -59,4 +59,20 @@ export const api = {
   updateIntervention: (id: number, body: Partial<Pick<Intervention, 'status' | 'outcome' | 'owner'>>) =>
     req<Intervention>(`/interventions/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deleteIntervention: (id: number) => req<void>(`/interventions/${id}`, { method: 'DELETE' }),
+
+  // --- agent fleet ---
+  fleet: () => req<Fleet>('/agents'),
+  runAgent: (name: string, task?: string) =>
+    req<AgentRun>(`/agents/${encodeURIComponent(name)}/run`, {
+      method: 'POST', body: JSON.stringify({ task: task ?? null }),
+    }),
+  runs: (agent?: string) => req<AgentRun[]>('/agents/runs' + qs({ agent })),
+  run: (id: number) => req<AgentRun>(`/agents/runs/${id}`),
+  proposals: (status?: string) => req<ProposalRow[]>('/agents/proposals' + qs({ status })),
+  approveProposal: (id: number) =>
+    req<{ applied: boolean; result: string; proposal: ProposalRow }>(
+      `/agents/proposals/${id}/approve`, { method: 'POST' }),
+  rejectProposal: (id: number, note?: string) =>
+    req<{ rejected: boolean; proposal: ProposalRow }>(
+      `/agents/proposals/${id}/reject`, { method: 'POST', body: JSON.stringify({ note: note ?? null }) }),
 }

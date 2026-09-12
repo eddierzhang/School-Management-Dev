@@ -11,7 +11,8 @@ from __future__ import annotations
 
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import (JSON, Date, DateTime, Float, ForeignKey, Integer, String, Text,
+                        UniqueConstraint, func)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -128,3 +129,78 @@ class Intervention(Base):
 
     student: Mapped[Student] = relationship(back_populates="interventions")
     course: Mapped[Course | None] = relationship()
+
+class InventoryItem(Base):
+    """The stockroom. Mirrors the registrar console's inventory so the fleet has
+    one substrate to act on rather than two disagreeing copies."""
+
+    __tablename__ = "inventory"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    sku: Mapped[str] = mapped_column(String(32), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(160))
+    category: Mapped[str] = mapped_column(String(60), index=True)
+    unit: Mapped[str] = mapped_column(String(24), default="unit")
+    on_hand: Mapped[int] = mapped_column(Integer, default=0)
+    reorder_point: Mapped[int] = mapped_column(Integer, default=0)
+    par: Mapped[int] = mapped_column(Integer, default=1)
+    location: Mapped[str] = mapped_column(String(120), default="Main supply room")
+    supplier: Mapped[str] = mapped_column(String(120), default="Central District Warehouse")
+    unit_cost: Mapped[float] = mapped_column(Float, default=0.0)
+    last_counted: Mapped[date | None] = mapped_column(Date, nullable=True)
+    linked_courses: Mapped[list] = mapped_column(JSON, default=list)
+    requisitioned: Mapped[bool] = mapped_column(default=False)
+
+
+class AgentRun(Base):
+    """One execution of one agent, with the whole transcript kept.
+
+    The transcript is the point: a local 4B model gets things wrong, and the only
+    way to trust a proposal is to be able to read exactly which tools the agent
+    called, what they returned, and what it did with that.
+    """
+
+    __tablename__ = "agent_runs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    agent: Mapped[str] = mapped_column(String(40), index=True)
+    model: Mapped[str] = mapped_column(String(60))
+    prompt: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(16), default="running")  # running | done | failed
+    summary: Mapped[str] = mapped_column(Text, default="")
+    transcript: Mapped[list] = mapped_column(JSON, default=list)
+    steps_used: Mapped[int] = mapped_column(Integer, default=0)
+    tool_errors: Mapped[int] = mapped_column(Integer, default=0)
+    duration_ms: Mapped[int] = mapped_column(Integer, default=0)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    proposals: Mapped[list["Proposal"]] = relationship(back_populates="run", cascade="all, delete-orphan")
+
+
+class Proposal(Base):
+    """What an agent wants to do. It cannot do it.
+
+    Agents never write to the record. They emit a proposal of a known kind with a
+    schema-validated payload; a person approves it; deterministic code applies it.
+    That boundary is what makes a small local model safe to run against a school's
+    data at all.
+    """
+
+    __tablename__ = "proposals"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    run_id: Mapped[int | None] = mapped_column(ForeignKey("agent_runs.id", ondelete="CASCADE"), nullable=True)
+    agent: Mapped[str] = mapped_column(String(40), index=True)
+    kind: Mapped[str] = mapped_column(String(48), index=True)
+    summary: Mapped[str] = mapped_column(Text)
+    reason: Mapped[str] = mapped_column(Text, default="")
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    evidence: Mapped[list] = mapped_column(JSON, default=list)
+    status: Mapped[str] = mapped_column(String(16), default="pending")  # pending | approved | rejected | failed
+    result: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    run: Mapped[AgentRun | None] = relationship(back_populates="proposals")

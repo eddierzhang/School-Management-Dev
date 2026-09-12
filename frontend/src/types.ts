@@ -175,3 +175,87 @@ export interface NewIntervention {
   owner?: string
   review_on?: string | null
 }
+
+
+/* ---- agent fleet ---- */
+
+export interface OllamaHealth {
+  reachable: boolean
+  error: string | null
+  url?: string
+  model: string
+  models: string[]
+  model_installed?: boolean
+  capabilities?: string[]
+  can_run_agents: boolean
+}
+
+export interface AgentTool {
+  name: string
+  description: string
+  proposes: string | null
+}
+
+export interface AgentInfo {
+  name: string
+  title: string
+  domain: string
+  default_task: string
+  tools: AgentTool[]
+}
+
+export interface Fleet {
+  runtime: OllamaHealth
+  agents: AgentInfo[]
+}
+
+export interface TranscriptCall {
+  tool: string
+  arguments: unknown
+  ok?: boolean
+  result?: string
+  error?: string
+  repeat?: boolean
+}
+
+export interface TranscriptStep {
+  step: number
+  thinking?: string
+  said?: string
+  ms: number
+  recovered_from_text?: boolean
+  nudged?: boolean
+  calls: TranscriptCall[]
+}
+
+export interface AgentRun {
+  id: number
+  agent: string
+  model: string
+  prompt: string
+  status: 'running' | 'done' | 'failed'
+  summary: string
+  steps_used: number
+  tool_errors: number
+  duration_ms: number
+  error: string | null
+  started_at: string | null
+  finished_at: string | null
+  proposals: number
+  transcript?: TranscriptStep[]
+}
+
+export interface ProposalRow {
+  id: number
+  run_id: number | null
+  agent: string
+  kind: string
+  summary: string
+  reason: string
+  payload: Record<string, unknown>
+  evidence: unknown[]
+  status: 'pending' | 'approved' | 'rejected' | 'failed'
+  result: string | null
+  created_at: string | null
+  decided_at: string | null
+}
