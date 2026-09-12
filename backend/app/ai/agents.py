@@ -315,3 +315,9 @@ CLASSES = Agent(
 )
 
 FLEET: dict[str, Agent] = {a.name: a for a in (SUPPORT, CLASSES, REGISTRAR, STOCKROOM, FINANCE)}
+
+# The general manager sits over the fleet and reads FLEET itself, so it registers
+# after the specialists exist.
+from .manager import MANAGER  # noqa: E402
+
+FLEET[MANAGER.name] = MANAGER

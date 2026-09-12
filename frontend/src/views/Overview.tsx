@@ -3,6 +3,7 @@ import { useApi } from '../useApi'
 import {
   FleetCards, FleetMessages, ProposalInbox, RunDrawer, RunHistory, RuntimeNotice, useFleet,
 } from '../components/fleet'
+import { ManagerPanel } from '../components/ManagerPanel'
 import { RankedBars, TipRows } from '../components/charts'
 import { BandPill, ErrorNote, Icon, Loading, Stat, gradeStatus, pctText } from '../components/ui'
 
@@ -30,6 +31,8 @@ export function Overview({ onOpenStudent, onGoto, onChanged }: {
 
   return (
     <>
+      <ManagerPanel onChanged={() => { f.refresh(); summary.reload(); onChanged?.() }} />
+
       <section className="sec">
         <div className="strip">
           <Stat k="Needs a plan" v={s.needs_plan} c={`of ${s.students} students`} />

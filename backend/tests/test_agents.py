@@ -25,7 +25,12 @@ def test_every_agent_has_a_small_tool_surface():
     for name, agent in FLEET.items():
         assert 3 <= len(agent.tools) <= 7, f"{name} has {len(agent.tools)} tools — too many for a 4B model"
         assert len({t.name for t in agent.tools}) == len(agent.tools), f"{name} has duplicate tool names"
-        assert any(t.proposes for t in agent.tools), f"{name} cannot propose anything"
+        # The general manager is the one exception: it dispatches specialists, who
+        # propose. Giving it propose_ tools would let it bypass them.
+        if name != "manager":
+            assert any(t.proposes for t in agent.tools), f"{name} cannot propose anything"
+        else:
+            assert not any(t.proposes for t in agent.tools), "the manager must not propose changes itself"
         assert agent.opening, f"{name} has no opening read, so it can start by inventing data"
         assert agent.opening[0] in {t.name for t in agent.tools}, f"{name}'s opening read is not one of its tools"
 
@@ -260,7 +265,7 @@ def test_fleet_endpoint_reports_runtime_and_agents(client):
     assert {a["name"] for a in body["agents"]} == set(FLEET)
     assert "reachable" in body["runtime"] and "can_run_agents" in body["runtime"]
     for a in body["agents"]:
-        assert a["tools"] and any(t["proposes"] for t in a["tools"])
+        assert a["tools"] and (a["name"] == "manager" or any(t["proposes"] for t in a["tools"]))
 
 
 def test_running_an_unknown_agent_is_404(client):

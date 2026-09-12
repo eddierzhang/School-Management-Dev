@@ -169,7 +169,8 @@ export function FleetCards({ f }: { f: FleetState }) {
 
   return (
     <div className="cards">
-      {f.fleet.agents.map((a) => {
+      {/* The general manager has its own panel at the top of the page. */}
+      {f.fleet.agents.filter((a) => a.name !== 'manager').map((a) => {
         const running = f.runs.find((r) => r.agent === a.name && r.status === 'running')
         return (
           <article className="icard" key={a.name}>

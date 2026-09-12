@@ -189,6 +189,8 @@ class AgentRun(Base):
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     # What a scoped run is about, e.g. "course:MAT-150"; None for a sweep.
     subject: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    # Set when the general manager dispatched this run.
+    parent_run_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     started_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 

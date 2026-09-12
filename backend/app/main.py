@@ -6,8 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import get_settings
 from .db import Base, SessionLocal, add_missing_columns, engine
 from .demand import backfill_signups
-from .routers import (agents, courses, documents, finance, improvement, interventions, inventory, meta,
-                      schedule, scores, students, support)
+from .routers import (agents, courses, documents, finance, improvement, interventions, inventory, manager,
+                      meta, schedule, scores, students, support)
 
 settings = get_settings()
 
@@ -41,5 +41,5 @@ app.add_middleware(
 
 for r in (meta.router, students.router, courses.router, support.router,
           interventions.router, scores.router, agents.router, inventory.router,
-          documents.router, finance.router, schedule.router, improvement.router):
+          documents.router, finance.router, schedule.router, improvement.router, manager.router):
     app.include_router(r, prefix="/api")
