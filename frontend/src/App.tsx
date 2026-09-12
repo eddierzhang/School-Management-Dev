@@ -127,14 +127,16 @@ export default function App() {
 
         {summary.error && <ErrorNote error={summary.error} onRetry={summary.reload} />}
 
-        {tab === 'overview' && <Overview onOpenStudent={setOpenSid} onGoto={(t) => setTab(t as Tab)} />}
+        {tab === 'overview' && (
+          <Overview onOpenStudent={setOpenSid} onGoto={(t) => setTab(t as Tab)} onChanged={bump} />
+        )}
         {tab === 'watchlist' && <Watchlist key={refresh} onOpenStudent={setOpenSid} />}
         {tab === 'strengths' && <Strengths key={refresh} onOpenStudent={setOpenSid} />}
         {tab === 'classes' && <Classes onOpenStudent={setOpenSid} />}
         {tab === 'skills' && <SkillGaps />}
-        {tab === 'plans' && <Plans key={refresh} onOpenStudent={setOpenSid} />}
-        {tab === 'stockroom' && <Stockroom key={refresh} />}
-        {tab === 'agents' && <Agents />}
+        {tab === 'plans' && <Plans onOpenStudent={setOpenSid} onChanged={bump} />}
+        {tab === 'stockroom' && <Stockroom onChanged={bump} />}
+        {tab === 'agents' && <Agents onChanged={bump} />}
       </main>
 
       {openSid && (

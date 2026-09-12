@@ -219,7 +219,7 @@ export interface TranscriptCall {
 }
 
 export interface TranscriptStep {
-  step: number
+  step: number | string   // 0 = seeded opening read, 'harvest' = the constrained-JSON pass
   thinking?: string
   said?: string
   ms: number

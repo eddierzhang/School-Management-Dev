@@ -1,15 +1,27 @@
 import { api } from '../api'
 import { useApi } from '../useApi'
+import {
+  FleetCards, FleetMessages, ProposalInbox, RunDrawer, RunHistory, RuntimeNotice, useFleet,
+} from '../components/fleet'
 import { RankedBars, TipRows } from '../components/charts'
 import { BandPill, ErrorNote, Icon, Loading, Stat, gradeStatus, pctText } from '../components/ui'
 
-export function Overview({ onOpenStudent, onGoto }: {
+export function Overview({ onOpenStudent, onGoto, onChanged }: {
   onOpenStudent: (sid: string) => void
   onGoto: (tab: string) => void
+  onChanged?: () => void
 }) {
   const summary = useApi(() => api.summary(), [])
   const queue = useApi(() => api.watchlist(8, true), [])
   const active = useApi(() => api.interventions('active'), [])
+  // Approving here must also refresh this page's own figures, not just the
+  // tab badges — the plan it opens is one of the numbers on screen.
+  const f = useFleet(() => {
+    summary.reload()
+    active.reload()
+    queue.reload()
+    onChanged?.()
+  })
 
   if (summary.loading || queue.loading) return <Loading what="the term" />
   if (summary.error) return <ErrorNote error={summary.error} onRetry={summary.reload} />
@@ -37,6 +49,44 @@ export function Overview({ onOpenStudent, onGoto }: {
           <button className="btn sm" onClick={() => onGoto('watchlist')}>Open the watchlist</button>
         </div>
       )}
+
+      {f.proposals.length > 0 && (
+        <section className="sec">
+          <div className="sec-head">
+            <h2>Agents are waiting on you</h2>
+            <span className="spacer" />
+            <span className="sub">{f.proposals.length} pending</span>
+          </div>
+          <p className="sec-note">
+            Nothing here has happened yet. Approving runs deterministic code that re-checks the
+            proposal against current records.
+          </p>
+          <ProposalInbox f={f} emptyNote={false} />
+        </section>
+      )}
+
+      <section className="sec">
+        <div className="sec-head">
+          <h2>Agent fleet</h2>
+          <span className="spacer" />
+          <button className="btn sm" onClick={() => onGoto('agents')}>
+            Transcripts and custom tasks
+          </button>
+        </div>
+        <p className="sec-note">
+          Each agent reads its own corner of the school and proposes changes for you to approve —
+          it can never make one itself. Runs take a couple of minutes on the local model.
+        </p>
+        <RuntimeNotice f={f} />
+        <FleetMessages f={f} />
+        <FleetCards f={f} compact />
+        {f.runs.length > 0 && (
+          <div style={{ marginTop: 14 }}>
+            <div className="eyebrow" style={{ marginBottom: 8 }}>Latest runs</div>
+            <RunHistory f={f} limit={3} />
+          </div>
+        )}
+      </section>
 
       <section className="sec">
         <div className="split">
@@ -156,6 +206,8 @@ export function Overview({ onOpenStudent, onGoto }: {
           </table>
         </div>
       </section>
+
+      <RunDrawer f={f} />
     </>
   )
 }

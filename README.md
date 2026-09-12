@@ -256,6 +256,18 @@ each rejection and why, and what the agent concluded. The Agents tab shows all o
 it, including which calls were repaired and whether a nudge or the harvest step
 was needed.
 
+### Where the fleet appears
+
+The home page carries the three agents and anything they are waiting on you to
+approve — one click runs an agent's default sweep. The **Agents** tab keeps the
+full console: a task box per agent for writing a custom instruction, every
+proposal, and the run history with complete transcripts.
+
+Both render the same components over one shared state hook (`components/fleet.tsx`),
+so they cannot drift or poll twice. Approving anywhere refreshes the counts that
+depend on it — approving a support plan moves the Support plans badge on the spot,
+rather than leaving it stale until you navigate.
+
 ### Running the fleet
 
 ```bash

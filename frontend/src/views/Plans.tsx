@@ -3,17 +3,22 @@ import { api } from '../api'
 import { useApi } from '../useApi'
 import { ErrorNote, Loading, Pill } from '../components/ui'
 
-export function Plans({ onOpenStudent }: { onOpenStudent: (sid: string) => void }) {
+export function Plans({ onOpenStudent, onChanged }: {
+  onOpenStudent: (sid: string) => void
+  onChanged?: () => void
+}) {
   const [status, setStatus] = useState('active')
   const { data, error, loading, reload } = useApi(() => api.interventions(status || undefined), [status])
 
   async function set(id: number, next: 'completed' | 'declined' | 'active') {
     await api.updateIntervention(id, { status: next })
     reload()
+    onChanged?.()   // the open-plans count in the tab badge moved
   }
   async function remove(id: number) {
     await api.deleteIntervention(id)
     reload()
+    onChanged?.()
   }
 
   return (

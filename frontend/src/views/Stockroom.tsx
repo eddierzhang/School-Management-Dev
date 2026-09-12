@@ -177,7 +177,7 @@ function ItemDrawer({ sku, onClose, onChanged }: {
   )
 }
 
-export function Stockroom() {
+export function Stockroom({ onChanged }: { onChanged?: () => void }) {
   const [category, setCategory] = useState('')
   const [q, setQ] = useState('')
   const [attnOnly, setAttnOnly] = useState(false)
@@ -186,7 +186,10 @@ export function Stockroom() {
   const [nonce, setNonce] = useState(0)
   const [problem, setProblem] = useState<string | null>(null)
 
-  const bump = useCallback(() => setNonce((n) => n + 1), [])
+  const bump = useCallback(() => {
+    setNonce((n) => n + 1)
+    onChanged?.()   // the low-stock count in the tab badge moved
+  }, [onChanged])
 
   const summary = useApi(() => api.stockroomSummary(), [nonce])
   const items = useApi(
