@@ -1,0 +1,1680 @@
+<title>Halverson Ridge Registrar</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,500;7..72,600;7..72,700&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* ---- tokens: light is the base; both dark scopes redefine tokens only ---- */
+:root{
+  color-scheme: light;
+  --paper:#F1F4F0; --card:#FBFCFA; --card-2:#F5F8F4; --card-3:#EAEFE9;
+  --ink:#131C19; --ink-2:#4E5D57; --muted:#78867F;
+  --rule:#DFE5DE; --rule-strong:#C6CFC8;
+  --accent:#00806A; --accent-ink:#00604F; --accent-wash:#E4F0EC; --accent-track:#CFE6DF;
+  --signal:#B4611A; --signal-ink:#8E4A12; --signal-wash:#F7ECE1;
+  --good:#0CA30C; --warning:#FAB219; --serious:#EC835A; --critical:#D03B3B;
+  --good-wash:#E8F4E8; --warning-wash:#FCF2DC; --serious-wash:#FAEBE4; --critical-wash:#F8E6E6;
+  --grid:#E5EAE4; --axis:#C6CFC8;
+  --shadow-1:0 1px 2px rgba(19,28,25,.05);
+  --shadow-2:0 2px 4px rgba(19,28,25,.06), 0 18px 40px -24px rgba(19,28,25,.34);
+  --font-display:'Literata',Georgia,'Times New Roman',serif;
+  --font-ui:'Public Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-mono:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --paper:#0D1211; --card:#161D1B; --card-2:#1C2522; --card-3:#222C28;
+    --ink:#EDF2EE; --ink-2:#A9B8B1; --muted:#7E8C86;
+    --rule:#27302D; --rule-strong:#39433F;
+    --accent:#2FA88F; --accent-ink:#5CC4AC; --accent-wash:#12302A; --accent-track:#1E3B35;
+    --signal:#E09A4C; --signal-ink:#EFB472; --signal-wash:#33260F;
+    --good-wash:#11290F; --warning-wash:#312208; --serious-wash:#33190F; --critical-wash:#331313;
+    --grid:#242D2A; --axis:#39433F;
+    --shadow-1:0 1px 2px rgba(0,0,0,.4);
+    --shadow-2:0 2px 4px rgba(0,0,0,.4), 0 18px 40px -24px rgba(0,0,0,.8);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --paper:#0D1211; --card:#161D1B; --card-2:#1C2522; --card-3:#222C28;
+  --ink:#EDF2EE; --ink-2:#A9B8B1; --muted:#7E8C86;
+  --rule:#27302D; --rule-strong:#39433F;
+  --accent:#2FA88F; --accent-ink:#5CC4AC; --accent-wash:#12302A; --accent-track:#1E3B35;
+  --signal:#E09A4C; --signal-ink:#EFB472; --signal-wash:#33260F;
+  --good-wash:#11290F; --warning-wash:#312208; --serious-wash:#33190F; --critical-wash:#331313;
+  --grid:#242D2A; --axis:#39433F;
+  --shadow-1:0 1px 2px rgba(0,0,0,.4);
+  --shadow-2:0 2px 4px rgba(0,0,0,.4), 0 18px 40px -24px rgba(0,0,0,.8);
+}
+
+*{box-sizing:border-box}
+body{background:var(--paper);color:var(--ink);font-family:var(--font-ui);
+  font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;margin:0}
+h1,h2,h3{font-family:var(--font-display);font-weight:600;text-wrap:balance;margin:0}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
+@media (prefers-reduced-motion: reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+.shell{max-width:1260px;margin:0 auto;padding-inline:20px;padding-block:0 72px}
+
+/* ---- masthead ---- */
+.masthead{background:var(--card);border-bottom:1px solid var(--rule)}
+.masthead-in{max-width:1260px;margin:0 auto;padding-inline:20px;padding-block:14px;
+  display:flex;align-items:flex-end;gap:18px;flex-wrap:wrap}
+.crest{width:34px;height:34px;flex:none}
+.mast-id{display:flex;align-items:center;gap:11px;margin-right:auto}
+.mast-name{font-family:var(--font-display);font-size:19px;font-weight:700;letter-spacing:-.01em;line-height:1.15}
+.mast-sub{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);margin-top:2px}
+.mast-facts{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-end}
+.fact{display:flex;flex-direction:column;gap:1px}
+.fact-k{font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.fact-v{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}
+.live{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--ink-2)}
+.live i{width:7px;height:7px;border-radius:50%;background:var(--good);flex:none}
+.live.off i{background:var(--muted)}
+
+/* ---- module tabs ---- */
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--rule);margin-block:0 22px;
+  overflow-x:auto;scrollbar-width:none}
+.tabs::-webkit-scrollbar{display:none}
+.tab{appearance:none;background:none;border:0;padding:13px 15px 11px;cursor:pointer;
+  font-size:13px;font-weight:600;color:var(--ink-2);white-space:nowrap;
+  border-bottom:2px solid transparent;margin-bottom:-1px;display:inline-flex;align-items:center;gap:8px}
+.tab:hover{color:var(--ink)}
+.tab[aria-selected="true"]{color:var(--accent-ink);border-bottom-color:var(--accent)}
+.tab .count{font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;
+  background:var(--card-3);color:var(--ink-2);border-radius:999px;padding:1px 7px}
+.tab[aria-selected="true"] .count{background:var(--accent-wash);color:var(--accent-ink)}
+
+/* ---- section furniture ---- */
+.sec{margin-bottom:34px}
+.sec-head{display:flex;align-items:baseline;gap:12px;margin-bottom:12px;flex-wrap:wrap}
+.sec-head h2{font-size:17px}
+.sec-note{font-size:12.5px;color:var(--ink-2);max-width:68ch;margin:-4px 0 14px}
+.eyebrow{font-size:10px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.spacer{margin-left:auto}
+
+.panelbox{background:var(--card);border:1px solid var(--rule);border-radius:8px;box-shadow:var(--shadow-1)}
+.panelbox-pad{padding:16px 18px}
+
+/* ---- stat strip ---- */
+.strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));gap:1px;
+  background:var(--rule);border:1px solid var(--rule);border-radius:8px;overflow:hidden}
+.stat{background:var(--card);padding:13px 15px;display:flex;flex-direction:column;gap:3px}
+.stat-k{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.stat-v{font-size:26px;font-weight:600;line-height:1.1;letter-spacing:-.02em}
+.stat-c{font-size:11.5px;color:var(--ink-2)}
+
+/* ---- attention queue ---- */
+.queue{display:flex;flex-direction:column}
+.qrow{display:flex;gap:12px;align-items:center;padding:11px 16px 11px 13px;
+  border-bottom:1px solid var(--rule);border-left:3px solid var(--sev,var(--rule-strong))}
+.qrow:last-child{border-bottom:0}
+.qrow .qbody{min-width:0;flex:1}
+.qrow .qtitle{font-weight:600;font-size:13.5px}
+.qrow .qmeta{font-size:12px;color:var(--ink-2)}
+.qempty{padding:26px 16px;text-align:center;color:var(--ink-2);font-size:13px}
+
+/* ---- pills, chips, status ---- */
+.pill{display:inline-flex;align-items:center;gap:5px;border-radius:999px;padding:2px 9px 2px 7px;
+  font-size:11px;font-weight:600;white-space:nowrap;line-height:1.7}
+.pill svg{flex:none}
+.pill.good{background:var(--good-wash);color:var(--ink)}
+.pill.warning{background:var(--warning-wash);color:var(--ink)}
+.pill.serious{background:var(--serious-wash);color:var(--ink)}
+.pill.critical{background:var(--critical-wash);color:var(--ink)}
+.pill.neutral{background:var(--card-3);color:var(--ink-2)}
+.pill.accent{background:var(--accent-wash);color:var(--accent-ink)}
+.pill.signal{background:var(--signal-wash);color:var(--signal-ink)}
+.chip{display:inline-block;font-family:var(--font-mono);font-size:11px;padding:1px 6px;
+  border:1px solid var(--rule-strong);border-radius:4px;color:var(--ink-2);background:var(--card-2)}
+.code{font-family:var(--font-mono);font-size:12px;font-weight:500;letter-spacing:-.02em}
+
+/* ---- buttons ---- */
+.btn{appearance:none;border:1px solid var(--rule-strong);background:var(--card);border-radius:6px;
+  padding:6px 11px;font-size:12.5px;font-weight:600;cursor:pointer;color:var(--ink);
+  display:inline-flex;align-items:center;gap:6px;white-space:nowrap;transition:background .12s,border-color .12s}
+.btn:hover{background:var(--card-2);border-color:var(--muted)}
+.btn:disabled{opacity:.42;cursor:not-allowed}
+.btn:disabled:hover{background:var(--card);border-color:var(--rule-strong)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{background:var(--accent-ink);border-color:var(--accent-ink)}
+.btn.promo{background:var(--signal);border-color:var(--signal);color:#fff}
+.btn.promo:hover{background:var(--signal-ink);border-color:var(--signal-ink)}
+.btn.sm{padding:3px 8px;font-size:11.5px}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--ink-2)}
+.btn.ghost:hover{background:var(--card-3);color:var(--ink)}
+.stepper{display:inline-flex;align-items:center;border:1px solid var(--rule-strong);border-radius:6px;overflow:hidden;background:var(--card)}
+.stepper button{appearance:none;border:0;background:none;cursor:pointer;width:24px;height:26px;
+  font-size:14px;line-height:1;color:var(--ink-2);font-weight:600}
+.stepper button:hover{background:var(--card-3);color:var(--ink)}
+.stepper .n{min-width:34px;text-align:center;font-size:12.5px;font-weight:600;
+  font-variant-numeric:tabular-nums;border-inline:1px solid var(--rule)}
+
+/* ---- form controls ---- */
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.inp{border:1px solid var(--rule-strong);background:var(--card);border-radius:6px;padding:6px 9px;
+  font-size:13px;width:100%;min-width:0}
+.inp:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:var(--accent)}
+.filters{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:14px}
+.filters .field{min-width:132px}
+.filters .grow{flex:1;min-width:180px}
+.toggle{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:500;
+  color:var(--ink-2);cursor:pointer;padding-bottom:7px}
+.toggle input{accent-color:var(--accent);width:15px;height:15px;margin:0}
+.segmented{display:inline-flex;border:1px solid var(--rule-strong);border-radius:6px;overflow:hidden}
+.segmented button{appearance:none;border:0;background:var(--card);padding:5px 11px;font-size:12px;
+  font-weight:600;color:var(--ink-2);cursor:pointer}
+.segmented button+button{border-left:1px solid var(--rule-strong)}
+.segmented button[aria-pressed="true"]{background:var(--accent-wash);color:var(--accent-ink)}
+
+/* ---- tables ---- */
+.tblwrap{overflow-x:auto;border:1px solid var(--rule);border-radius:8px;background:var(--card);box-shadow:var(--shadow-1)}
+table.tbl{width:100%;border-collapse:collapse;min-width:680px}
+.tbl th{text-align:left;font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);
+  font-weight:700;padding:9px 12px;border-bottom:1px solid var(--rule);background:var(--card-2);white-space:nowrap}
+.tbl td{padding:9px 12px;border-bottom:1px solid var(--rule);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:0}
+.tbl tbody tr:hover{background:var(--card-2)}
+.tbl .num{text-align:right;font-variant-numeric:tabular-nums}
+.tbl .nowrap{white-space:nowrap}
+.rowbtn{appearance:none;background:none;border:0;padding:0;text-align:left;cursor:pointer;
+  font:inherit;color:inherit;font-weight:600}
+.rowbtn:hover{color:var(--accent-ink);text-decoration:underline;text-underline-offset:2px}
+.sub{font-size:11.5px;color:var(--muted)}
+
+/* ---- meters ---- */
+.meter{position:relative;height:8px;border-radius:999px;min-width:74px;
+  background:color-mix(in oklab, var(--meter,var(--accent)) 16%, var(--card));overflow:hidden}
+.meter>i{position:absolute;inset-block:0;left:0;background:var(--meter,var(--accent));
+  border-radius:0 4px 4px 0;display:block}
+.meter>u{position:absolute;inset-block:-2px;width:1px;background:var(--ink-2);opacity:.55}
+.meter-row{display:flex;align-items:center;gap:9px}
+.meter-lab{font-size:12px;font-variant-numeric:tabular-nums;color:var(--ink-2);white-space:nowrap}
+
+/* ---- cards for real objects ---- */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(268px,1fr));gap:12px}
+.icard{background:var(--card);border:1px solid var(--rule);border-radius:8px;padding:14px 15px;
+  display:flex;flex-direction:column;gap:9px;box-shadow:var(--shadow-1)}
+.icard.hot{border-color:var(--signal);box-shadow:var(--shadow-1),inset 3px 0 0 var(--signal)}
+.icard h3{font-size:14.5px;font-family:var(--font-ui);font-weight:700;letter-spacing:-.01em}
+.icard .why{font-size:12px;color:var(--ink-2)}
+.icard .foot{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto;padding-top:4px}
+.interest{display:flex;align-items:baseline;gap:6px}
+.interest b{font-size:22px;font-weight:600;letter-spacing:-.02em}
+.interest span{font-size:11.5px;color:var(--muted)}
+
+/* ---- charts ---- */
+.chartcard{background:var(--card);border:1px solid var(--rule);border-radius:8px;padding:16px 18px 12px;box-shadow:var(--shadow-1)}
+.chart-title{font-size:13.5px;font-weight:700}
+.chart-sub{font-size:12px;color:var(--ink-2);margin-top:2px;max-width:60ch}
+.chart-scroll{overflow-x:auto;margin-top:14px}
+svg .gridline{stroke:var(--grid);stroke-width:1}
+svg .axisline{stroke:var(--axis);stroke-width:1}
+svg text{font-family:var(--font-ui);fill:var(--muted)}
+svg text.val{fill:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+svg text.cat{fill:var(--ink-2)}
+.hit{fill:transparent;cursor:pointer}
+.tip{position:fixed;z-index:60;pointer-events:none;background:var(--card);border:1px solid var(--rule-strong);
+  border-radius:7px;padding:9px 11px;box-shadow:var(--shadow-2);font-size:12px;max-width:250px;opacity:0;transition:opacity .1s}
+.tip.on{opacity:1}
+.tip h4{font-size:12.5px;margin:0 0 5px;font-family:var(--font-ui);font-weight:700}
+.tip dl{display:grid;grid-template-columns:auto auto;gap:2px 12px;margin:0}
+.tip dt{color:var(--ink-2)}
+.tip dd{margin:0;text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+
+/* ---- slide-over ---- */
+.scrim{position:fixed;inset:0;background:rgba(10,16,14,.38);z-index:40;border:0;width:100%;padding:0}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(480px,100%);background:var(--card);z-index:50;
+  border-left:1px solid var(--rule);box-shadow:var(--shadow-2);display:flex;flex-direction:column}
+.drawer-head{padding:16px 18px;border-bottom:1px solid var(--rule);display:flex;gap:12px;align-items:flex-start}
+.drawer-head h2{font-size:16px;line-height:1.25}
+.drawer-body{padding:16px 18px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:18px}
+.drawer-foot{padding:12px 18px;border-top:1px solid var(--rule);display:flex;gap:8px;flex-wrap:wrap;background:var(--card-2)}
+.block{display:flex;flex-direction:column;gap:9px}
+.block>h3{font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);font-weight:700;font-family:var(--font-ui)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:12.5px}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;text-align:right;font-weight:500}
+.people{display:flex;flex-direction:column;border:1px solid var(--rule);border-radius:7px;overflow:hidden}
+.person{display:flex;align-items:center;gap:10px;padding:7px 10px;border-bottom:1px solid var(--rule);font-size:12.5px}
+.person:last-child{border-bottom:0}
+.person .pn{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.person .pos{font-family:var(--font-mono);font-size:11px;color:var(--muted);width:20px;flex:none}
+.scrolly{max-height:230px;overflow-y:auto}
+.searchres{border:1px solid var(--rule);border-radius:7px;max-height:190px;overflow-y:auto}
+.searchres:empty{display:none}
+
+/* ---- misc ---- */
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:70;
+  background:var(--ink);color:var(--paper);padding:9px 15px;border-radius:7px;font-size:12.5px;
+  font-weight:500;box-shadow:var(--shadow-2);max-width:min(440px,92vw)}
+.toast.warning{background:var(--warning);color:#231a05}
+.toast.critical{background:var(--critical);color:#fff}
+.empty{padding:40px 20px;text-align:center;color:var(--ink-2)}
+.empty h2{font-size:16px;margin-bottom:6px}
+.formula{font-family:var(--font-mono);font-size:11.5px;color:var(--ink-2);background:var(--card-2);
+  border:1px solid var(--rule);border-radius:6px;padding:8px 11px;overflow-x:auto;white-space:nowrap}
+.split{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:16px;align-items:start}
+@media (max-width:860px){.split{grid-template-columns:1fr}}
+.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+</style>
+
+<header class="masthead">
+  <div class="masthead-in">
+    <div class="mast-id">
+      <svg class="crest" viewBox="0 0 32 32" aria-hidden="true">
+        <path d="M16 2 3 7v10.5C3 24 9 29.3 16 31c7-1.7 13-7 13-13.5V7L16 2Z" fill="none" stroke="var(--accent)" stroke-width="1.6"/>
+        <path d="M8.5 13.5h15M8.5 18h15" stroke="var(--accent)" stroke-width="1.3" opacity=".55"/>
+        <path d="M16 9.2 10 11.6l6 2.4 6-2.4-6-2.4Z" fill="var(--accent)"/>
+        <path d="M16 22.8V16" stroke="var(--accent)" stroke-width="1.6"/>
+      </svg>
+      <div>
+        <div class="mast-name" id="mast-name">Halverson Ridge</div>
+        <div class="mast-sub" id="mast-sub">Office of the Registrar</div>
+      </div>
+    </div>
+    <div class="mast-facts" id="mast-facts"></div>
+  </div>
+</header>
+
+<main class="shell">
+  <nav class="tabs" role="tablist" aria-label="Console modules" id="tabs"></nav>
+  <div id="view"></div>
+</main>
+
+<div id="drawer-root"></div>
+<div id="toast-root"></div>
+<div class="tip" id="tip" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+/* =========================================================================
+   Halverson Ridge Registrar — a staff console for stockroom, registration,
+   and the demand signals that decide what gets promoted next term.
+   Records live in the artifact's shared store; every viewer sees the same
+   numbers and each other's edits as they happen.
+   ========================================================================= */
+
+const CLIENT_ID = 'sess-' + Math.random().toString(36).slice(2, 10);
+const WEEK_COUNT = 8;
+
+const state = {
+  db: null, connected: false, loaded: false,
+  tab: 'overview',
+  courses: [], inventory: [], initiatives: [], campaigns: [],
+  students: [], school: null, activity: [],
+  filters: { invCat: 'all', invAttn: false, invQ: '', regDept: 'all', regAttn: false, regQ: '' },
+  demandView: 'chart', trendCourse: null,
+  drawer: null,
+  pending: new Set()
+};
+
+/* ---------- small helpers ---------- */
+const $ = (sel, root) => (root || document).querySelector(sel);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => (
+  { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+const pct = n => Math.round(n * 100);
+const money = n => '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const plural = (n, one, many) => n + ' ' + (n === 1 ? one : (many || one + 's'));
+function shortDate(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso.length <= 10 ? iso + 'T12:00:00Z' : iso);
+  if (isNaN(d)) return '—';
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+}
+function daysAgo(iso) {
+  if (!iso) return null;
+  const d = new Date(iso.length <= 10 ? iso + 'T12:00:00Z' : iso);
+  if (isNaN(d)) return null;
+  return Math.round((Date.UTC(2026, 8, 12) - d.getTime()) / 86400000);
+}
+const ICONS = {
+  good:'<svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="5" fill="none" stroke="var(--good)" stroke-width="1.6"/><path d="M3.6 6.2 5.2 7.8 8.5 4.4" fill="none" stroke="var(--good)" stroke-width="1.6" stroke-linecap="round"/></svg>',
+  warning:'<svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="5" fill="var(--warning)"/><path d="M6 3.3v3.2" stroke="#231a05" stroke-width="1.6" stroke-linecap="round"/><circle cx="6" cy="8.7" r=".9" fill="#231a05"/></svg>',
+  serious:'<svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1.2 11 10.4H1L6 1.2Z" fill="var(--serious)"/><path d="M6 4.6v2.5" stroke="#2b1108" stroke-width="1.5" stroke-linecap="round"/><circle cx="6" cy="8.8" r=".85" fill="#2b1108"/></svg>',
+  critical:'<svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="5" fill="var(--critical)"/><path d="M4.2 4.2l3.6 3.6M7.8 4.2 4.2 7.8" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/></svg>',
+  rising:'<svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true"><path d="M1.5 9.5 4.5 5.8l2.2 2 3.8-5.1" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M7.7 2.7h2.8v2.8" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  seat:'<svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 5V2.8h7V5M1.6 5h8.8v3.2H1.6zM3 8.2v1.4M9 8.2v1.4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>',
+  box:'<svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1.4 10.6 3.6 6 5.8 1.4 3.6 6 1.4ZM1.4 3.6v4.8L6 10.6l4.6-2.2V3.6M6 5.8v4.8" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/></svg>',
+  megaphone:'<svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true"><path d="M1.6 4.6v2.8l5.6 2.4V2.2L1.6 4.6ZM7.2 3.4c1.6.5 1.6 5.2 0 5.6M3.4 7.6v2.2" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+};
+function pillHTML(kind, label) {
+  return '<span class="pill ' + kind + '">' + (ICONS[kind] || '') + esc(label) + '</span>';
+}
+
+/* ---------- derived: registration ---------- */
+const enrolledOf = c => (c.roster || []).filter(r => r.state === 'enrolled');
+const waitlistOf = c => (c.roster || []).filter(r => r.state === 'waitlist')
+  .sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : (a.sid < b.sid ? -1 : 1)));
+const seatsLeft = c => Math.max(0, (c.capacity || 0) - enrolledOf(c).length);
+
+/* Demand index — published so staff can argue with it, not a black box.
+   fill     enrolled / capacity                          weight .40
+   pressure waitlist / capacity                          weight .35
+   velocity signups in the last 2 weeks / (capacity×.6)   weight .25   */
+function demandOf(c) {
+  const cap = Math.max(1, c.capacity || 1);
+  const sig = c.signups || [];
+  const recent = sig.slice(-2).reduce((a, b) => a + (b || 0), 0);
+  const fill = clamp(enrolledOf(c).length / cap, 0, 1);
+  const pressure = clamp(waitlistOf(c).length / cap, 0, 1);
+  const velocity = clamp(recent / (cap * 0.6), 0, 1);
+  return {
+    score: Math.round(100 * (0.40 * fill + 0.35 * pressure + 0.25 * velocity)),
+    fill, pressure, velocity, recent
+  };
+}
+const DEMAND_BANDS = [
+  { min: 70, kind: 'critical', label: 'Over-subscribed' },
+  { min: 52, kind: 'serious',  label: 'High demand' },
+  { min: 32, kind: 'warning',  label: 'Healthy' },
+  { min: 0,  kind: 'good',     label: 'Seats to fill' }
+];
+const demandBand = score => DEMAND_BANDS.find(b => score >= b.min);
+
+/* ---------- derived: inventory ---------- */
+function stockOf(it) {
+  const par = Math.max(1, it.par || 1);
+  const ratio = (it.onHand || 0) / par;
+  let kind, label;
+  if ((it.onHand || 0) <= (it.reorderPoint || 0) * 0.55) { kind = 'critical'; label = 'Critical'; }
+  else if ((it.onHand || 0) <= (it.reorderPoint || 0)) { kind = 'serious'; label = 'Below reorder'; }
+  else if ((it.onHand || 0) <= (it.reorderPoint || 0) * 1.25) { kind = 'warning'; label = 'Watch'; }
+  else { kind = 'good'; label = 'Stocked'; }
+  return { kind, label, ratio: clamp(ratio, 0, 1), par, needs: kind === 'critical' || kind === 'serious' };
+}
+const meterColor = kind => kind === 'critical' ? 'var(--critical)' : kind === 'serious' ? 'var(--serious)'
+  : kind === 'warning' ? 'var(--warning)' : 'var(--accent)';
+const shortfall = it => Math.max(0, (it.par || 0) - (it.onHand || 0));
+
+/* ---------- derived: the attention queue ---------- */
+function attentionItems() {
+  const out = [];
+  state.courses.forEach(c => {
+    const d = demandOf(c), wl = waitlistOf(c).length;
+    if (wl >= c.capacity * 0.5) out.push({
+      sev: 'critical', rank: 100 + d.score,
+      title: c.title + ' has a waitlist deep enough for another section',
+      meta: plural(wl, 'student') + ' waiting · ' + pct(wl / c.capacity) + '% of a ' + c.capacity + '-seat section',
+      action: { label: 'Open a section', fn: () => openDrawer({ kind: 'section', code: c.code }) },
+      alt: { label: 'Roster', fn: () => openDrawer({ kind: 'roster', code: c.code }) }
+    });
+    else if (wl > 0) out.push({
+      sev: 'serious', rank: 60 + d.score,
+      title: c.title + ' is full with students still waiting',
+      meta: plural(wl, 'student') + ' on the waitlist · ' + c.capacity + ' seats',
+      action: { label: 'Open roster', fn: () => openDrawer({ kind: 'roster', code: c.code }) }
+    });
+    if (enrolledOf(c).length / Math.max(1, c.capacity) < 0.55) out.push({
+      sev: 'warning', rank: 30 - d.score,
+      title: c.title + ' is under-enrolled with add/drop closing',
+      meta: seatsLeft(c) + ' of ' + c.capacity + ' seats open · add/drop closes ' + shortDate(state.school && state.school.addDropCloses),
+      action: { label: 'Promote it', fn: () => openDrawer({ kind: 'campaign', target: c.code, targetKind: 'course' }) }
+    });
+  });
+  state.inventory.forEach(it => {
+    const s = stockOf(it);
+    if (!s.needs) return;
+    const linked = (it.linkedCourses || []).filter(code => state.courses.some(c => c.code === code));
+    out.push({
+      sev: s.kind, rank: s.kind === 'critical' ? 95 : 55,
+      title: it.name + ' is ' + (s.kind === 'critical' ? 'nearly out' : 'below its reorder point'),
+      meta: it.onHand + ' ' + it.unit + (it.onHand === 1 ? '' : 's') + ' on hand · reorder at ' + it.reorderPoint
+        + (linked.length ? ' · needed by ' + linked.join(', ') : ''),
+      action: {
+        label: it.requisitioned ? 'On requisition' : 'Add to requisition',
+        disabled: !!it.requisitioned,
+        fn: () => requisition(it.sku, true)
+      },
+      alt: { label: 'Open item', fn: () => openDrawer({ kind: 'item', sku: it.sku }) }
+    });
+  });
+  return out.sort((a, b) => b.rank - a.rank);
+}
+
+/* ---------- store wiring ---------- */
+async function connect() {
+  let db = null;
+  try { db = (window.claude && window.claude.use) ? await window.claude.use('db') : null; }
+  catch (e) { db = null; }
+  state.db = db;
+  state.connected = !!db;
+  if (!db) { state.loaded = true; render(); return; }
+
+  const onErr = e => {
+    if (e && e.code === 'revoked') { state.connected = false; render(); }
+    else if (e && e.code === 'resource_exhausted') toast('Too many live updates at once. Reload to resume.', 'warning');
+  };
+  const bind = (path, key, sort) => db.collection(path).onSnapshot(snap => {
+    state[key] = snap.docs.map(d => d.data()).filter(Boolean);
+    if (sort) state[key].sort(sort);
+    state.loaded = true;
+    render();
+  }, onErr);
+
+  bind('courses', 'courses', (a, b) => (a.order ?? 99) - (b.order ?? 99) || (a.code < b.code ? -1 : 1));
+  bind('inventory', 'inventory', (a, b) => (a.category < b.category ? -1 : a.category > b.category ? 1 : (a.name < b.name ? -1 : 1)));
+  bind('initiatives', 'initiatives', (a, b) => (b.interest || 0) - (a.interest || 0));
+  bind('campaigns', 'campaigns', (a, b) => (b.starts < a.starts ? -1 : 1));
+  db.doc('catalog/students').onSnapshot(s => { state.students = (s.data() || {}).list || []; render(); }, onErr);
+  db.doc('meta/school').onSnapshot(s => { state.school = s.data() || null; render(); }, onErr);
+  db.doc('meta/activity').onSnapshot(s => { state.activity = (s.data() || {}).entries || []; render(); }, onErr);
+}
+
+const ERR_TEXT = {
+  invalid_argument: 'That edit was refused by the record store. Nothing was saved.',
+  resource_exhausted: 'Too many edits at once. Wait a moment and try again.',
+  quota_exceeded: 'The record store is full. Delete something before adding more.',
+  unavailable: 'The record store did not answer. Try again.',
+  revoked: 'Your access to these records ended. Reload the page.',
+  not_granted: 'This view cannot write to the records.',
+  capability_disabled: 'This view cannot write to the records.'
+};
+function errText(e) { return (e && ERR_TEXT[e.code]) || 'That change did not save. Try again.'; }
+
+async function write(fn, okMsg) {
+  if (!state.db) { toast('Not connected to the records — nothing was saved.', 'warning'); return false; }
+  try { await fn(); if (okMsg) toast(okMsg); return true; }
+  catch (e) { toast(errText(e), e && e.code === 'unavailable' ? 'warning' : 'critical'); return false; }
+}
+
+/* A seat is a scarce thing: take a short lease so two staff registering at
+   the same moment can't both claim the last one. */
+async function mutateCourse(code, fn, okMsg) {
+  if (!state.db) { toast('Not connected to the records — nothing was saved.', 'warning'); return false; }
+  const ref = state.db.doc('courses/' + code);
+  try {
+    const lease = await ref.acquire({ holder: CLIENT_ID, ttlMs: 6000 });
+    if (!lease.acquired) {
+      toast('Someone else is editing this roster right now. Try again in a few seconds.', 'warning');
+      return false;
+    }
+    const snap = await ref.get();
+    if (!snap.exists) { toast('That class is no longer in the catalog.', 'critical'); return false; }
+    const body = JSON.parse(JSON.stringify(snap.data()));
+    const verdict = fn(body);
+    if (verdict === false) return false;
+    await ref.set(body);
+    if (okMsg) toast(typeof verdict === 'string' ? verdict : okMsg);
+    return true;
+  } catch (e) { toast(errText(e), 'critical'); return false; }
+}
+
+function logActivity(text, kind) {
+  if (!state.db) return;
+  const entry = { at: new Date().toISOString(), text, kind };
+  const next = [entry].concat(state.activity || []).slice(0, 40);
+  state.db.doc('meta/activity').set({ entries: next }).catch(() => {});
+}
+
+/* =========================== actions ================================== */
+
+async function registerStudent(code, sid) {
+  const st = state.students.find(s => s.sid === sid);
+  if (!st) return;
+  await mutateCourse(code, body => {
+    body.roster = body.roster || [];
+    if (body.roster.some(r => r.sid === sid)) { toast(st.name + ' is already on this roster.', 'warning'); return false; }
+    const seatFree = body.roster.filter(r => r.state === 'enrolled').length < (body.capacity || 0);
+    const entry = {
+      sid: st.sid, name: st.name, grade: st.grade,
+      state: seatFree ? 'enrolled' : 'waitlist',
+      at: new Date().toISOString().slice(0, 10)
+    };
+    body.roster.push(entry);
+    const sig = (body.signups || []).slice();
+    if (sig.length) sig[sig.length - 1] = (sig[sig.length - 1] || 0) + 1;
+    body.signups = sig;
+    const where = seatFree ? 'enrolled in' : 'added to the waitlist for';
+    logActivity(st.name + ' ' + where + ' ' + body.title + '.', 'registration');
+    return st.name + (seatFree
+      ? ' is enrolled — ' + (body.capacity - body.roster.filter(r => r.state === 'enrolled').length) + ' seats left.'
+      : ' joined the waitlist at position ' + body.roster.filter(r => r.state === 'waitlist').length + '.');
+  }, 'Registered.');
+}
+
+async function dropStudent(code, sid) {
+  await mutateCourse(code, body => {
+    const row = (body.roster || []).find(r => r.sid === sid);
+    if (!row) return false;
+    body.roster = body.roster.filter(r => r.sid !== sid);
+    logActivity(row.name + ' dropped from ' + body.title + '.', 'registration');
+    return row.name + ' was dropped from ' + body.title + '.';
+  }, 'Dropped.');
+}
+
+async function promoteFromWaitlist(code, sid) {
+  await mutateCourse(code, body => {
+    const enrolled = (body.roster || []).filter(r => r.state === 'enrolled').length;
+    if (enrolled >= (body.capacity || 0)) {
+      toast('No open seat. Raise the cap or drop someone first.', 'warning');
+      return false;
+    }
+    const row = (body.roster || []).find(r => r.sid === sid && r.state === 'waitlist');
+    if (!row) return false;
+    row.state = 'enrolled';
+    row.at = new Date().toISOString().slice(0, 10);
+    logActivity(row.name + ' moved off the waitlist into ' + body.title + '.', 'registration');
+    return row.name + ' took a seat in ' + body.title + '.';
+  }, 'Moved off the waitlist.');
+}
+
+async function setCapacity(code, next) {
+  await mutateCourse(code, body => {
+    const enrolled = (body.roster || []).filter(r => r.state === 'enrolled').length;
+    const cap = clamp(Math.round(next), 1, 120);
+    if (cap < enrolled) { toast('Cap cannot go below the ' + enrolled + ' students already enrolled.', 'warning'); return false; }
+    body.capacity = cap;
+    return 'Cap for ' + body.code + ' set to ' + cap + ' seats.';
+  }, 'Capacity updated.');
+}
+
+/* Opening a section is the capacity answer to demand: a new section letter,
+   seeded with the students who were waiting on the original. */
+async function openSection(code, opts) {
+  const src = state.courses.find(c => c.code === code);
+  if (!src) return;
+  const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
+  const used = state.courses.filter(c => c.code.split('.')[0] === code.split('.')[0] || c.title === src.title)
+    .map(c => c.section);
+  const section = letters.find(l => !used.includes(l)) || 'Z';
+  const newCode = src.code.split('.')[0] + '.' + section;
+  const move = clamp(parseInt(opts.move, 10) || 0, 0, waitlistOf(src).length);
+  const cap = clamp(parseInt(opts.capacity, 10) || src.capacity, 1, 120);
+  const movers = waitlistOf(src).slice(0, Math.min(move, cap));
+
+  const ok = await write(async () => {
+    await state.db.doc('courses/' + newCode).set({
+      code: newCode, title: src.title, dept: src.dept,
+      teacher: opts.teacher || src.teacher, period: parseInt(opts.period, 10) || src.period,
+      room: opts.room || src.room, section, term: src.term,
+      capacity: cap, status: 'open', isNew: true,
+      description: src.description, signups: new Array(WEEK_COUNT).fill(0),
+      roster: movers.map(r => ({ ...r, state: 'enrolled', at: new Date().toISOString().slice(0, 10) })),
+      fromInitiative: null, order: (src.order ?? 0) + 0.5
+    });
+  });
+  if (!ok) return;
+  if (movers.length) {
+    const ids = new Set(movers.map(r => r.sid));
+    await mutateCourse(code, body => { body.roster = (body.roster || []).filter(r => !ids.has(r.sid)); });
+  }
+  logActivity('Section ' + section + ' of ' + src.title + ' opened with ' + plural(movers.length, 'student') + ' moved off the waitlist.', 'registration');
+  closeDrawer();
+  state.tab = 'registration';
+  toast(newCode + ' created — ' + plural(movers.length, 'student') + ' moved in from the waitlist.');
+  render();
+}
+
+/* ---------- inventory ---------- */
+async function adjustStock(sku, delta) {
+  const it = state.inventory.find(i => i.sku === sku);
+  if (!it) return;
+  const next = Math.max(0, (it.onHand || 0) + delta);
+  await write(() => state.db.doc('inventory/' + sku).update({ onHand: next }));
+}
+async function countStock(sku, value) {
+  const it = state.inventory.find(i => i.sku === sku);
+  if (!it) return;
+  const n = Math.max(0, Math.round(Number(value)));
+  if (!isFinite(n)) { toast('Enter a whole number of ' + it.unit + 's.', 'warning'); return; }
+  const ok = await write(() => state.db.doc('inventory/' + sku)
+    .update({ onHand: n, lastCounted: new Date().toISOString().slice(0, 10) }),
+    it.name + ' counted: ' + n + ' on hand.');
+  if (ok) logActivity(it.name + ' counted: ' + n + ' ' + it.unit + (n === 1 ? '' : 's') + ' on hand.', 'inventory');
+}
+async function setItemField(sku, field, value) {
+  const n = Math.max(0, Math.round(Number(value)));
+  if (!isFinite(n)) return;
+  await write(() => state.db.doc('inventory/' + sku).update({ [field]: n }));
+}
+async function requisition(sku, on) {
+  const it = state.inventory.find(i => i.sku === sku);
+  if (!it) return;
+  const ok = await write(() => state.db.doc('inventory/' + sku).update({ requisitioned: !!on }),
+    on ? it.name + ' added to the requisition.' : it.name + ' removed from the requisition.');
+  if (ok && on) logActivity(it.name + ' added to the open requisition (' + shortfall(it) + ' ' + it.unit + 's to par).', 'inventory');
+}
+async function requisitionAllLow() {
+  const low = state.inventory.filter(i => stockOf(i).needs && !i.requisitioned);
+  if (!low.length) { toast('Nothing is below its reorder point.'); return; }
+  if (!state.db) { toast('Not connected to the records — nothing was saved.', 'warning'); return; }
+  const ok = await write(() => Promise.all(low.map(i =>
+    state.db.doc('inventory/' + i.sku).update({ requisitioned: true }))),
+    plural(low.length, 'item') + ' added to the requisition.');
+  if (ok) logActivity(plural(low.length, 'item') + ' below reorder added to the open requisition.', 'inventory');
+}
+async function addItem(form) {
+  const sku = (form.sku || '').trim().toUpperCase().replace(/[^A-Z0-9-]/g, '-');
+  if (!sku || !(form.name || '').trim()) { toast('An item needs a SKU and a name.', 'warning'); return; }
+  if (state.inventory.some(i => i.sku === sku)) { toast('SKU ' + sku + ' is already in the stockroom.', 'warning'); return; }
+  const ok = await write(() => state.db.doc('inventory/' + sku).set({
+    sku, name: form.name.trim(), category: form.category || 'Facilities',
+    unit: (form.unit || 'unit').trim(), onHand: Math.max(0, parseInt(form.onHand, 10) || 0),
+    reorderPoint: Math.max(0, parseInt(form.reorderPoint, 10) || 0),
+    par: Math.max(1, parseInt(form.par, 10) || 1),
+    location: (form.location || '').trim() || 'Main supply room',
+    supplier: (form.supplier || '').trim() || 'Central District Warehouse',
+    unitCost: Math.max(0, Number(form.unitCost) || 0),
+    lastCounted: new Date().toISOString().slice(0, 10),
+    linkedCourses: [], requisitioned: false
+  }), sku + ' added to the stockroom.');
+  if (ok) { closeDrawer(); logActivity(form.name.trim() + ' added to the stockroom.', 'inventory'); }
+}
+
+/* ---------- initiatives & promotion ---------- */
+async function bumpInterest(id, delta) {
+  const ini = state.initiatives.find(i => i.id === id);
+  if (!ini) return;
+  await write(() => state.db.doc('initiatives/' + id).update({ interest: Math.max(0, (ini.interest || 0) + delta) }));
+}
+const NEXT_STAGE = { proposed: 'piloting', piloting: 'approved', shelved: 'proposed' };
+async function advanceInitiative(id) {
+  const ini = state.initiatives.find(i => i.id === id);
+  if (!ini) return;
+  const next = NEXT_STAGE[ini.status] || 'approved';
+  const ok = await write(() => state.db.doc('initiatives/' + id).update({ status: next }),
+    ini.title + ' moved to ' + next + '.');
+  if (ok) logActivity(ini.title + ' moved from ' + ini.status + ' to ' + next + '.', 'promotion');
+}
+async function shelveInitiative(id) {
+  const ini = state.initiatives.find(i => i.id === id);
+  if (!ini) return;
+  const ok = await write(() => state.db.doc('initiatives/' + id).update({ status: 'shelved' }),
+    ini.title + ' shelved.');
+  if (ok) logActivity(ini.title + ' shelved for this term.', 'promotion');
+}
+async function addInitiative(form) {
+  if (!(form.title || '').trim()) { toast('Give the initiative a name.', 'warning'); return; }
+  let n = state.initiatives.length + 1, guard = 0;
+  let id = 'INIT-' + String(n).padStart(2, '0');
+  while (state.initiatives.some(i => i.id === id) && guard++ < 99) id = 'INIT-' + String(++n).padStart(2, '0');
+  const ok = await write(() => state.db.doc('initiatives/' + id).set({
+    id, title: form.title.trim(), kind: form.kind || 'Club',
+    proposedBy: (form.proposedBy || '').trim() || 'Registrar',
+    interest: Math.max(0, parseInt(form.interest, 10) || 0),
+    askCapacity: Math.max(1, parseInt(form.askCapacity, 10) || 20),
+    status: 'proposed', window: (form.window || '').trim() || 'Not scheduled',
+    note: (form.note || '').trim(), source: 'Logged in the console'
+  }), form.title.trim() + ' added to the demand board.');
+  if (ok) { closeDrawer(); logActivity(form.title.trim() + ' proposed as a new ' + (form.kind || 'Club') + '.', 'promotion'); }
+}
+
+/* Turning a popular initiative into a real, registerable class. */
+async function scheduleInitiative(id, form) {
+  const ini = state.initiatives.find(i => i.id === id);
+  if (!ini) return;
+  const code = (form.code || '').trim().toUpperCase().replace(/[^A-Z0-9.-]/g, '');
+  if (!/^[A-Z]{2,4}-\d{2,3}$/.test(code)) { toast('Use a course code like ART-150.', 'warning'); return; }
+  if (state.courses.some(c => c.code === code)) { toast(code + ' is already in the catalog.', 'warning'); return; }
+  const ok = await write(async () => {
+    await state.db.doc('courses/' + code).set({
+      code, title: ini.title, dept: form.dept || 'Career & Tech',
+      teacher: (form.teacher || '').trim() || ini.proposedBy.split(',')[0],
+      period: parseInt(form.period, 10) || 0,
+      room: (form.room || '').trim() || 'TBD', section: 'A', term: (state.school && state.school.term) || 'Fall 2026',
+      capacity: Math.max(1, parseInt(form.capacity, 10) || ini.askCapacity),
+      status: 'open', isNew: true, description: ini.note || '',
+      signups: new Array(WEEK_COUNT).fill(0), roster: [], fromInitiative: ini.id, order: 99
+    });
+    await state.db.doc('initiatives/' + id).update({ status: 'scheduled', scheduledAs: code });
+  }, ini.title + ' is on the schedule as ' + code + '.');
+  if (ok) {
+    logActivity(ini.title + ' scheduled as ' + code + ' after ' + ini.interest + ' interest signals.', 'promotion');
+    closeDrawer();
+    state.tab = 'registration';
+    render();
+  }
+}
+
+const CHANNELS = ['Morning bulletin', 'Homeroom slide', 'Family newsletter', 'Counselor outreach', 'Cafeteria poster'];
+async function createCampaign(form) {
+  if (!(form.headline || '').trim()) { toast('A campaign needs a headline.', 'warning'); return; }
+  const n = state.campaigns.length + 1;
+  let id = 'CMP-' + String(n).padStart(2, '0');
+  let guard = 0;
+  while (state.campaigns.some(c => c.id === id) && guard++ < 99) id = 'CMP-' + String(n + guard).padStart(2, '0');
+  const ok = await write(() => state.db.doc('campaigns/' + id).set({
+    id, target: form.target, targetKind: form.targetKind,
+    headline: form.headline.trim(), channel: form.channel || CHANNELS[0],
+    starts: form.starts, ends: form.ends, status: 'running', note: (form.note || '').trim()
+  }), 'Campaign scheduled on the ' + (form.channel || CHANNELS[0]).toLowerCase() + '.');
+  if (ok) {
+    logActivity('Campaign "' + form.headline.trim() + '" started on ' + (form.channel || CHANNELS[0]) + '.', 'promotion');
+    closeDrawer();
+    state.tab = 'demand';
+    render();
+  }
+}
+async function stopCampaign(id) {
+  const c = state.campaigns.find(x => x.id === id);
+  if (!c) return;
+  await write(() => state.db.doc('campaigns/' + id).update({ status: 'ended', ends: new Date().toISOString().slice(0, 10) }),
+    'Campaign ended.');
+}
+
+/* ============================ charts ================================== */
+let TIPS = [];
+function tipRef(html) { TIPS.push(html); return TIPS.length - 1; }
+
+function roundedBar(x0, y, x1, h, r) {
+  const w = x1 - x0;
+  if (w <= r + 1) return '<rect x="' + x0 + '" y="' + y + '" width="' + Math.max(1, w) + '" height="' + h + '"';
+  return '<path d="M' + x0 + ' ' + y + 'H' + (x1 - r) + 'a' + r + ' ' + r + ' 0 0 1 ' + r + ' ' + r
+    + 'V' + (y + h - r) + 'a' + r + ' ' + r + ' 0 0 1 ' + (-r) + ' ' + r + 'H' + x0 + 'Z"';
+}
+
+/* Ranked demand — one series, so one color for every bar and no legend box. */
+function demandChart(rows) {
+  const W = 700, padL = 176, padR = 52, padT = 26, padB = 6;
+  const rowH = 27, barH = 15;
+  const H = padT + rows.length * rowH + padB;
+  const x = v => padL + (v / 100) * (W - padL - padR);
+  let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" height="' + H
+    + '" style="min-width:560px;display:block" role="img" aria-label="Demand index by class, ranked">';
+  [0, 25, 50, 75, 100].forEach(t => {
+    s += '<line class="gridline" x1="' + x(t) + '" y1="' + (padT - 6) + '" x2="' + x(t) + '" y2="' + (H - padB) + '"/>';
+    s += '<text x="' + x(t) + '" y="' + (padT - 12) + '" font-size="10" text-anchor="middle">' + t + '</text>';
+  });
+  s += '<line class="axisline" x1="' + padL + '" y1="' + (padT - 6) + '" x2="' + padL + '" y2="' + (H - padB) + '"/>';
+  rows.forEach((r, i) => {
+    const y = padT + i * rowH, top = y + (rowH - barH) / 2;
+    const band = demandBand(r.d.score);
+    const tip = tipRef('<h4>' + esc(r.c.title) + '</h4><dl>'
+      + '<dt>Demand index</dt><dd>' + r.d.score + '</dd>'
+      + '<dt>Seats filled</dt><dd>' + pct(r.d.fill) + '%</dd>'
+      + '<dt>Waitlist vs cap</dt><dd>' + pct(r.d.pressure) + '%</dd>'
+      + '<dt>Last 2 weeks</dt><dd>' + plural(r.d.recent, 'signup') + '</dd>'
+      + '</dl><div style="margin-top:6px">' + pillHTML(band.kind, band.label) + '</div>');
+    const label = r.c.title.length > 25 ? r.c.title.slice(0, 24) + '…' : r.c.title;
+    s += '<text class="cat" x="' + (padL - 10) + '" y="' + (y + rowH / 2) + '" font-size="11.5" text-anchor="end" dominant-baseline="middle">' + esc(label) + '</text>';
+    s += roundedBar(padL, top, x(r.d.score), barH, 4) + ' fill="var(--accent)"/>';
+    s += '<text class="val" x="' + (x(r.d.score) + 7) + '" y="' + (y + rowH / 2) + '" font-size="11.5" dominant-baseline="middle">' + r.d.score + '</text>';
+    s += '<rect class="hit" x="0" y="' + y + '" width="' + W + '" height="' + rowH + '" tabindex="0" role="button"'
+      + ' aria-label="' + esc(r.c.title) + ', demand index ' + r.d.score + '. Show weekly signups."'
+      + ' data-tip="' + tip + '" data-act="trend" data-code="' + esc(r.c.code) + '"/>';
+  });
+  s += '</svg>';
+  return s;
+}
+
+/* Weekly signup trend for one class — single series, endpoint labelled. */
+function trendChart(c) {
+  const sig = (c.signups || []).slice(-WEEK_COUNT);
+  if (sig.length < 2) return '<p class="sub" style="margin:14px 0 4px">'
+    + 'No weekly signups recorded for this class yet — the trend appears once registration opens.</p>';
+  const W = 700, H = 188, padL = 34, padR = 54, padT = 16, padB = 28;
+  const max = Math.max(4, Math.ceil(Math.max.apply(null, sig.concat([0])) / 4) * 4);
+  const bw = (W - padL - padR) / Math.max(1, sig.length - 1);
+  const x = i => padL + i * bw;
+  const y = v => padT + (1 - v / max) * (H - padT - padB);
+  let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" height="' + H
+    + '" style="min-width:460px;display:block" role="img" aria-label="Weekly signups for ' + esc(c.title) + '">';
+  [0, max / 2, max].forEach(t => {
+    s += '<line class="gridline" x1="' + padL + '" y1="' + y(t) + '" x2="' + (W - padR) + '" y2="' + y(t) + '"/>';
+    s += '<text x="' + (padL - 8) + '" y="' + y(t) + '" font-size="10" text-anchor="end" dominant-baseline="middle">' + t + '</text>';
+  });
+  const line = sig.map((v, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ');
+  s += '<path d="' + line + ' L' + x(sig.length - 1).toFixed(1) + ' ' + y(0) + ' L' + padL + ' ' + y(0) + ' Z" fill="var(--accent)" opacity=".1"/>';
+  s += '<path d="' + line + '" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>';
+  s += '<line class="axisline" x1="' + padL + '" y1="' + y(0) + '" x2="' + (W - padR) + '" y2="' + y(0) + '"/>';
+  sig.forEach((v, i) => {
+    s += '<text x="' + x(i) + '" y="' + (H - padB + 15) + '" font-size="10" text-anchor="middle">W' + (i + 1) + '</text>';
+    const tip = tipRef('<h4>Week ' + (i + 1) + '</h4><dl><dt>Signups</dt><dd>' + v + '</dd>'
+      + '<dt>Class</dt><dd>' + esc(c.code) + '</dd></dl>');
+    s += '<rect class="hit" x="' + (x(i) - bw / 2) + '" y="' + padT + '" width="' + bw + '" height="' + (H - padT - padB)
+      + '" data-tip="' + tip + '"/>';
+  });
+  const last = sig.length - 1;
+  s += '<circle cx="' + x(last) + '" cy="' + y(sig[last]) + '" r="4.5" fill="var(--accent)" stroke="var(--card)" stroke-width="2"/>';
+  s += '<text class="val" x="' + (x(last) + 10) + '" y="' + y(sig[last]) + '" font-size="11.5" dominant-baseline="middle">'
+    + sig[last] + '/wk</text>';
+  s += '</svg>';
+  return s;
+}
+
+function meterHTML(ratio, kind, tick) {
+  return '<span class="meter" style="--meter:' + meterColor(kind) + '">'
+    + '<i style="width:' + clamp(ratio * 100, 0, 100).toFixed(1) + '%"></i>'
+    + (tick != null ? '<u style="left:' + clamp(tick * 100, 0, 100).toFixed(1) + '%"></u>' : '')
+    + '</span>';
+}
+
+/* ============================ renderers =============================== */
+const TABS = [
+  { id: 'overview', label: 'Overview' },
+  { id: 'inventory', label: 'Inventory' },
+  { id: 'registration', label: 'Registration' },
+  { id: 'demand', label: 'Demand & promotion' }
+];
+
+function renderMasthead() {
+  const sc = state.school;
+  $('#mast-name').textContent = (sc && sc.shortName) || 'Halverson Ridge';
+  $('#mast-sub').textContent = (sc && sc.registrar) || 'Office of the Registrar';
+  const enrolled = state.courses.reduce((a, c) => a + enrolledOf(c).length, 0);
+  const facts = [
+    ['Term', (sc && sc.term) || '—'],
+    ['Week', sc ? 'Week ' + sc.week + ' · ' + shortDate(sc.weekOf) : '—'],
+    ['Add/drop closes', sc ? shortDate(sc.addDropCloses) : '—'],
+    ['Seat assignments', enrolled.toLocaleString()]
+  ];
+  $('#mast-facts').innerHTML = facts.map(f =>
+    '<div class="fact"><span class="fact-k">' + esc(f[0]) + '</span><span class="fact-v">' + esc(f[1]) + '</span></div>'
+  ).join('') + '<div class="fact"><span class="fact-k">Records</span>'
+    + '<span class="live' + (state.connected ? '' : ' off') + '"><i></i>'
+    + (state.connected ? 'Live · shared' : 'Not connected') + '</span></div>';
+}
+
+function renderTabs() {
+  const counts = {
+    inventory: state.inventory.filter(i => stockOf(i).needs).length,
+    registration: state.courses.reduce((a, c) => a + waitlistOf(c).length, 0),
+    demand: state.initiatives.filter(i => i.status === 'proposed').length
+  };
+  $('#tabs').innerHTML = TABS.map(t =>
+    '<button class="tab" role="tab" id="tab-' + t.id + '" aria-selected="' + (state.tab === t.id) + '" data-act="tab" data-tab="' + t.id + '">'
+    + esc(t.label) + (counts[t.id] ? '<span class="count">' + counts[t.id] + '</span>' : '') + '</button>'
+  ).join('');
+}
+
+function renderOverview() {
+  const cs = state.courses;
+  const cap = cs.reduce((a, c) => a + (c.capacity || 0), 0);
+  const enrolled = cs.reduce((a, c) => a + enrolledOf(c).length, 0);
+  const waiting = cs.reduce((a, c) => a + waitlistOf(c).length, 0);
+  const fullClasses = cs.filter(c => waitlistOf(c).length > 0).length;
+  const low = state.inventory.filter(i => stockOf(i).needs);
+  const toPar = low.reduce((a, i) => a + shortfall(i) * (i.unitCost || 0), 0);
+  const dd = daysAgo(state.school && state.school.addDropCloses);
+  const ranked = cs.map(c => ({ c, d: demandOf(c) })).sort((a, b) => b.d.score - a.d.score);
+  const top = ranked[0];
+
+  const stats = [
+    ['Seats filled', cap ? pct(enrolled / cap) + '%' : '—', enrolled.toLocaleString() + ' of ' + cap.toLocaleString() + ' seats in ' + plural(cs.length, 'class', 'classes')],
+    ['Students waiting', String(waiting), waiting ? 'across ' + plural(fullClasses, 'full class', 'full classes') : 'no waitlists open'],
+    ['Below reorder', String(low.length), low.length ? money(toPar) + ' to bring back to par' : 'stockroom is at par'],
+    ['Add/drop closes', shortDate(state.school && state.school.addDropCloses), dd != null && dd < 0 ? Math.abs(dd) + ' days to move students' : 'window closed']
+  ];
+
+  const q = attentionItems();
+  const shown = q.slice(0, 7);
+
+  let h = '<section class="sec"><div class="strip">' + stats.map(s =>
+    '<div class="stat"><span class="stat-k">' + esc(s[0]) + '</span><span class="stat-v">' + esc(s[1])
+    + '</span><span class="stat-c">' + esc(s[2]) + '</span></div>').join('') + '</div></section>';
+
+  h += '<section class="sec"><div class="sec-head"><h2>Needs a decision today</h2>'
+    + '<span class="spacer"></span>'
+    + (low.length ? '<button class="btn sm" data-act="req-all">Requisition all ' + low.length + ' low items</button>' : '')
+    + '</div>'
+    + '<p class="sec-note">Ranked by how much a delay costs: a waitlist deep enough for its own section outranks a supply that is merely getting low.</p>'
+    + '<div class="panelbox queue">';
+  if (!shown.length) h += '<div class="qempty">Nothing is over capacity and nothing is below its reorder point.</div>';
+  shown.forEach((it, i) => {
+    h += '<div class="qrow" style="--sev:var(--' + it.sev + ')">'
+      + '<span>' + (ICONS[it.sev] || '') + '</span>'
+      + '<div class="qbody"><div class="qtitle">' + esc(it.title) + '</div><div class="qmeta">' + esc(it.meta) + '</div></div>'
+      + (it.alt ? '<button class="btn sm ghost" data-act="queue-alt" data-i="' + i + '">' + esc(it.alt.label) + '</button>' : '')
+      + '<button class="btn sm" data-act="queue" data-i="' + i + '"' + (it.action.disabled ? ' disabled' : '') + '>'
+      + esc(it.action.label) + '</button></div>';
+  });
+  h += '</div>';
+  if (q.length > shown.length) h += '<p class="sec-note" style="margin-top:10px">'
+    + (q.length - shown.length) + ' more sit below the line — the Inventory and Registration tabs list every one.</p>';
+  h += '</section>';
+
+  h += '<section class="sec"><div class="split">'
+    + '<div class="chartcard"><div class="chart-title">Where demand is concentrated</div>'
+    + '<div class="chart-sub">Demand index for the five classes students are pushing hardest on. Select one to see its weekly signups on the Demand tab.</div>'
+    + '<div class="chart-scroll">' + demandChart(ranked.slice(0, 5)) + '</div></div>'
+    + '<div class="panelbox panelbox-pad"><div class="eyebrow" style="margin-bottom:9px">Recent record changes</div>';
+  if (!state.activity.length) h += '<p class="sub">No changes logged yet.</p>';
+  else h += '<div style="display:flex;flex-direction:column;gap:9px">' + state.activity.slice(0, 6).map(a =>
+    '<div style="display:flex;gap:8px;font-size:12.5px"><span class="sub" style="width:44px;flex:none;font-variant-numeric:tabular-nums">'
+    + esc(shortDate(a.at)) + '</span><span>' + esc(a.text) + '</span></div>').join('') + '</div>';
+  h += '</div></div></section>';
+
+  if (top) h += '<section class="sec"><div class="panelbox panelbox-pad" style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">'
+    + '<span class="pill signal">' + ICONS.rising + 'Top of the demand board</span>'
+    + '<div style="flex:1;min-width:200px"><b>' + esc(top.c.title) + '</b> <span class="sub">scores ' + top.d.score
+    + ' — ' + pct(top.d.fill) + '% full with ' + plural(waitlistOf(top.c).length, 'student') + ' waiting.</span></div>'
+    + '<button class="btn promo" data-act="campaign" data-target="' + esc(top.c.code) + '" data-kind="course">' + ICONS.megaphone + 'Promote it</button>'
+    + '<button class="btn" data-act="section" data-code="' + esc(top.c.code) + '">Open a section</button>'
+    + '</div></section>';
+  return h;
+}
+
+function renderInventory() {
+  const cats = Array.from(new Set(state.inventory.map(i => i.category))).sort();
+  const f = state.filters;
+  const q = f.invQ.trim().toLowerCase();
+  const rows = state.inventory.filter(i =>
+    (f.invCat === 'all' || i.category === f.invCat)
+    && (!f.invAttn || stockOf(i).needs)
+    && (!q || (i.name + ' ' + i.sku + ' ' + i.location + ' ' + i.supplier).toLowerCase().includes(q)));
+  const req = state.inventory.filter(i => i.requisitioned);
+  const reqValue = req.reduce((a, i) => a + shortfall(i) * (i.unitCost || 0), 0);
+  const onHandValue = state.inventory.reduce((a, i) => a + (i.onHand || 0) * (i.unitCost || 0), 0);
+
+  let h = '<section class="sec"><div class="sec-head"><h2>Stockroom</h2>'
+    + '<span class="sub">' + plural(state.inventory.length, 'item') + ' · ' + money(onHandValue) + ' on hand</span>'
+    + '<span class="spacer"></span>'
+    + '<button class="btn sm" data-act="add-item">Add an item</button></div>'
+    + '<p class="sec-note">Counts are shared: an adjustment here is what the next person sees. The tick on each bar marks the reorder point, and items are tied to the classes that draw on them, so a spike in demand shows up here before the class runs short.</p>';
+
+  if (req.length) h += '<div class="panelbox panelbox-pad" style="margin-bottom:14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">'
+    + '<span class="pill accent">' + ICONS.box + 'Open requisition</span>'
+    + '<div style="flex:1;min-width:180px"><b>' + plural(req.length, 'line') + '</b> <span class="sub">— '
+    + money(reqValue) + ' to bring every flagged item up to par.</span></div>'
+    + '<button class="btn sm" data-act="req-view">Review lines</button></div>';
+
+  h += '<div class="filters">'
+    + '<div class="field"><label for="inv-cat">Category</label><select class="inp" id="inv-cat" data-act="filter" data-key="invCat">'
+    + '<option value="all">All categories</option>'
+    + cats.map(c => '<option value="' + esc(c) + '"' + (f.invCat === c ? ' selected' : '') + '>' + esc(c) + '</option>').join('')
+    + '</select></div>'
+    + '<div class="field grow"><label for="inv-q">Search</label>'
+    + '<input class="inp" id="inv-q" type="search" placeholder="Item, SKU, location or supplier" value="' + esc(f.invQ) + '" data-act="filter" data-key="invQ"></div>'
+    + '<label class="toggle" for="inv-attn"><input type="checkbox" id="inv-attn"' + (f.invAttn ? ' checked' : '')
+    + ' data-act="filter" data-key="invAttn">Only items needing attention</label>'
+    + '</div>';
+
+  h += '<div class="tblwrap"><table class="tbl"><caption class="visually-hidden">Stockroom items with on-hand counts, reorder points and status</caption><thead><tr>'
+    + '<th scope="col">Item</th><th scope="col">Category</th><th scope="col" class="num">On hand</th>'
+    + '<th scope="col">Level vs par</th><th scope="col" class="num">Reorder at</th>'
+    + '<th scope="col">Counted</th><th scope="col">Status</th><th scope="col"></th></tr></thead><tbody>';
+  if (!rows.length) h += '<tr><td colspan="8" class="empty">No item matches those filters.</td></tr>';
+  rows.forEach(it => {
+    const s = stockOf(it);
+    const linked = (it.linkedCourses || []);
+    const ago = daysAgo(it.lastCounted);
+    h += '<tr>'
+      + '<td><button class="rowbtn" data-act="item" data-sku="' + esc(it.sku) + '">' + esc(it.name) + '</button>'
+      + '<div class="sub"><span class="code">' + esc(it.sku) + '</span> · ' + esc(it.location)
+      + (linked.length ? ' · for ' + linked.map(c => '<span class="code">' + esc(c) + '</span>').join(' ') : '') + '</div></td>'
+      + '<td class="nowrap sub">' + esc(it.category) + '</td>'
+      + '<td class="num"><span class="stepper"><button data-act="stock" data-sku="' + esc(it.sku) + '" data-d="-1" aria-label="Remove one ' + esc(it.unit) + ' of ' + esc(it.name) + '">–</button>'
+      + '<span class="n">' + (it.onHand || 0) + '</span>'
+      + '<button data-act="stock" data-sku="' + esc(it.sku) + '" data-d="1" aria-label="Add one ' + esc(it.unit) + ' of ' + esc(it.name) + '">+</button></span></td>'
+      + '<td><span class="meter-row">' + meterHTML(s.ratio, s.kind, (it.reorderPoint || 0) / s.par)
+      + '<span class="meter-lab">' + (it.onHand || 0) + ' / ' + s.par + '</span></span></td>'
+      + '<td class="num">' + (it.reorderPoint || 0) + '</td>'
+      + '<td class="nowrap sub">' + shortDate(it.lastCounted) + (ago != null && ago > 10 ? ' <span class="sub">· ' + ago + 'd</span>' : '') + '</td>'
+      + '<td>' + pillHTML(s.kind, s.label) + '</td>'
+      + '<td class="nowrap">' + (it.requisitioned
+        ? '<button class="btn sm ghost" data-act="unreq" data-sku="' + esc(it.sku) + '">On requisition ✓</button>'
+        : '<button class="btn sm" data-act="req" data-sku="' + esc(it.sku) + '">Requisition</button>') + '</td>'
+      + '</tr>';
+  });
+  h += '</tbody></table></div></section>';
+  return h;
+}
+
+function renderRegistration() {
+  const f = state.filters;
+  const depts = Array.from(new Set(state.courses.map(c => c.dept))).sort();
+  const q = f.regQ.trim().toLowerCase();
+  const rows = state.courses.filter(c =>
+    (f.regDept === 'all' || c.dept === f.regDept)
+    && (!f.regAttn || waitlistOf(c).length > 0 || enrolledOf(c).length / Math.max(1, c.capacity) < 0.55)
+    && (!q || (c.code + ' ' + c.title + ' ' + c.teacher + ' ' + c.room).toLowerCase().includes(q)));
+
+  let h = '<section class="sec"><div class="sec-head"><h2>Class registration</h2>'
+    + '<span class="sub">' + (state.school ? esc(state.school.term) : '') + ' · '
+    + plural(state.courses.length, 'section') + '</span></div>'
+    + '<p class="sec-note">Open a class to work its roster. A full class takes the next student onto the waitlist rather than refusing them, and seats are leased while you register so two people at this screen cannot hand out the same one.</p>';
+
+  h += '<div class="filters">'
+    + '<div class="field"><label for="reg-dept">Department</label><select class="inp" id="reg-dept" data-act="filter" data-key="regDept">'
+    + '<option value="all">All departments</option>'
+    + depts.map(d => '<option value="' + esc(d) + '"' + (f.regDept === d ? ' selected' : '') + '>' + esc(d) + '</option>').join('')
+    + '</select></div>'
+    + '<div class="field grow"><label for="reg-q">Search</label>'
+    + '<input class="inp" id="reg-q" type="search" placeholder="Course code, title, teacher or room" value="' + esc(f.regQ) + '" data-act="filter" data-key="regQ"></div>'
+    + '<label class="toggle" for="reg-attn"><input type="checkbox" id="reg-attn"' + (f.regAttn ? ' checked' : '')
+    + ' data-act="filter" data-key="regAttn">Only classes off balance</label></div>';
+
+  h += '<div class="tblwrap"><table class="tbl"><caption class="visually-hidden">Class sections with seats filled, waitlist depth and demand index</caption><thead><tr>'
+    + '<th scope="col">Class</th><th scope="col">Teacher</th><th scope="col">Period</th>'
+    + '<th scope="col">Seats</th><th scope="col" class="num">Waitlist</th>'
+    + '<th scope="col" class="num">Demand</th><th scope="col"></th></tr></thead><tbody>';
+  if (!rows.length) h += '<tr><td colspan="7" class="empty">No class matches those filters.</td></tr>';
+  rows.forEach(c => {
+    const en = enrolledOf(c).length, wl = waitlistOf(c).length;
+    const ratio = en / Math.max(1, c.capacity);
+    const kind = wl > 0 ? 'critical' : ratio >= 0.9 ? 'warning' : ratio < 0.55 ? 'serious' : 'good';
+    const d = demandOf(c), band = demandBand(d.score);
+    h += '<tr>'
+      + '<td><button class="rowbtn" data-act="roster" data-code="' + esc(c.code) + '">' + esc(c.title) + '</button>'
+      + '<div class="sub"><span class="code">' + esc(c.code) + '</span> · ' + esc(c.dept)
+      + (c.isNew ? ' · <span class="pill signal" style="padding:0 6px">new this term</span>' : '') + '</div></td>'
+      + '<td class="nowrap sub">' + esc(c.teacher) + '</td>'
+      + '<td class="nowrap sub">' + (c.period ? 'P' + c.period : 'TBD') + ' · ' + esc(c.room) + '</td>'
+      + '<td><span class="meter-row">' + meterHTML(clamp(ratio, 0, 1), kind)
+      + '<span class="meter-lab">' + en + ' / ' + c.capacity + '</span></span></td>'
+      + '<td class="num">' + (wl ? '<b>' + wl + '</b>' : '<span class="sub">—</span>') + '</td>'
+      + '<td class="num">' + d.score + '<div>' + pillHTML(band.kind, band.label) + '</div></td>'
+      + '<td class="nowrap"><button class="btn sm" data-act="roster" data-code="' + esc(c.code) + '">Roster</button> '
+      + (wl > 0
+        ? '<button class="btn sm" data-act="section" data-code="' + esc(c.code) + '">Add section</button>'
+        : '<button class="btn sm ghost" data-act="campaign" data-target="' + esc(c.code) + '" data-kind="course">Promote</button>')
+      + '</td></tr>';
+  });
+  h += '</tbody></table></div></section>';
+  return h;
+}
+
+const STAGE_PILL = { proposed: ['neutral', 'Proposed'], piloting: ['accent', 'Piloting'], approved: ['good', 'Approved'], scheduled: ['good', 'On the schedule'], shelved: ['neutral', 'Shelved'] };
+
+function renderDemand() {
+  const ranked = state.courses.map(c => ({ c, d: demandOf(c) })).sort((a, b) => b.d.score - a.d.score);
+  const trend = state.courses.find(c => c.code === state.trendCourse) || (ranked[0] && ranked[0].c);
+  const live = state.campaigns.filter(c => c.status === 'running');
+
+  let h = '<section class="sec"><div class="sec-head"><h2>Demand &amp; promotion</h2><span class="spacer"></span>'
+    + '<div class="segmented" role="group" aria-label="Demand view">'
+    + '<button data-act="demand-view" data-v="chart" aria-pressed="' + (state.demandView === 'chart') + '">Chart</button>'
+    + '<button data-act="demand-view" data-v="table" aria-pressed="' + (state.demandView === 'table') + '">Table</button>'
+    + '</div></div>'
+    + '<p class="sec-note">One index, three signals, no black box: how full a class is, how many students are stacked behind it, and how fast signups are still arriving. Classes at the top earn a section or a slot in the bulletin; classes at the bottom need the promotion.</p>'
+    + '<div class="formula">demand = 100 × ( 0.40·seats_filled + 0.35·waitlist÷capacity + 0.25·signups_2wk÷(capacity×0.6) )</div>';
+
+  if (state.demandView === 'chart') {
+    h += '<div class="chartcard" style="margin-top:14px"><div class="chart-title">Demand index, every section</div>'
+      + '<div class="chart-sub">Select a bar to read its weekly signups below. Index runs 0–100.</div>'
+      + '<div class="chart-scroll">' + demandChart(ranked) + '</div></div>';
+  } else {
+    h += '<div class="tblwrap" style="margin-top:14px"><table class="tbl"><caption class="visually-hidden">Demand index and its three components for every section</caption><thead><tr>'
+      + '<th scope="col">Class</th><th scope="col" class="num">Demand</th><th scope="col">Band</th>'
+      + '<th scope="col" class="num">Seats filled</th><th scope="col" class="num">Waitlist ÷ cap</th>'
+      + '<th scope="col" class="num">Signups, 2 wk</th><th scope="col"></th></tr></thead><tbody>';
+    ranked.forEach(r => {
+      const band = demandBand(r.d.score);
+      h += '<tr><td><span class="code">' + esc(r.c.code) + '</span> ' + esc(r.c.title) + '</td>'
+        + '<td class="num"><b>' + r.d.score + '</b></td><td>' + pillHTML(band.kind, band.label) + '</td>'
+        + '<td class="num">' + pct(r.d.fill) + '%</td><td class="num">' + pct(r.d.pressure) + '%</td>'
+        + '<td class="num">' + r.d.recent + '</td>'
+        + '<td class="nowrap"><button class="btn sm ghost" data-act="trend" data-code="' + esc(r.c.code) + '">Signups</button></td></tr>';
+    });
+    h += '</tbody></table></div>';
+  }
+
+  if (trend) {
+    const d = demandOf(trend);
+    h += '<div class="chartcard" style="margin-top:14px"><div style="display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap">'
+      + '<div><div class="chart-title">Weekly signups — ' + esc(trend.title) + '</div>'
+      + '<div class="chart-sub">Registration requests per week of term, including students who landed on the waitlist.</div></div>'
+      + '<span class="spacer"></span>'
+      + '<button class="btn sm promo" data-act="campaign" data-target="' + esc(trend.code) + '" data-kind="course">' + ICONS.megaphone + 'Promote this class</button>'
+      + '</div><div class="chart-scroll">' + trendChart(trend) + '</div>'
+      + '<p class="sub" style="margin:2px 0 6px">' + plural(d.recent, 'signup') + ' in the last two weeks · '
+      + pct(d.fill) + '% of ' + trend.capacity + ' seats filled · ' + plural(waitlistOf(trend).length, 'student') + ' waiting</p></div>';
+  }
+  h += '</section>';
+
+  h += '<section class="sec"><div class="sec-head"><h2>Initiatives students are asking for</h2><span class="spacer"></span>'
+    + '<button class="btn sm" data-act="add-init">Log an initiative</button></div>'
+    + '<p class="sec-note">Interest signals come off the September survey, waitlist rollover and counselor intake. An initiative that clears the bar gets a pilot; a pilot that holds gets a course code and shows up in registration.</p>'
+    + '<div class="cards">';
+  if (!state.initiatives.length) h += '<div class="empty">No initiative has been logged yet.</div>';
+  state.initiatives.forEach(i => {
+    const sp = STAGE_PILL[i.status] || ['neutral', i.status];
+    const hot = (i.interest || 0) >= 60 && i.status !== 'scheduled' && i.status !== 'shelved';
+    h += '<article class="icard' + (hot ? ' hot' : '') + '">'
+      + '<div style="display:flex;gap:8px;align-items:flex-start"><h3 style="flex:1">' + esc(i.title) + '</h3>'
+      + pillHTML(sp[0], sp[1]) + '</div>'
+      + '<div class="interest"><b>' + (i.interest || 0) + '</b><span>interest signals · asks for ' + (i.askCapacity || 0) + ' seats</span></div>'
+      + '<div class="why">' + esc(i.note || '') + '</div>'
+      + '<div class="sub">' + esc(i.kind) + ' · ' + esc(i.window || 'Not scheduled') + ' · ' + esc(i.proposedBy)
+      + (i.scheduledAs ? ' · now <span class="code">' + esc(i.scheduledAs) + '</span>' : '') + '</div>'
+      + '<div class="foot">'
+      + '<button class="btn sm" data-act="interest" data-id="' + esc(i.id) + '" data-d="1" aria-label="Record one more interest signal for ' + esc(i.title) + '">+1 interest</button>'
+      + (i.status === 'scheduled' ? '' : '<button class="btn sm" data-act="advance" data-id="' + esc(i.id) + '">'
+        + (i.status === 'shelved' ? 'Revive' : i.status === 'proposed' ? 'Start a pilot' : 'Approve') + '</button>')
+      + ((i.status === 'piloting' || i.status === 'approved') ? '<button class="btn sm primary" data-act="schedule" data-id="' + esc(i.id) + '">Give it a course code</button>' : '')
+      + '<button class="btn sm promo" data-act="campaign" data-target="' + esc(i.id) + '" data-kind="initiative">' + ICONS.megaphone + 'Promote</button>'
+      + (i.status === 'shelved' || i.status === 'scheduled' ? '' : '<button class="btn sm ghost" data-act="shelve" data-id="' + esc(i.id) + '">Shelve</button>')
+      + '</div></article>';
+  });
+  h += '</div></section>';
+
+  h += '<section class="sec"><div class="sec-head"><h2>Promotion running now</h2>'
+    + '<span class="sub">' + plural(live.length, 'campaign') + ' live</span></div>';
+  if (!state.campaigns.length) h += '<div class="panelbox"><div class="qempty">Nothing is being promoted. Pick a class with seats to fill and write it a line.</div></div>';
+  else {
+    h += '<div class="tblwrap"><table class="tbl" style="min-width:600px"><thead><tr>'
+      + '<th scope="col">Headline</th><th scope="col">Goes out on</th><th scope="col">Runs</th>'
+      + '<th scope="col">Promoting</th><th scope="col"></th></tr></thead><tbody>';
+    state.campaigns.forEach(c => {
+      const tc = state.courses.find(x => x.code === c.target);
+      const ti = state.initiatives.find(x => x.id === c.target);
+      const name = tc ? tc.title : ti ? ti.title : c.target;
+      h += '<tr><td><b>' + esc(c.headline) + '</b>' + (c.note ? '<div class="sub">' + esc(c.note) + '</div>' : '') + '</td>'
+        + '<td class="nowrap sub">' + esc(c.channel) + '</td>'
+        + '<td class="nowrap sub">' + shortDate(c.starts) + ' – ' + shortDate(c.ends) + '</td>'
+        + '<td class="nowrap"><span class="code">' + esc(c.target) + '</span> <span class="sub">' + esc(name) + '</span></td>'
+        + '<td class="nowrap">' + (c.status === 'running'
+          ? '<button class="btn sm ghost" data-act="stop-campaign" data-id="' + esc(c.id) + '">End it</button>'
+          : pillHTML('good', 'Ended')) + '</td></tr>';
+    });
+    h += '</tbody></table></div>';
+  }
+  h += '</section>';
+  return h;
+}
+
+/* ============================ drawer ================================== */
+function openDrawer(d) { state.drawer = Object.assign({ form: {} }, d); render(); }
+function closeDrawer() { state.drawer = null; render(); }
+function dv(key, dflt) {
+  const f = state.drawer && state.drawer.form || {};
+  return f[key] !== undefined ? f[key] : (dflt === undefined ? '' : dflt);
+}
+function fld(key, label, opts) {
+  const o = opts || {};
+  const id = 'df-' + key;
+  return '<div class="field"><label for="' + id + '">' + esc(label) + '</label>'
+    + '<input class="inp" id="' + id + '" data-form="' + key + '" type="' + (o.type || 'text') + '"'
+    + (o.placeholder ? ' placeholder="' + esc(o.placeholder) + '"' : '')
+    + (o.min != null ? ' min="' + o.min + '"' : '') + (o.max != null ? ' max="' + o.max + '"' : '')
+    + ' value="' + esc(dv(key, o.value)) + '"></div>';
+}
+function sel(key, label, options, current) {
+  const id = 'df-' + key;
+  return '<div class="field"><label for="' + id + '">' + esc(label) + '</label>'
+    + '<select class="inp" id="' + id + '" data-form="' + key + '">'
+    + options.map(o => '<option value="' + esc(o) + '"' + (dv(key, current) === o ? ' selected' : '') + '>' + esc(o) + '</option>').join('')
+    + '</select></div>';
+}
+const today = () => new Date(Date.UTC(2026, 8, 12)).toISOString().slice(0, 10);
+const plusDays = n => { const d = new Date(Date.UTC(2026, 8, 12)); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+
+function drawerContent() {
+  const d = state.drawer;
+  if (!d) return null;
+
+  if (d.kind === 'roster') {
+    const c = state.courses.find(x => x.code === d.code);
+    if (!c) return { title: 'Class not found', body: '<p class="sub">That section is no longer in the catalog.</p>', foot: '' };
+    const en = enrolledOf(c), wl = waitlistOf(c);
+    const left = seatsLeft(c);
+    const dd = demandOf(c), band = demandBand(dd.score);
+    const q = (d.q || '').trim().toLowerCase();
+    const onRoster = new Set((c.roster || []).map(r => r.sid));
+    const matches = q
+      ? state.students.filter(s => !onRoster.has(s.sid) &&
+        (s.name.toLowerCase().includes(q) || s.sid.toLowerCase().includes(q) || s.homeroom.toLowerCase().includes(q))).slice(0, 8)
+      : [];
+
+    let body = '<div class="block"><dl class="kv">'
+      + '<dt>Course code</dt><dd><span class="code">' + esc(c.code) + '</span></dd>'
+      + '<dt>Teacher</dt><dd>' + esc(c.teacher) + '</dd>'
+      + '<dt>Meets</dt><dd>' + (c.period ? 'Period ' + c.period : 'Unscheduled') + ' in ' + esc(c.room) + '</dd>'
+      + '<dt>Department</dt><dd>' + esc(c.dept) + '</dd>'
+      + '<dt>Demand index</dt><dd>' + dd.score + ' &nbsp;' + pillHTML(band.kind, band.label) + '</dd>'
+      + '</dl>'
+      + (c.description ? '<p class="sub" style="margin:0">' + esc(c.description) + '</p>' : '') + '</div>';
+
+    body += '<div class="block"><h3>Seats</h3>'
+      + '<span class="meter-row">' + meterHTML(clamp(en.length / Math.max(1, c.capacity), 0, 1), wl.length ? 'critical' : left ? 'good' : 'warning')
+      + '<span class="meter-lab">' + en.length + ' of ' + c.capacity + ' · ' + (left ? plural(left, 'seat') + ' open' : 'full') + '</span></span>'
+      + '<div style="display:flex;align-items:center;gap:9px"><span class="sub">Section cap</span>'
+      + '<span class="stepper"><button data-act="cap" data-code="' + esc(c.code) + '" data-d="-1" aria-label="Lower the cap">–</button>'
+      + '<span class="n">' + c.capacity + '</span>'
+      + '<button data-act="cap" data-code="' + esc(c.code) + '" data-d="1" aria-label="Raise the cap">+</button></span></div></div>';
+
+    body += '<div class="block"><h3>Register a student</h3>'
+      + '<input class="inp" id="stu-q" type="search" placeholder="Search the ' + state.students.length + '-student directory by name, ID or homeroom" value="' + esc(d.q || '') + '" data-act="stu-q">'
+      + '<div class="searchres">' + matches.map(s =>
+        '<div class="person"><span class="pn">' + esc(s.name) + '</span>'
+        + '<span class="sub nowrap">Gr ' + s.grade + ' · ' + esc(s.homeroom) + '</span>'
+        + '<button class="btn sm' + (left ? ' primary' : '') + '" data-act="enroll" data-code="' + esc(c.code) + '" data-sid="' + esc(s.sid) + '">'
+        + (left ? 'Enroll' : 'Waitlist') + '</button></div>').join('') + '</div>'
+      + (q && !matches.length ? '<p class="sub">No student matches “' + esc(d.q) + '” who is not already on this roster.</p>' : '')
+      + (!q ? '<p class="sub">' + (left ? plural(left, 'seat') + ' open — a match enrolls straight away.' : 'This section is full, so the next student joins the waitlist at position ' + (wl.length + 1) + '.') + '</p>' : '')
+      + '</div>';
+
+    body += '<div class="block"><h3>Enrolled · ' + en.length + '</h3><div class="people scrolly">'
+      + (en.length ? en.map(r => '<div class="person"><span class="pn">' + esc(r.name) + '</span>'
+        + '<span class="sub nowrap">Gr ' + r.grade + ' · ' + shortDate(r.at) + '</span>'
+        + '<button class="btn sm ghost" data-act="drop" data-code="' + esc(c.code) + '" data-sid="' + esc(r.sid) + '">Drop</button></div>').join('')
+        : '<div class="person"><span class="sub">Nobody is enrolled yet.</span></div>') + '</div></div>';
+
+    if (wl.length) body += '<div class="block"><h3>Waitlist · ' + wl.length + ' in order</h3><div class="people scrolly">'
+      + wl.map((r, i) => '<div class="person"><span class="pos">' + (i + 1) + '</span><span class="pn">' + esc(r.name) + '</span>'
+        + '<span class="sub nowrap">Gr ' + r.grade + '</span>'
+        + '<button class="btn sm" data-act="promote" data-code="' + esc(c.code) + '" data-sid="' + esc(r.sid) + '"'
+        + (left ? '' : ' disabled title="No open seat — raise the cap or open a section"') + '>Give a seat</button>'
+        + '<button class="btn sm ghost" data-act="drop" data-code="' + esc(c.code) + '" data-sid="' + esc(r.sid) + '" aria-label="Remove ' + esc(r.name) + ' from the waitlist">Remove</button></div>').join('')
+      + '</div></div>';
+
+    const foot = (wl.length ? '<button class="btn primary" data-act="section" data-code="' + esc(c.code) + '">Open another section</button>' : '')
+      + '<button class="btn promo" data-act="campaign" data-target="' + esc(c.code) + '" data-kind="course">' + ICONS.megaphone + 'Promote this class</button>';
+    return { title: c.title, sub: '<span class="code">' + esc(c.code) + '</span> · section ' + esc(c.section || 'A') + ' · ' + esc(c.term || ''), body, foot };
+  }
+
+  if (d.kind === 'item') {
+    const it = state.inventory.find(x => x.sku === d.sku);
+    if (!it) return { title: 'Item not found', body: '<p class="sub">That SKU is no longer in the stockroom.</p>', foot: '' };
+    const s = stockOf(it);
+    const linked = (it.linkedCourses || []).map(code => state.courses.find(c => c.code === code)).filter(Boolean);
+    let body = '<div class="block">' + pillHTML(s.kind, s.label)
+      + '<span class="meter-row">' + meterHTML(s.ratio, s.kind, (it.reorderPoint || 0) / s.par)
+      + '<span class="meter-lab">' + it.onHand + ' of ' + s.par + ' ' + esc(it.unit) + 's at par</span></span>'
+      + '<dl class="kv"><dt>SKU</dt><dd><span class="code">' + esc(it.sku) + '</span></dd>'
+      + '<dt>Category</dt><dd>' + esc(it.category) + '</dd>'
+      + '<dt>Kept in</dt><dd>' + esc(it.location) + '</dd>'
+      + '<dt>Supplier</dt><dd>' + esc(it.supplier) + '</dd>'
+      + '<dt>Unit cost</dt><dd>' + money(it.unitCost || 0) + '</dd>'
+      + '<dt>Value on hand</dt><dd>' + money((it.onHand || 0) * (it.unitCost || 0)) + '</dd>'
+      + '<dt>Last counted</dt><dd>' + shortDate(it.lastCounted) + '</dd></dl></div>';
+
+    body += '<div class="block"><h3>Physical count</h3>'
+      + '<div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">'
+      + '<div class="field" style="flex:1;min-width:120px"><label for="df-count">Counted on the shelf</label>'
+      + '<input class="inp" id="df-count" type="number" min="0" data-form="count" value="' + esc(dv('count', String(it.onHand || 0))) + '"></div>'
+      + '<button class="btn primary" data-act="count" data-sku="' + esc(it.sku) + '">Record count</button></div>'
+      + '<p class="sub" style="margin:0">Recording a count stamps today’s date and replaces the running total.</p></div>';
+
+    body += '<div class="block"><h3>Thresholds</h3><div style="display:flex;gap:10px;flex-wrap:wrap">'
+      + '<div style="display:flex;flex-direction:column;gap:4px"><span class="fact-k">Reorder at</span>'
+      + '<span class="stepper"><button data-act="thresh" data-sku="' + esc(it.sku) + '" data-f="reorderPoint" data-d="-1" aria-label="Lower reorder point">–</button>'
+      + '<span class="n">' + (it.reorderPoint || 0) + '</span>'
+      + '<button data-act="thresh" data-sku="' + esc(it.sku) + '" data-f="reorderPoint" data-d="1" aria-label="Raise reorder point">+</button></span></div>'
+      + '<div style="display:flex;flex-direction:column;gap:4px"><span class="fact-k">Par level</span>'
+      + '<span class="stepper"><button data-act="thresh" data-sku="' + esc(it.sku) + '" data-f="par" data-d="-1" aria-label="Lower par level">–</button>'
+      + '<span class="n">' + (it.par || 0) + '</span>'
+      + '<button data-act="thresh" data-sku="' + esc(it.sku) + '" data-f="par" data-d="1" aria-label="Raise par level">+</button></span></div>'
+      + '</div><p class="sub" style="margin:0">Reorder point triggers the flag; par is what a full shelf looks like.</p></div>';
+
+    if (linked.length) body += '<div class="block"><h3>Classes drawing on this</h3>'
+      + '<div class="people">' + linked.map(c => '<div class="person"><span class="pn">' + esc(c.title) + '</span>'
+        + '<span class="sub nowrap">' + enrolledOf(c).length + ' enrolled</span>'
+        + '<button class="btn sm ghost" data-act="roster" data-code="' + esc(c.code) + '">Roster</button></div>').join('')
+      + '</div><p class="sub" style="margin:0">' + plural(linked.reduce((a, c) => a + enrolledOf(c).length, 0), 'student')
+      + ' depend on this item this term.</p></div>';
+
+    const foot = (it.requisitioned
+      ? '<button class="btn" data-act="unreq" data-sku="' + esc(it.sku) + '">Remove from requisition</button>'
+      : '<button class="btn primary" data-act="req" data-sku="' + esc(it.sku) + '">Add ' + shortfall(it) + ' to requisition</button>');
+    return { title: it.name, sub: esc(it.category) + ' · ' + esc(it.location), body, foot };
+  }
+
+  if (d.kind === 'section') {
+    const c = state.courses.find(x => x.code === d.code);
+    if (!c) return { title: 'Class not found', body: '', foot: '' };
+    const wl = waitlistOf(c);
+    let body = '<p class="sub" style="margin:0">' + esc(c.title) + ' is carrying ' + plural(wl.length, 'student')
+      + ' on its waitlist against a ' + c.capacity + '-seat cap. A second section takes them in registration order.</p>'
+      + '<div class="block"><h3>The new section</h3>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+      + fld('capacity', 'Seats', { type: 'number', min: 1, max: 120, value: String(c.capacity) })
+      + fld('period', 'Period', { type: 'number', min: 0, max: 9, value: String(c.period || 0) })
+      + fld('room', 'Room', { value: c.room })
+      + fld('teacher', 'Teacher', { value: c.teacher })
+      + '</div>'
+      + fld('move', 'Move this many off the waitlist', { type: 'number', min: 0, max: String(wl.length), value: String(Math.min(wl.length, c.capacity)) })
+      + '</div>';
+    if (wl.length) body += '<div class="block"><h3>First in line</h3><div class="people scrolly">'
+      + wl.slice(0, 8).map((r, i) => '<div class="person"><span class="pos">' + (i + 1) + '</span><span class="pn">' + esc(r.name)
+        + '</span><span class="sub nowrap">Gr ' + r.grade + '</span></div>').join('')
+      + '</div></div>';
+    return {
+      title: 'Open another section', sub: esc(c.title) + ' · <span class="code">' + esc(c.code) + '</span>', body,
+      foot: '<button class="btn primary" data-act="do-section" data-code="' + esc(c.code) + '">Create the section</button>'
+        + '<button class="btn ghost" data-act="close">Cancel</button>'
+    };
+  }
+
+  if (d.kind === 'campaign') {
+    const c = state.courses.find(x => x.code === d.target);
+    const i = state.initiatives.find(x => x.id === d.target);
+    const name = c ? c.title : i ? i.title : d.target;
+    let suggest = '', why = '';
+    if (c) {
+      const left = seatsLeft(c), wl = waitlistOf(c).length;
+      suggest = wl > 0
+        ? name + ' has a waitlist — ask us about the next section'
+        : plural(left, 'seat') + ' left in ' + name + (c.period ? ', period ' + c.period : '');
+      why = wl > 0
+        ? 'This class is full. Promotion here is about steering the overflow, not filling seats.'
+        : left + ' of ' + c.capacity + ' seats are open and add/drop closes ' + shortDate(state.school && state.school.addDropCloses) + '.';
+    } else if (i) {
+      suggest = name + ' is forming — ' + (i.interest || 0) + ' students have already asked for it';
+      why = 'An initiative at ' + (i.interest || 0) + ' signals, asking for ' + (i.askCapacity || 0) + ' seats.';
+    }
+    const body = '<p class="sub" style="margin:0">' + esc(why) + '</p>'
+      + '<div class="block">'
+      + '<div class="field"><label for="df-headline">Headline students will see</label>'
+      + '<textarea class="inp" id="df-headline" rows="2" data-form="headline">' + esc(dv('headline', suggest)) + '</textarea></div>'
+      + sel('channel', 'Goes out on', CHANNELS, CHANNELS[0])
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+      + fld('starts', 'Starts', { type: 'date', value: today() })
+      + fld('ends', 'Ends', { type: 'date', value: plusDays(14) })
+      + '</div>'
+      + '<div class="field"><label for="df-note">Internal note</label>'
+      + '<input class="inp" id="df-note" data-form="note" placeholder="Who is following up, and on what" value="' + esc(dv('note')) + '"></div>'
+      + '</div>';
+    return {
+      title: 'Promote ' + name, sub: '<span class="code">' + esc(d.target) + '</span> · ' + (c ? 'class' : 'initiative'), body,
+      foot: '<button class="btn promo" data-act="do-campaign" data-target="' + esc(d.target) + '" data-kind="' + esc(d.targetKind) + '">Schedule it</button>'
+        + '<button class="btn ghost" data-act="close">Cancel</button>'
+    };
+  }
+
+  if (d.kind === 'schedule') {
+    const i = state.initiatives.find(x => x.id === d.id);
+    if (!i) return { title: 'Initiative not found', body: '', foot: '' };
+    const depts = Array.from(new Set(state.courses.map(c => c.dept)));
+    const body = '<p class="sub" style="margin:0">' + esc(i.title) + ' collected ' + (i.interest || 0)
+      + ' interest signals and asks for ' + (i.askCapacity || 0) + ' seats. Give it a code and it becomes a registerable class.</p>'
+      + '<div class="block">'
+      + fld('code', 'Course code', { placeholder: 'e.g. TEC-140' })
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+      + sel('dept', 'Department', depts, depts[0] || 'Career & Tech')
+      + fld('capacity', 'Seats', { type: 'number', min: 1, max: 120, value: String(i.askCapacity || 20) })
+      + fld('period', 'Period', { type: 'number', min: 0, max: 9, value: '0' })
+      + fld('room', 'Room', { placeholder: 'TBD' })
+      + '</div>'
+      + fld('teacher', 'Teacher of record', { value: (i.proposedBy || '').split(',')[0] })
+      + '</div>';
+    return {
+      title: 'Put it on the schedule', sub: esc(i.title), body,
+      foot: '<button class="btn primary" data-act="do-schedule" data-id="' + esc(i.id) + '">Create the class</button>'
+        + '<button class="btn ghost" data-act="close">Cancel</button>'
+    };
+  }
+
+  if (d.kind === 'add-item') {
+    const cats = Array.from(new Set(state.inventory.map(i => i.category)));
+    const body = '<div class="block">'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+      + fld('sku', 'SKU', { placeholder: 'ART-BRS-12' })
+      + sel('category', 'Category', cats.length ? cats : ['Facilities'], cats[0] || 'Facilities')
+      + '</div>'
+      + fld('name', 'Item name', { placeholder: 'Bristle brush, size 12' })
+      + '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">'
+      + fld('onHand', 'On hand', { type: 'number', min: 0, value: '0' })
+      + fld('reorderPoint', 'Reorder at', { type: 'number', min: 0, value: '10' })
+      + fld('par', 'Par level', { type: 'number', min: 1, value: '24' })
+      + '</div>'
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+      + fld('unit', 'Unit', { value: 'unit' })
+      + fld('unitCost', 'Unit cost', { type: 'number', min: 0, value: '0' })
+      + '</div>'
+      + fld('location', 'Kept in', { placeholder: 'Main supply room' })
+      + fld('supplier', 'Supplier', { placeholder: 'Central District Warehouse' })
+      + '</div>';
+    return {
+      title: 'Add a stockroom item', sub: 'Counts start from what you enter here', body,
+      foot: '<button class="btn primary" data-act="do-add-item">Add to the stockroom</button>'
+        + '<button class="btn ghost" data-act="close">Cancel</button>'
+    };
+  }
+
+  if (d.kind === 'add-init') {
+    const body = '<div class="block">'
+      + fld('title', 'What students are asking for', { placeholder: 'Sunrise Coding Club' })
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'
+      + sel('kind', 'Shape', ['Club', 'Course section', 'Program'], 'Club')
+      + fld('interest', 'Interest signals so far', { type: 'number', min: 0, value: '0' })
+      + fld('askCapacity', 'Seats it asks for', { type: 'number', min: 1, value: '20' })
+      + fld('window', 'When it would meet', { placeholder: 'Tue/Thu 7:15a' })
+      + '</div>'
+      + fld('proposedBy', 'Proposed by', { placeholder: 'M. Delacroix, Career & Tech' })
+      + '<div class="field"><label for="df-note">Why it is worth a pilot</label>'
+      + '<textarea class="inp" id="df-note" rows="3" data-form="note">' + esc(dv('note')) + '</textarea></div>'
+      + '</div>';
+    return {
+      title: 'Log an initiative', sub: 'It lands on the demand board as proposed', body,
+      foot: '<button class="btn primary" data-act="do-add-init">Add to the board</button>'
+        + '<button class="btn ghost" data-act="close">Cancel</button>'
+    };
+  }
+
+  if (d.kind === 'requisition') {
+    const req = state.inventory.filter(i => i.requisitioned);
+    const total = req.reduce((a, i) => a + shortfall(i) * (i.unitCost || 0), 0);
+    const bySupplier = {};
+    req.forEach(i => { (bySupplier[i.supplier] = bySupplier[i.supplier] || []).push(i); });
+    let body = req.length ? '' : '<p class="sub" style="margin:0">Nothing is on the requisition yet.</p>';
+    Object.keys(bySupplier).sort().forEach(sup => {
+      const lines = bySupplier[sup];
+      body += '<div class="block"><h3>' + esc(sup) + '</h3><div class="people">'
+        + lines.map(i => '<div class="person"><span class="pn">' + esc(i.name)
+          + '<div class="sub"><span class="code">' + esc(i.sku) + '</span> · ' + i.onHand + ' on hand of ' + i.par + ' at par</div></span>'
+          + '<span class="sub nowrap">' + shortfall(i) + ' × ' + money(i.unitCost || 0) + '</span>'
+          + '<button class="btn sm ghost" data-act="unreq" data-sku="' + esc(i.sku) + '" aria-label="Remove ' + esc(i.name) + ' from the requisition">Remove</button></div>').join('')
+        + '</div><p class="sub" style="margin:0">' + money(lines.reduce((a, i) => a + shortfall(i) * (i.unitCost || 0), 0)) + ' from this supplier.</p></div>';
+    });
+    return {
+      title: 'Open requisition', sub: plural(req.length, 'line') + ' · ' + money(total) + ' to reach par', body,
+      foot: '<button class="btn ghost" data-act="close">Close</button>'
+    };
+  }
+  return null;
+}
+
+function renderDrawer() {
+  const root = $('#drawer-root');
+  const content = drawerContent();
+  if (!content) { root.innerHTML = ''; return; }
+  root.innerHTML = '<button class="scrim" data-act="close" aria-label="Close panel"></button>'
+    + '<aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">'
+    + '<div class="drawer-head"><div style="flex:1;min-width:0"><h2 id="drawer-title">' + esc(content.title) + '</h2>'
+    + (content.sub ? '<div class="sub" style="margin-top:3px">' + content.sub + '</div>' : '') + '</div>'
+    + '<button class="btn sm ghost" data-act="close" aria-label="Close panel">Close</button></div>'
+    + '<div class="drawer-body" id="drawer-body">' + content.body + '</div>'
+    + (content.foot ? '<div class="drawer-foot">' + content.foot + '</div>' : '')
+    + '</aside>';
+}
+
+/* ============================ shell =================================== */
+function notConnectedView() {
+  return '<div class="empty"><h2>These records are not open in this view</h2>'
+    + '<p class="sub" style="max-width:48ch;margin:0 auto">The stockroom counts, rosters and demand signals live with the published page. '
+    + 'Open it on claude.ai and they load here, shared with everyone else who has it open.</p></div>';
+}
+function emptyStoreView() {
+  return '<div class="empty"><h2>The term has no records yet</h2>'
+    + '<p class="sub" style="max-width:48ch;margin:0 auto">Nothing has been added to the stockroom or the catalog. '
+    + 'Add a stockroom item to get started.</p><p style="margin-top:14px">'
+    + '<button class="btn primary" data-act="add-item">Add an item</button></p></div>';
+}
+function renderView() {
+  if (!state.loaded) return '<div class="empty"><h2>Opening the term’s records…</h2></div>';
+  if (!state.connected) return notConnectedView();
+  if (!state.courses.length && !state.inventory.length) return emptyStoreView();
+  if (state.tab === 'inventory') return renderInventory();
+  if (state.tab === 'registration') return renderRegistration();
+  if (state.tab === 'demand') return renderDemand();
+  return renderOverview();
+}
+
+function snapFocus() {
+  const el = document.activeElement;
+  if (!el || !el.id) return null;
+  const o = { id: el.id };
+  try { if (typeof el.selectionStart === 'number') { o.s = el.selectionStart; o.e = el.selectionEnd; } } catch (e) {}
+  return o;
+}
+function restoreFocus(f) {
+  if (!f) return;
+  const el = document.getElementById(f.id);
+  if (!el) return;
+  try { el.focus({ preventScroll: true }); } catch (e) { return; }
+  if (f.s != null && el.setSelectionRange) { try { el.setSelectionRange(f.s, f.e); } catch (e) {} }
+}
+
+let rafPending = false;
+function render() {
+  if (rafPending) return;
+  rafPending = true;
+  requestAnimationFrame(() => {
+    rafPending = false;
+    const focus = snapFocus();
+    const scroll = $('#drawer-body') ? $('#drawer-body').scrollTop : 0;
+    TIPS = [];
+    renderMasthead();
+    renderTabs();
+    $('#view').innerHTML = renderView();
+    renderDrawer();
+    if ($('#drawer-body')) $('#drawer-body').scrollTop = scroll;
+    restoreFocus(focus);
+  });
+}
+
+/* ---------- toast ---------- */
+let toastTimer = null;
+function toast(msg, kind) {
+  const root = $('#toast-root');
+  root.innerHTML = '<div class="toast' + (kind ? ' ' + kind : '') + '" role="status">' + esc(msg) + '</div>';
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { root.innerHTML = ''; }, kind === 'critical' ? 6500 : 4200);
+}
+
+/* ---------- tooltips (hover and keyboard alike) ---------- */
+function showTip(idx, x, y) {
+  const tip = $('#tip');
+  if (tip.dataset.i !== String(idx)) { tip.innerHTML = TIPS[idx] || ''; tip.dataset.i = String(idx); }
+  tip.classList.add('on');
+  const r = tip.getBoundingClientRect();
+  let left = x + 14, top = y + 14;
+  if (left + r.width > innerWidth - 10) left = Math.max(10, x - r.width - 14);
+  if (top + r.height > innerHeight - 10) top = Math.max(10, y - r.height - 14);
+  tip.style.left = left + 'px';
+  tip.style.top = top + 'px';
+}
+function hideTip() { const t = $('#tip'); t.classList.remove('on'); t.dataset.i = ''; }
+document.addEventListener('mousemove', e => {
+  const el = e.target.closest && e.target.closest('[data-tip]');
+  if (!el) { if ($('#tip').classList.contains('on')) hideTip(); return; }
+  showTip(+el.getAttribute('data-tip'), e.clientX, e.clientY);
+}, { passive: true });
+document.addEventListener('focusin', e => {
+  const el = e.target.closest && e.target.closest('[data-tip]');
+  if (!el) { hideTip(); return; }
+  const r = el.getBoundingClientRect();
+  showTip(+el.getAttribute('data-tip'), r.left + Math.min(220, r.width / 2), r.bottom - 6);
+});
+document.addEventListener('mouseleave', hideTip);
+
+/* ---------- events ---------- */
+document.addEventListener('click', e => {
+  const t = e.target.closest && e.target.closest('[data-act]');
+  if (!t) return;
+  const a = t.getAttribute('data-act');
+  const g = k => t.getAttribute('data-' + k);
+  const num = k => parseInt(g(k), 10);
+
+  switch (a) {
+    case 'tab': state.tab = g('tab'); hideTip(); render(); break;
+    case 'close': closeDrawer(); break;
+    case 'demand-view': state.demandView = g('v'); render(); break;
+    case 'trend': state.trendCourse = g('code'); state.tab = 'demand'; hideTip(); render(); break;
+
+    case 'item': openDrawer({ kind: 'item', sku: g('sku') }); break;
+    case 'roster': openDrawer({ kind: 'roster', code: g('code') }); break;
+    case 'section': openDrawer({ kind: 'section', code: g('code') }); break;
+    case 'campaign': openDrawer({ kind: 'campaign', target: g('target'), targetKind: g('kind') }); break;
+    case 'schedule': openDrawer({ kind: 'schedule', id: g('id') }); break;
+    case 'add-item': openDrawer({ kind: 'add-item' }); break;
+    case 'add-init': openDrawer({ kind: 'add-init' }); break;
+    case 'req-view': openDrawer({ kind: 'requisition' }); break;
+
+    case 'stock': adjustStock(g('sku'), num('d')); break;
+    case 'count': countStock(g('sku'), dv('count')); break;
+    case 'thresh': {
+      const it = state.inventory.find(i => i.sku === g('sku'));
+      if (it) setItemField(it.sku, g('f'), Math.max(g('f') === 'par' ? 1 : 0, (it[g('f')] || 0) + num('d')));
+      break;
+    }
+    case 'req': requisition(g('sku'), true); break;
+    case 'unreq': requisition(g('sku'), false); break;
+    case 'req-all': requisitionAllLow(); break;
+
+    case 'enroll': registerStudent(g('code'), g('sid')); break;
+    case 'drop': dropStudent(g('code'), g('sid')); break;
+    case 'promote': promoteFromWaitlist(g('code'), g('sid')); break;
+    case 'cap': {
+      const c = state.courses.find(x => x.code === g('code'));
+      if (c) setCapacity(c.code, (c.capacity || 0) + num('d'));
+      break;
+    }
+    case 'do-section': openSection(g('code'), state.drawer.form); break;
+    case 'do-campaign': createCampaign({
+      target: g('target'), targetKind: g('kind'),
+      headline: dv('headline', ($('#df-headline') || {}).value || ''),
+      channel: dv('channel', CHANNELS[0]),
+      starts: dv('starts', today()), ends: dv('ends', plusDays(14)), note: dv('note')
+    }); break;
+    case 'do-schedule': scheduleInitiative(g('id'), state.drawer.form); break;
+    case 'do-add-item': addItem(state.drawer.form); break;
+    case 'do-add-init': addInitiative(state.drawer.form); break;
+
+    case 'interest': bumpInterest(g('id'), num('d')); break;
+    case 'advance': advanceInitiative(g('id')); break;
+    case 'shelve': shelveInitiative(g('id')); break;
+    case 'stop-campaign': stopCampaign(g('id')); break;
+
+    case 'queue': case 'queue-alt': {
+      const item = attentionItems()[num('i')];
+      if (!item) break;
+      const act = a === 'queue' ? item.action : item.alt;
+      if (act && !act.disabled) act.fn();
+      break;
+    }
+  }
+});
+
+document.addEventListener('input', e => {
+  const el = e.target;
+  if (el.matches('[data-form]')) {
+    if (!state.drawer) return;
+    state.drawer.form[el.getAttribute('data-form')] = el.value;
+    return;  /* no re-render: keeps the caret where the typist left it */
+  }
+  if (el.matches('[data-act="stu-q"]')) { if (state.drawer) { state.drawer.q = el.value; render(); } return; }
+  if (el.matches('[data-act="filter"]')) {
+    const key = el.getAttribute('data-key');
+    state.filters[key] = el.type === 'checkbox' ? el.checked : el.value;
+    render();
+  }
+});
+document.addEventListener('change', e => {
+  const el = e.target;
+  if (el.matches('[data-form]') && state.drawer) state.drawer.form[el.getAttribute('data-form')] = el.value;
+  if (el.matches('[data-act="filter"]')) {
+    const key = el.getAttribute('data-key');
+    state.filters[key] = el.type === 'checkbox' ? el.checked : el.value;
+    render();
+  }
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && state.drawer) { closeDrawer(); return; }
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('.hit[data-act]')) {
+    e.preventDefault();
+    e.target.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  }
+});
+
+/* ---------- boot ---------- */
+function start(carried) {
+  if (carried && carried.tab) {
+    state.tab = carried.tab;
+    if (carried.filters) Object.assign(state.filters, carried.filters);
+    if (carried.trendCourse) state.trendCourse = carried.trendCourse;
+  }
+  render();
+  connect();
+}
+try {
+  const hot = window.claude && window.claude.hot;
+  if (hot && hot.snapshot) hot.snapshot(() => ({ tab: state.tab, filters: state.filters, trendCourse: state.trendCourse }));
+  if (hot && hot.ready) hot.ready(start); else start((hot && hot.data) || {});
+} catch (e) { start({}); }
+</script>
