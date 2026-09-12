@@ -75,11 +75,12 @@ export function Overview({ onOpenStudent, onGoto, onChanged }: {
         </div>
         <p className="sec-note">
           Each agent reads its own corner of the school and proposes changes for you to approve —
-          it can never make one itself. Runs take a couple of minutes on the local model.
+          it can never make one itself. Give one a task in its own words, or leave the box blank to
+          run the sweep described in it. Runs take a couple of minutes on the local model.
         </p>
         <RuntimeNotice f={f} />
         <FleetMessages f={f} />
-        <FleetCards f={f} compact />
+        <FleetCards f={f} />
         {f.runs.length > 0 && (
           <div style={{ marginTop: 14 }}>
             <div className="eyebrow" style={{ marginBottom: 8 }}>Latest runs</div>
