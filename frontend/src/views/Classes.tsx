@@ -48,7 +48,7 @@ export function Classes({ onOpenStudent }: { onOpenStudent: (sid: string) => voi
                       <button className="rowbtn" onClick={() => setSelected(c.code)}>{c.title}</button>
                       <div className="sub">
                         <span className="code">{c.code}</span> · {c.dept} · {c.length === 'semester' ? 'Semester' : 'Year'} ·{' '}
-                        {c.enrolled}/{c.capacity} seats
+                        {c.enrolled}/{c.capacity} seats{c.waitlist > 0 && <> · {c.waitlist} waiting</>}
                       </div>
                     </td>
                     <td className="nowrap sub">{c.teacher}</td>

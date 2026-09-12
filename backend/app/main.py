@@ -4,7 +4,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
-from .db import Base, engine
+from .db import Base, SessionLocal, add_missing_columns, engine
+from .demand import backfill_signups
 from .routers import (agents, courses, documents, finance, interventions, inventory, meta,
                       scores, students, support)
 
@@ -14,6 +15,9 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    add_missing_columns()
+    with SessionLocal() as db:
+        backfill_signups(db)
     yield
 
 

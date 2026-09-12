@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from ..config import get_settings
 from ..models import Course, Enrollment, InventoryItem, Intervention, Proposal, Student
+from ..timetable import SchedulingError, open_section
 
 settings = get_settings()
 
@@ -48,40 +49,15 @@ def _apply_reorder_point(db: Session, p: Proposal) -> str:
 
 def _apply_new_section(db: Session, p: Proposal) -> str:
     code = p.payload["course_code"]
-    src = db.scalar(select(Course).where(Course.code == code))
-    if src is None:
-        raise ApplyError(f"{code} is no longer in the catalogue.")
-    room, period = p.payload["room"], int(p.payload["period"])
-    clash = [c.code for c in db.scalars(select(Course)).all()
-             if c.period == period and c.room == room]
-    if clash:
-        raise ApplyError(f"{room} is now taken in period {period} by {', '.join(clash)}. "
-                         "The timetable changed since this was proposed.")
-    letters = "BCDEF"
-    base = code.split(".")[0]
-    taken = {c.code for c in db.scalars(select(Course)).all()}
-    new_code = next((f"{base}.{l}" for l in letters if f"{base}.{l}" not in taken), None)
-    if new_code is None:
-        raise ApplyError(f"{base} already has every section letter in use.")
-
-    section = Course(code=new_code, title=src.title, dept=src.dept,
-                     teacher=p.payload.get("teacher") or src.teacher, period=period, room=room,
-                     capacity=max(1, int(p.payload.get("seats") or src.capacity)), term=src.term)
-    db.add(section)
-    db.flush()
-
-    want = max(0, int(p.payload.get("move_from_waitlist") or 0))
-    waiting = db.scalars(select(Enrollment).where(
-        Enrollment.course_id == src.id, Enrollment.status == "waitlist").order_by(Enrollment.id)).all()
-    moved = 0
-    for enr in waiting[:min(want, section.capacity)]:
-        if db.scalar(select(Enrollment).where(Enrollment.student_id == enr.student_id,
-                                              Enrollment.course_id == section.id)):
-            continue
-        enr.course_id = section.id
-        enr.status = "enrolled"
-        moved += 1
-    return f"Created {new_code} in {room}, period {period}, {section.capacity} seats — {moved} moved off the waitlist."
+    try:
+        section, moved = open_section(
+            db, code, period=int(p.payload["period"]), room=p.payload["room"],
+            teacher=p.payload.get("teacher"), capacity=p.payload.get("seats"),
+            move_from_waitlist=int(p.payload.get("move_from_waitlist") or 0))
+    except SchedulingError as e:
+        raise ApplyError(f"{e} The timetable may have changed since this was proposed.") from e
+    return (f"Created {section.code} in {section.room}, period {section.period}, "
+            f"{section.capacity} seats — {moved} moved off the waitlist.")
 
 
 def _apply_capacity_change(db: Session, p: Proposal) -> str:

@@ -209,6 +209,39 @@ catalog says P.E. is ungraded, while the gradebook still scores Personal Fitness
 
 ---
 
+## Class demand, and opening classes
+
+The **Class demand** tab ranks every class by the registrar console's published
+demand index, so both halves agree on what is popular:
+
+```
+demand = 100 × (0.40·seats filled + 0.35·waitlist÷capacity + 0.25·signups in 2 wk÷(capacity×0.6))
+over-subscribed 70+ · high demand 52+ · healthy 32+ · seats to fill below 32
+```
+
+Demand is pooled across a class's sections (`MAT-150`, `MAT-150.B`, …), so opening
+a section that absorbs the waitlist makes the class read as relieved. Each class
+gets a suggested action: open a section (waitlist ≥ half a section), add seats,
+promote, or review for next term (under-filled with signups cooling).
+
+**New class** and **Open a section** both refuse a room or teacher already booked
+in that period. `app/timetable.py` holds that rule, and the registrar agent's
+approved proposals go through the same code. A new section copies the catalog
+entry and takes students from the class's waitlist in the order they joined.
+
+```
+GET  /api/courses/demand             ranked classes, with the formula and bands
+GET  /api/courses/openings?period=3  rooms and teachers free that period
+POST /api/courses                    open a new class
+POST /api/courses/{code}/sections    open another section, optionally moving the waitlist
+```
+
+Weekly signups are stored on each course (`courses.signups`). An existing
+database gets the column at startup and is backfilled from `seed/`, with no
+reseed needed.
+
+---
+
 ## Reading documents about a student
 
 Open any student's record and upload a teacher note, report card, assessment or

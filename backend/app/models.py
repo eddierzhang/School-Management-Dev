@@ -58,6 +58,9 @@ class Course(Base):
     graded: Mapped[bool] = mapped_column(Boolean, default=True)
     catalog_page: Mapped[int | None] = mapped_column(Integer, nullable=True)
     legacy_title: Mapped[str] = mapped_column(String(120), default="")
+    # Students signing up per week of the term, oldest first — the velocity term
+    # of the demand index (app/demand.py).
+    signups: Mapped[list] = mapped_column(JSON, default=list)
 
     enrollments: Mapped[list[Enrollment]] = relationship(back_populates="course", cascade="all, delete-orphan")
     assessments: Mapped[list[Assessment]] = relationship(back_populates="course", cascade="all, delete-orphan")

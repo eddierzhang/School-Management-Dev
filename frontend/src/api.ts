@@ -1,4 +1,5 @@
 import type {
+  DemandReport, NewClass, NewSection, Opened, Openings,
   AgentRun, CourseDetail, CourseRow, Fleet, Intervention, InventoryDetail, InventoryPatch,
   InventoryRow, NewIntervention, ProposalRow, Recommendation, Requisition, SkillGap,
   StockroomSummary, StudentDetail, Anomaly, BudgetLine, BudgetLineDetail, BudgetTransferRow,
@@ -51,6 +52,12 @@ export const api = {
   student: (sid: string) => req<StudentDetail>(`/students/${encodeURIComponent(sid)}`),
   courses: () => req<CourseRow[]>('/courses'),
   course: (code: string) => req<CourseDetail>(`/courses/${encodeURIComponent(code)}`),
+  demand: () => req<DemandReport>('/courses/demand'),
+  openings: (period: number) => req<Openings>('/courses/openings' + qs({ period })),
+  openClass: (body: NewClass) =>
+    req<Opened>('/courses', { method: 'POST', body: JSON.stringify(body) }),
+  openSection: (code: string, body: NewSection) =>
+    req<Opened>(`/courses/${encodeURIComponent(code)}/sections`, { method: 'POST', body: JSON.stringify(body) }),
   watchlist: (limit = 40, includeWatch = true) =>
     req<StudentDetail[]>('/watchlist' + qs({ limit, include_watch: includeWatch })),
   strengths: (limit = 40) => req<StudentDetail[]>('/strengths' + qs({ limit })),

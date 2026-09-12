@@ -110,6 +110,7 @@ export interface CourseRow {
   room: string
   enrolled: number
   capacity: number
+  waitlist: number
   class_mean: number | null
   below_support: number
   excelling: number
@@ -397,6 +398,7 @@ export interface StudentDocumentDetail extends StudentDocumentRow {
   text: string
 }
 
+
 /* ---- finance ---- */
 
 export interface Commitment { source: string; sku: string; name: string; amount: number }
@@ -481,4 +483,79 @@ export interface FinanceSummary {
   anomalies: number
   flagged: number
   needs_attention: number
+}
+
+// ---- class demand -----------------------------------------------------------
+export type DemandAction = 'open-section' | 'raise-capacity' | 'promote' | 'review' | 'none'
+
+export interface SectionDemand {
+  code: string
+  teacher: string
+  period: number
+  room: string
+  capacity: number
+  enrolled: number
+  waitlist: number
+}
+
+export interface ClassDemand {
+  code: string
+  title: string
+  dept: string
+  sections: SectionDemand[]
+  enrolled: number
+  capacity: number
+  waitlist: number
+  signups: number[]
+  recent_signups: number
+  prior_signups: number
+  trend: 'rising' | 'falling' | 'level'
+  fill: number
+  pressure: number
+  velocity: number
+  score: number
+  kind: StatusKind
+  label: string
+  action: DemandAction
+  reasons: string[]
+}
+
+export interface DemandReport {
+  formula: string
+  bands: { min: number; kind: StatusKind; label: string }[]
+  classes: ClassDemand[]
+}
+
+export interface Openings {
+  period: number
+  free_rooms: string[]
+  free_teachers: string[]
+}
+
+export interface NewSection {
+  period: number
+  room: string
+  teacher?: string | null
+  capacity?: number | null
+  move_from_waitlist?: number
+}
+
+export interface NewClass {
+  code: string
+  title: string
+  dept: string
+  teacher: string
+  period: number
+  room: string
+  capacity: number
+  description?: string
+  length?: 'year' | 'semester'
+  credits?: number
+  prerequisite?: string
+}
+
+export interface Opened {
+  course: CourseRow
+  moved_from_waitlist: number
+  message: string
 }

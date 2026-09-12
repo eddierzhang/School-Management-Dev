@@ -238,6 +238,9 @@ def test_new_section_moves_students_off_the_waitlist(db):
             for enr in db.scalars(select(Enrollment).where(Enrollment.course_id == new.id)).all():
                 enr.course_id = src.id
                 enr.status = "waitlist"
+            # Autoflush is off: without this, deleting the section cascades to the
+            # enrollments just moved back, and the waitlist loses those students.
+            db.flush()
             db.delete(new)
             db.commit()
 

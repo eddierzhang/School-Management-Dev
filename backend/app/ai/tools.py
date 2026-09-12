@@ -20,6 +20,7 @@ from ..analytics import build_signals, skill_gaps
 from ..config import get_settings
 from ..models import Course, Enrollment, InventoryItem, Intervention, Student
 from ..stock import cost_to_par, short_by, status_of
+from ..timetable import clashes
 from .toolkit import Tool, ToolError
 
 settings = get_settings()
@@ -181,10 +182,10 @@ def propose_new_section(db: Session, ctx: dict, course_code: str, period: int, r
     if waiting == 0:
         raise ToolError(f"{code} has nobody on its waitlist, so a second section has no one to take. "
                         "Call list_waitlist_pressure to find sections that do.")
-    clash = [c.code for c in db.scalars(select(Course)).all() if c.period == period and c.room == room]
-    if clash:
-        raise ToolError(f"Room {room} is already used in period {period} by {', '.join(clash)}. "
-                        f"Call find_open_rooms(period={period}) for a free room.")
+    found = clashes(db, int(period), room, teacher or src.teacher)
+    if found:
+        raise ToolError("; ".join(found) + f". Call find_open_rooms(period={period}) for a free room, "
+                        "or pass a different teacher or period.")
     move = max(0, min(int(move_from_waitlist), waiting, int(seats)))
     return _propose(ctx, "new_section",
                     f"Open a second section of {src.title} ({code}) in {room}, period {period}", reason,

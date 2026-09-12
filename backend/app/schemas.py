@@ -106,6 +106,7 @@ class CourseRow(Base):
     room: str
     enrolled: int
     capacity: int
+    waitlist: int = 0
     class_mean: float | None = None
     below_support: int = 0
     excelling: int = 0
@@ -157,6 +158,85 @@ class CourseDetail(Base):
     students: list[CourseStudentRow]
     skills: list[SkillGapOut]
     distribution: list[DistributionBucket]
+
+
+# ---- demand and opening classes ---------------------------------------------
+class SectionDemandOut(Base):
+    code: str
+    teacher: str
+    period: int
+    room: str
+    capacity: int
+    enrolled: int
+    waitlist: int
+
+
+class ClassDemandOut(Base):
+    code: str
+    title: str
+    dept: str
+    sections: list[SectionDemandOut]
+    enrolled: int
+    capacity: int
+    waitlist: int
+    signups: list[int]
+    recent_signups: int
+    prior_signups: int
+    trend: str                  # rising | falling | level
+    fill: float
+    pressure: float
+    velocity: float
+    score: int
+    kind: str                   # the interface's status vocabulary
+    label: str                  # Over-subscribed | High demand | Healthy | Seats to fill
+    action: str                 # open-section | raise-capacity | promote | review | none
+    reasons: list[str]
+
+
+class DemandBandOut(BaseModel):
+    min: int
+    kind: str
+    label: str
+
+
+class DemandReport(BaseModel):
+    formula: str
+    bands: list[DemandBandOut]
+    classes: list[ClassDemandOut]
+
+
+class Openings(BaseModel):
+    period: int
+    free_rooms: list[str]
+    free_teachers: list[str]
+
+
+class SectionCreate(BaseModel):
+    period: int = Field(ge=0, le=8)
+    room: str = Field(min_length=1, max_length=32)
+    teacher: str | None = Field(default=None, max_length=120)
+    capacity: int | None = Field(default=None, ge=1, le=120)
+    move_from_waitlist: int = Field(default=0, ge=0)
+
+
+class ClassCreate(BaseModel):
+    code: str = Field(pattern=r"^[A-Za-z]{2,4}-\d{3}$")
+    title: str = Field(min_length=3, max_length=120)
+    dept: str = Field(min_length=2, max_length=60)
+    teacher: str = Field(min_length=2, max_length=120)
+    period: int = Field(ge=0, le=8)
+    room: str = Field(min_length=1, max_length=32)
+    capacity: int = Field(ge=1, le=120)
+    description: str = Field(default="", max_length=2000)
+    length: str = Field(default="semester", pattern="^(year|semester)$")
+    credits: float = Field(default=0.5, ge=0, le=2)
+    prerequisite: str = Field(default="None", max_length=200)
+
+
+class OpenedOut(BaseModel):
+    course: CourseRow
+    moved_from_waitlist: int = 0
+    message: str
 
 
 class InterventionOut(Base):
