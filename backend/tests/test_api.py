@@ -28,6 +28,15 @@ def test_summary_has_all_four_bands_populated(client):
 def test_students_list_and_filters(client):
     everyone = client.get("/api/students").json()
     assert len(everyone) == 60
+    # One list covers every band, so the students tab can monitor the whole school.
+    assert {s["band"] for s in everyone} == {"needs-plan", "watch", "steady", "excelling"}
+    assert all(s["strongest_course"] for s in everyone if s["course_count"])
+    assert all(s["standing"] == s["excel_index"] - s["struggle_index"] for s in everyone)
+    # Netting the two hides a student who has both, so the flag has to catch them.
+    assert any(s["mixed"] and s["band"] == "needs-plan" for s in everyone)
+
+    by_standing = client.get("/api/students", params={"sort": "standing"}).json()
+    assert by_standing[0]["standing"] <= by_standing[-1]["standing"]
     assert everyone[0]["struggle_index"] >= everyone[-1]["struggle_index"]
 
     watch = client.get("/api/students", params={"band": "needs-plan"}).json()

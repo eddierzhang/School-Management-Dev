@@ -65,6 +65,8 @@ class StudentRow(Base):
     homeroom: str
     struggle_index: int
     excel_index: int
+    standing: int
+    mixed: bool
     band: str
     absence_rate: float
     open_interventions: int
@@ -72,6 +74,8 @@ class StudentRow(Base):
     course_count: int = 0
     lowest_course: str | None = None
     lowest_pct: float | None = None
+    strongest_course: str | None = None
+    strongest_pct: float | None = None
 
 
 class StudentDetail(Base):
@@ -83,6 +87,8 @@ class StudentDetail(Base):
     guardian_email: str | None = None
     struggle_index: int
     excel_index: int
+    standing: int
+    mixed: bool
     band: str
     days_counted: int
     absences: int

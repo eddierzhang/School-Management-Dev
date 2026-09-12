@@ -106,6 +106,21 @@ button, input, select, textarea { font: inherit; color: inherit; }
 }
 .tab[aria-selected='true'] .count { background: var(--accent-wash); color: var(--accent-ink); }
 
+/* group filter: a row of toggle buttons with a live count each */
+.groupbar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.groupbtn {
+  appearance: none; border: 1px solid var(--rule-strong); background: var(--card); color: var(--ink-2);
+  border-radius: 999px; padding: 4px 6px 4px 11px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
+}
+.groupbtn:hover { color: var(--ink); border-color: var(--muted); }
+.groupbtn[aria-pressed='true'] { background: var(--accent-wash); border-color: var(--accent); color: var(--accent-ink); }
+.groupbtn .count {
+  font-size: 11px; font-variant-numeric: tabular-nums; background: var(--card-3); color: var(--ink-2);
+  border-radius: 999px; padding: 1px 7px;
+}
+.groupbtn[aria-pressed='true'] .count { background: var(--card); color: var(--accent-ink); }
+
 /* sections */
 .sec { margin-bottom: 34px; }
 .sec-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
@@ -192,6 +207,8 @@ table.tbl { width: 100%; border-collapse: collapse; min-width: 720px; }
 .meter > i { position: absolute; inset-block: 0; left: 0; background: var(--meter, var(--accent)); border-radius: 0 4px 4px 0; display: block; }
 .meter > u { position: absolute; inset-block: -2px; width: 1px; background: var(--ink-2); opacity: 0.55; }
 .meter-row { display: flex; align-items: center; gap: 9px; }
+.meter.standing { background: var(--card-3); }
+.meter.standing > i { border-radius: 0; }
 .meter-lab { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--ink-2); white-space: nowrap; }
 
 /* queue rows */

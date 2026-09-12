@@ -69,6 +69,10 @@ export interface StudentRow {
   homeroom: string
   struggle_index: number
   excel_index: number
+  /** excel_index - struggle_index, from -100 to +100 */
+  standing: number
+  /** a real concern and a real strength at once, which the standing score nets away */
+  mixed: boolean
   band: Band
   absence_rate: number
   open_interventions: number
@@ -76,6 +80,8 @@ export interface StudentRow {
   course_count: number
   lowest_course: string | null
   lowest_pct: number | null
+  strongest_course: string | null
+  strongest_pct: number | null
 }
 
 export interface StudentDetail {
@@ -87,6 +93,8 @@ export interface StudentDetail {
   guardian_email: string | null
   struggle_index: number
   excel_index: number
+  standing: number
+  mixed: boolean
   band: Band
   days_counted: number
   absences: number

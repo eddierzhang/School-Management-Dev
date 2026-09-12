@@ -11,23 +11,30 @@ import { Plans } from './views/Plans'
 import { SkillGaps } from './views/SkillGaps'
 import { Stockroom } from './views/Stockroom'
 import { Finance } from './views/Finance'
-import { Strengths, Watchlist } from './views/Watchlist'
+import { Students, type Group } from './views/Students'
 import { ErrorNote } from './components/ui'
 
-type Tab = 'overview' | 'watchlist' | 'strengths' | 'classes' | 'schedule' | 'demand' | 'skills' | 'plans'
+type Tab = 'overview' | 'students' | 'classes' | 'schedule' | 'demand' | 'skills' | 'plans'
   | 'stockroom' | 'finance' | 'agents'
 
-const TAB_IDS: Tab[] = ['overview', 'watchlist', 'strengths', 'classes', 'schedule', 'demand', 'skills', 'plans',
+const TAB_IDS: Tab[] = ['overview', 'students', 'classes', 'schedule', 'demand', 'skills', 'plans',
   'stockroom', 'finance', 'agents']
 
-/* The URL is the view: #/watchlist, #/classes, #/watchlist/S-1507 with a student
-   open. A support office bookmarks the watchlist and mails a colleague a link to
+/* The URL is the view: #/students, #/classes, #/students/S-1507 with a student
+   open. A support office bookmarks the list and mails a colleague a link to
    one student, so the address bar has to mean something. */
-function readHash(): { tab: Tab; sid: string | null } {
+
+// The struggling and excelling tabs were merged into #/students; old bookmarks
+// still land there, pre-filtered to the list they used to show.
+const LEGACY_TABS: Record<string, Group> = { watchlist: 'concern', strengths: 'strength' }
+
+function readHash(): { tab: Tab; sid: string | null; group?: Group } {
   const raw = window.location.hash.replace(/^#\/?/, '')
   const [first = '', second = ''] = raw.split('/')
+  const sid = second ? decodeURIComponent(second) : null
+  if (first in LEGACY_TABS) return { tab: 'students', sid, group: LEGACY_TABS[first] }
   const tab = (TAB_IDS as string[]).includes(first) ? (first as Tab) : 'overview'
-  return { tab, sid: second ? decodeURIComponent(second) : null }
+  return { tab, sid }
 }
 
 function writeHash(tab: Tab, sid: string | null) {
@@ -37,8 +44,7 @@ function writeHash(tab: Tab, sid: string | null) {
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'overview', label: 'Overview' },
-  { id: 'watchlist', label: 'Struggling' },
-  { id: 'strengths', label: 'Excelling' },
+  { id: 'students', label: 'Students' },
   { id: 'classes', label: 'Classes' },
   { id: 'schedule', label: 'Schedule' },
   { id: 'demand', label: 'Class demand' },
@@ -67,6 +73,7 @@ export default function App() {
   // everywhere else it is the open student.
   const [openSid, setOpenSid] = useState<string | null>(initial.tab === 'classes' ? null : initial.sid)
   const [openCode, setOpenCode] = useState<string | null>(initial.tab === 'classes' ? initial.sid : null)
+  const [studentGroup, setStudentGroup] = useState<Group>(initial.group ?? 'all')
   const [refresh, setRefresh] = useState(0)
   const summary = useApi(() => api.summary(), [refresh])
   const stock = useApi(() => api.stockroomSummary(), [refresh])
@@ -80,6 +87,7 @@ export default function App() {
     const onHash = () => {
       const h = readHash()
       setTab(h.tab)
+      if (h.group) setStudentGroup(h.group)
       if (h.tab === 'classes') { setOpenCode(h.sid); setOpenSid(null) } else setOpenSid(h.sid)
     }
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpenSid(null) }
@@ -94,8 +102,7 @@ export default function App() {
   const counts: Partial<Record<Tab, number>> = {
     ...(summary.data
       ? {
-          watchlist: summary.data.needs_plan + summary.data.watch,
-          strengths: summary.data.excelling,
+          students: summary.data.students,
           plans: summary.data.open_interventions,
         }
       : {}),
@@ -139,10 +146,14 @@ export default function App() {
         {summary.error && <ErrorNote error={summary.error} onRetry={summary.reload} />}
 
         {tab === 'overview' && (
-          <Overview onOpenStudent={setOpenSid} onGoto={(t) => setTab(t as Tab)} onChanged={bump} />
+          <Overview onOpenStudent={setOpenSid} onChanged={bump}
+            onGoto={(t) => {
+              if (t in LEGACY_TABS) { setStudentGroup(LEGACY_TABS[t]!); setTab('students') } else setTab(t as Tab)
+            }} />
         )}
-        {tab === 'watchlist' && <Watchlist key={refresh} onOpenStudent={setOpenSid} />}
-        {tab === 'strengths' && <Strengths key={refresh} onOpenStudent={setOpenSid} />}
+        {tab === 'students' && (
+          <Students refresh={refresh} group={studentGroup} onGroup={setStudentGroup} onOpenStudent={setOpenSid} />
+        )}
         {tab === 'schedule' && <Schedule key={refresh} onOpenStudent={setOpenSid} />}
         {tab === 'classes' && (
           <Classes key={refresh} code={openCode} onOpenStudent={setOpenSid}

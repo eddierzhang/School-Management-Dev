@@ -11,6 +11,7 @@ from ..schemas import InterventionOut, StudentDetail, StudentRow
 router = APIRouter(prefix="/students", tags=["students"])
 
 SORTS = {"struggle": lambda s: -s.struggle_index, "excel": lambda s: -s.excel_index,
+         "standing": lambda s: s.standing,
          "name": lambda s: s.name, "grade": lambda s: (s.grade, s.name)}
 
 
@@ -20,8 +21,8 @@ def list_students(
     grade: int | None = Query(None, ge=6, le=8),
     course: str | None = None,
     q: str | None = None,
-    sort: str = Query("struggle", pattern="^(struggle|excel|name|grade)$"),
-    limit: int = Query(200, ge=1, le=500),
+    sort: str = Query("struggle", pattern="^(struggle|excel|standing|name|grade)$"),
+    limit: int = Query(500, ge=1, le=500),
     sigs: dict[str, StudentSignal] = Depends(signals),
 ) -> list[StudentRow]:
     rows = list(sigs.values())
@@ -40,17 +41,21 @@ def list_students(
     out = []
     for s in rows[:limit]:
         worst = s.courses[0] if s.courses else None
+        best = max(s.courses, key=lambda c: (c.excel_index, c.pct), default=None)
         concerns = [r for r in s.reasons if r.kind == "concern"]
         strengths = [r for r in s.reasons if r.kind == "strength"]
         head = concerns[0] if concerns else (strengths[0] if strengths else None)
         out.append(StudentRow(
             sid=s.sid, name=s.name, grade=s.grade, homeroom=s.homeroom,
-            struggle_index=s.struggle_index, excel_index=s.excel_index, band=s.band,
+            struggle_index=s.struggle_index, excel_index=s.excel_index,
+            standing=s.standing, mixed=s.mixed, band=s.band,
             absence_rate=s.absence_rate, open_interventions=s.open_interventions,
             top_reason=head.label if head else None,
             course_count=len(s.courses),
             lowest_course=worst.course_code if worst else None,
             lowest_pct=min((c.pct for c in s.courses), default=None),
+            strongest_course=best.course_code if best else None,
+            strongest_pct=best.pct if best else None,
         ))
     return out
 

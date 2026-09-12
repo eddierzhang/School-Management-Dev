@@ -64,6 +64,17 @@ BAND_NEEDS_PLAN = 55
 BAND_WATCH = 35
 BAND_EXCELLING = 70
 
+# A "mixed" student has a real concern and a real strength at once. The single
+# standing score nets the two, which is exactly the case where netting hides
+# something, so the flag travels with the score.
+MIXED_STRUGGLE = BAND_WATCH
+MIXED_EXCEL = 60
+
+
+def standing(struggle: int, excel: int) -> int:
+    """One number from -100 (all concern) to +100 (all strength): excel - struggle."""
+    return excel - struggle
+
 
 @dataclass
 class Reason:
@@ -133,6 +144,14 @@ class StudentSignal:
     strongest_skills: list[SkillMastery] = field(default_factory=list)
     recommendations: list[Recommendation] = field(default_factory=list)
     open_interventions: int = 0
+
+    @property
+    def standing(self) -> int:
+        return standing(self.struggle_index, self.excel_index)
+
+    @property
+    def mixed(self) -> bool:
+        return self.struggle_index >= MIXED_STRUGGLE and self.excel_index >= MIXED_EXCEL
 
 
 # ---------------------------------------------------------------------------
