@@ -117,7 +117,7 @@ export default function App() {
           <div className="mast-id">
             <Crest />
             <div>
-              <div className="mast-name">{summary.data?.school ?? 'Halverson Ridge Middle School'}</div>
+              <div className="mast-name">{summary.data?.school ?? 'Halverson Ridge High School'}</div>
               <div className="mast-sub">Student support office</div>
             </div>
           </div>

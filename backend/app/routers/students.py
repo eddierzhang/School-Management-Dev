@@ -18,7 +18,7 @@ SORTS = {"struggle": lambda s: -s.struggle_index, "excel": lambda s: -s.excel_in
 @router.get("", response_model=list[StudentRow])
 def list_students(
     band: str | None = Query(None, pattern="^(needs-plan|watch|excelling|steady)$"),
-    grade: int | None = Query(None, ge=6, le=8),
+    grade: int | None = Query(None, ge=9, le=12),
     course: str | None = None,
     q: str | None = None,
     sort: str = Query("struggle", pattern="^(struggle|excel|standing|name|grade)$"),

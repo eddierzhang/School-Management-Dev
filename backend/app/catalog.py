@@ -1,4 +1,4 @@
-"""The 14 running sections, mapped to real courses in the course of study.
+"""Every running section, mapped to a real course in the course of study.
 
 Source: *2026-27 Upper School Course of Study* (The Harker School, June 2026).
 Page numbers are the printed ones. Section codes, teachers, rooms and periods
@@ -15,6 +15,11 @@ course — noted in `mapping`:
 
 Skill strands are renamed position by position, so the gradebook's existing
 scores carry over to the strand that replaces each one.
+
+Twelve more sections were added later straight from the same document, filling
+departments the first fourteen missed: English 1 and 3, World History 1, U.S.
+History, Algebra 2 & Trigonometry, AP Calculus AB, Physics, Chemistry,
+Programming, French 1, Economics and Psychology. Those map directly.
 """
 from __future__ import annotations
 
@@ -157,7 +162,129 @@ CATALOG: dict[str, dict] = {
         "skills": ["resistance training", "cardiovascular endurance", "flexibility", "workout design"],
         "cohort_gap": "flexibility",
     },
+    # --- Added sections (from the same course of study) ---------------------------
+    "ENG-101": {
+        "legacy_title": "English 1: The Study of Literary Genres", "mapping": "direct",
+        "title": "English 1: The Study of Literary Genres", "dept": "English", "page": 16,
+        "length": "year", "credits": 1.0, "prerequisite": "None", "uc_approved": True,
+        "description": "Grade 9 literature across genres: long and short fiction, memoir, drama and lyric "
+                       "poetry, with analytical essays, a personal narrative and researched writing.",
+        "skills": ["literary analysis", "analytical essay writing", "poetry", "revision"],
+        "cohort_gap": "analytical essay writing",
+    },
+    "ENG-301": {
+        "legacy_title": "English 3: A Survey of American Literature", "mapping": "direct",
+        "title": "English 3: A Survey of American Literature", "dept": "English", "page": 16,
+        "length": "year", "credits": 1.0, "prerequisite": "English 2 or Honors English 2", "uc_approved": True,
+        "description": "Major American authors in chronological order, making thematic connections across "
+                       "literary periods and honing critical reading and argumentation.",
+        "skills": ["close reading", "thematic connections", "literary terms", "argumentation"],
+        "cohort_gap": "argumentation",
+    },
+    "HIS-101": {
+        "legacy_title": "World History 1: Early Civilizations through the Renaissance", "mapping": "direct",
+        "title": "World History 1: Early Civilizations through the Renaissance",
+        "dept": "History and Social Science", "page": 24,
+        "length": "year", "credits": 1.0, "prerequisite": "None", "uc_approved": True,
+        "description": "World history from early river valley civilizations to 1600 C.E. across Europe, "
+                       "Africa, Asia and the Americas, with document evaluation, thesis construction and research.",
+        "skills": ["world religions", "document evaluation", "thesis construction", "political and economic systems"],
+        "cohort_gap": "thesis construction",
+    },
+    "HIS-301": {
+        "legacy_title": "United States History", "mapping": "direct",
+        "title": "United States History", "dept": "History and Social Science", "page": 25,
+        "length": "year", "credits": 1.0, "prerequisite": "Completion of grade 10 history requirement",
+        "uc_approved": True,
+        "description": "The history and culture of the United States from the colonial era to the present, "
+                       "with analytical essay writing and the evaluation of primary source documents.",
+        "skills": ["the Constitution and Bill of Rights", "industrialization", "civil rights movement",
+                   "primary source analysis"],
+        "cohort_gap": "primary source analysis",
+    },
+    "MAT-310": {
+        "legacy_title": "Algebra 2 & Trigonometry", "mapping": "direct",
+        "title": "Algebra 2 & Trigonometry", "dept": "Mathematics", "page": 33,
+        "length": "year", "credits": 1.0, "prerequisite": "Geometry", "uc_approved": True,
+        "description": "Functions studied algebraically, numerically and graphically: polynomial, rational, "
+                       "exponential and logarithmic, then radicals, complex numbers and trigonometric functions.",
+        "skills": ["polynomial functions", "exponential and logarithmic functions", "complex numbers",
+                   "trigonometric functions"],
+        "cohort_gap": "exponential and logarithmic functions",
+    },
+    "MAT-410": {
+        "legacy_title": "AP Calculus AB", "mapping": "direct",
+        "title": "AP Calculus AB", "dept": "Mathematics", "page": 34,
+        "length": "year", "credits": 1.0,
+        "prerequisite": "A- or better in Precalculus or Honors Precalculus, and departmental approval",
+        "uc_approved": True,
+        "description": "College-level calculus of one variable: limits, continuity, derivatives, integration, "
+                       "the fundamental theorem of calculus, and slope fields.",
+        "skills": ["limits and continuity", "derivatives", "applications of differentiation", "integration"],
+        "cohort_gap": "applications of differentiation",
+    },
+    "SCI-101": {
+        "legacy_title": "Physics", "mapping": "direct",
+        "title": "Physics", "dept": "Science", "page": 52,
+        "length": "year", "credits": 1.0, "prerequisite": "None", "uc_approved": True,
+        "description": "Conceptual introduction to motion, forces, momentum, energy, electric charge, circuits, "
+                       "magnetism and waves, built around lab activities and demonstrations.",
+        "skills": ["motion and forces", "energy and momentum", "circuits", "waves"],
+        "cohort_gap": "circuits",
+    },
+    "SCI-201": {
+        "legacy_title": "Chemistry", "mapping": "direct",
+        "title": "Chemistry", "dept": "Science", "page": 52,
+        "length": "year", "credits": 1.0, "prerequisite": "Physics or Honors Physics", "uc_approved": True,
+        "description": "Conceptual and quantitative chemistry: atomic theory, chemical bonding, acid-base "
+                       "behavior and oxidation-reduction, with many laboratory experiments.",
+        "skills": ["atomic theory", "chemical bonding", "acid-base behavior", "oxidation-reduction"],
+        "cohort_gap": "oxidation-reduction",
+    },
+    "TEC-140": {
+        "legacy_title": "Programming", "mapping": "direct",
+        "title": "Programming", "dept": "Computer Science", "page": 11,
+        "length": "semester", "credits": 0.5, "prerequisite": "Geometry or Honors Geometry", "uc_approved": True,
+        "description": "Algorithmic problem-solving and abstraction through object-oriented programming: "
+                       "classes, methods, inheritance, arrays and strings.",
+        "skills": ["decomposition", "classes and methods", "arrays", "inheritance"],
+        "cohort_gap": "inheritance",
+    },
+    "WLD-110": {
+        "legacy_title": "French 1", "mapping": "direct",
+        "title": "French 1", "dept": "Modern and Classical Languages", "page": 40,
+        "length": "year", "credits": 1.0, "prerequisite": "None", "uc_approved": True,
+        "description": "Basic elements of French and the cultures of the French-speaking world, through "
+                       "active communication, authentic materials and pair and group projects.",
+        "skills": ["listening", "speaking", "reading", "writing"],
+        "cohort_gap": "writing",
+    },
+    "BUS-110": {
+        "legacy_title": "Economics", "mapping": "direct",
+        "title": "Economics", "dept": "Business and Entrepreneurship", "page": 8,
+        "length": "semester", "credits": 0.5, "prerequisite": "Open to students in grades 10, 11 and 12",
+        "uc_approved": True,
+        "description": "Survey of micro- and macroeconomics: supply and demand, elasticity, market structures, "
+                       "the business cycle, monetary and fiscal policy, and personal finance.",
+        "skills": ["supply and demand", "elasticity", "market structures", "monetary and fiscal policy"],
+        "cohort_gap": "elasticity",
+    },
+    "SOC-210": {
+        "legacy_title": "Psychology", "mapping": "direct",
+        "title": "Psychology", "dept": "History and Social Science", "page": 29,
+        "length": "semester", "credits": 0.5, "prerequisite": "Completion of grade 9 history requirement",
+        "uc_approved": True,
+        "description": "Introductory psychology: personality and development theory, states of consciousness, "
+                       "abnormal psychology and therapy, learning and memory.",
+        "skills": ["personality theory", "states of consciousness", "learning and memory", "abnormal psychology"],
+        "cohort_gap": "abnormal psychology",
+    },
 }
+
+# Sections added after the original fourteen. The seed grades them on their own
+# random stream (seed.py), so the original sections' generated records don't move.
+ADDED_SECTIONS = frozenset({"ENG-101", "ENG-301", "HIS-101", "HIS-301", "MAT-310", "MAT-410",
+                            "SCI-101", "SCI-201", "TEC-140", "WLD-110", "BUS-110", "SOC-210"})
 
 SKILLS = {code: c["skills"] for code, c in CATALOG.items()}
 

@@ -42,7 +42,7 @@ def clean(db):
 # --- the snapshot -----------------------------------------------------------
 def test_every_class_is_read_and_the_neediest_come_first(db):
     rows = all_performance(db)
-    assert len(rows) == 14
+    assert len(rows) == 26
     order = {"needs-plan": 0, "watch": 1, "strong": 2, "no-data": 3}
     assert [order[r.status] for r in rows] == sorted(order[r.status] for r in rows)
     assert rows[0].status == "needs-plan" and rows[0].issues
@@ -166,7 +166,7 @@ def test_a_draft_waiting_for_approval_blocks_another(db, clean):
 
 def test_improvement_endpoints(client, db, clean):
     rows = client.get("/api/improvement").json()
-    assert len(rows) == 14 and rows[0]["status"] == "needs-plan"
+    assert len(rows) == 26 and rows[0]["status"] == "needs-plan"
     assert client.get("/api/courses/XXX-999/improvement").status_code == 404
     _pending(db, {k: GOOD[k] for k in GOOD})
     body = client.get("/api/courses/MAT-150/improvement").json()

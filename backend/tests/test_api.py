@@ -10,10 +10,10 @@ def test_health(client):
 def test_summary_bands_account_for_every_student(client):
     s = client.get("/api/summary").json()
     assert s["students"] == 60
-    assert s["courses"] == 14
+    assert s["courses"] == 26
     assert s["needs_plan"] + s["watch"] + s["excelling"] + s["steady"] == s["students"]
     assert sum(b["count"] for b in s["bands"]) == s["students"]
-    assert 0 < s["graded_assessments"] < 200
+    assert s["graded_assessments"] == 9 * s["courses"], "nine graded pieces per section so far"
     assert 0.7 < s["mean_attendance"] <= 1.0
     assert len(s["top_skill_gaps"]) > 0
 
@@ -42,8 +42,8 @@ def test_students_list_and_filters(client):
     watch = client.get("/api/students", params={"band": "needs-plan"}).json()
     assert watch and all(s["band"] == "needs-plan" for s in watch)
 
-    g7 = client.get("/api/students", params={"grade": 7}).json()
-    assert g7 and all(s["grade"] == 7 for s in g7)
+    g10 = client.get("/api/students", params={"grade": 10}).json()
+    assert len(g10) == 15 and all(s["grade"] == 10 for s in g10)
 
     in_course = client.get("/api/students", params={"course": "MAT-150"}).json()
     assert 0 < len(in_course) < 60
@@ -57,7 +57,7 @@ def test_students_list_and_filters(client):
 
 def test_students_list_rejects_bad_filters(client):
     assert client.get("/api/students", params={"band": "nonsense"}).status_code == 422
-    assert client.get("/api/students", params={"grade": 12}).status_code == 422
+    assert client.get("/api/students", params={"grade": 8}).status_code == 422, "a high school: grades 9-12"
 
 
 def test_student_detail_carries_reasons_and_recommendations(client):
@@ -79,7 +79,7 @@ def test_student_detail_unknown_sid(client):
 
 def test_courses_list_and_detail(client):
     courses = client.get("/api/courses").json()
-    assert len(courses) == 14
+    assert len(courses) == 26
     means = [c["class_mean"] for c in courses if c["class_mean"] is not None]
     assert means == sorted(means), "courses are ordered weakest-first"
 

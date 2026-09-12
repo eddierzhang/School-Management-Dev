@@ -16,9 +16,9 @@ from pathlib import Path
 
 HERE = Path(__file__).parent
 
-TITLE = "Teacher note — Talia Barnard (S-1507), Grade 7"
+TITLE = "Teacher note — Talia Barnard (S-1507), Grade 11"
 PARAGRAPHS = [
-    "FICTIONAL SAMPLE DOCUMENT. Halverson Ridge Middle School, Fall 2026, week 5. "
+    "FICTIONAL SAMPLE DOCUMENT. Halverson Ridge High School, Fall 2026, week 5. "
     "Written by S. Frankel (Algebra Foundations) with input from L. Moreau (Digital Photography).",
 
     "Algebra. Talia can usually carry out each step of a problem on its own, but she loses track "
