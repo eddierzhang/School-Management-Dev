@@ -188,54 +188,57 @@ def run_agent(db: Session, agent: Agent, task: str, run: AgentRun) -> AgentRun:
 
 
 def _harvest(db: Session, agent: Agent, proposers: list, messages: list[dict], ctx: dict) -> tuple[int, dict]:
-    schema = {
-        "type": "object",
-        "properties": {"proposals": {"type": "array", "items": {
-            "type": "object",
-            "properties": {
-                "tool": {"type": "string", "enum": [t.name for t in proposers]},
-                "arguments": {"type": "object"},
-            },
-            "required": ["tool", "arguments"],
-        }}},
-        "required": ["proposals"],
-    }
-    ask = list(messages) + [{"role": "user", "content": (
-        "Now record the actions you described, as JSON. For each one give the tool name and its "
-        "arguments, using exact identifiers from the tool results above. Include only actions the "
-        "evidence supports. If there are none, return an empty list.")}]
+    """Constrained decoding, one proposing tool at a time.
 
+    A generic {"tool": ..., "arguments": {object}} schema was not enough: the
+    model filled in a plausible-looking action but dropped `rationale`, which the
+    tool requires, so every harvested entry was rejected. Feeding the tool's OWN
+    parameter schema to Ollama makes the required fields structurally impossible
+    to omit - the grammar will not emit an object without them. One call per
+    proposing tool (so one or two per agent), and each result still goes through
+    the same handler, so hallucinated identifiers are caught exactly as before.
+    """
     note = {"step": "harvest", "thinking": "", "said": "", "ms": 0, "harvest": True, "calls": []}
     errors = 0
-    try:
-        reply = chat(ask, fmt=schema)
-        note["ms"] = reply.duration_ms
-        note["said"] = reply.content[:800]
-        payload = json.loads(reply.content or "{}")
-    except (OllamaError, json.JSONDecodeError) as e:
-        note["said"] = f"Could not read a structured result: {e}"
-        return 1, note
 
-    by_name = {t.name: t for t in proposers}
-    for item in (payload.get("proposals") or [])[:3]:
-        name = item.get("tool")
-        args = item.get("arguments") or {}
-        record = {"tool": name, "arguments": args}
-        tool = by_name.get(name)
-        if tool is None:
-            record |= {"ok": False, "error": f"Not a proposing tool: {name!r}"}
+    for tool in proposers:
+        if len(ctx["proposals"]) >= 3:
+            break
+        schema = {
+            "type": "object",
+            "properties": {"actions": {"type": "array", "items": tool.parameters}},
+            "required": ["actions"],
+        }
+        ask = list(messages) + [{"role": "user", "content": (
+            "Using only the tool results above, list the " + tool.name + " actions worth "
+            "recording, as JSON under \"actions\". " + tool.description + " Use exact "
+            "identifiers from the results. Fill in every field. If there is nothing worth "
+            "recording, return an empty list.")}]
+        try:
+            reply = chat(ask, fmt=schema)
+            note["ms"] += reply.duration_ms
+            note["said"] = (note["said"] + " " + reply.content[:400]).strip()
+            payload = json.loads(reply.content or "{}")
+        except (OllamaError, json.JSONDecodeError) as e:
+            note["calls"].append({"tool": tool.name, "arguments": {}, "ok": False,
+                                  "error": "No structured result: " + str(e)})
             errors += 1
-        else:
+            continue
+
+        for args in (payload.get("actions") or [])[:3]:
+            if len(ctx["proposals"]) >= 3:
+                break
+            record = {"tool": tool.name, "arguments": args}
             try:
                 call(tool, args, db, ctx)
                 record["ok"] = True
-            except ToolError as e:               # hallucinated ids die here, as in the main loop
+            except ToolError as e:
                 record |= {"ok": False, "error": str(e)}
                 errors += 1
             except Exception as e:
-                record |= {"ok": False, "error": f"{type(e).__name__}: {e}"}
+                record |= {"ok": False, "error": type(e).__name__ + ": " + str(e)}
                 errors += 1
-        note["calls"].append(record)
+            note["calls"].append(record)
     return errors, note
 
 

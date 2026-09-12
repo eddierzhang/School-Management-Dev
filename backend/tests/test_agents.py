@@ -314,3 +314,40 @@ def test_approving_a_stale_proposal_returns_409(client):
     r = client.post(f"/api/agents/proposals/{pid}/approve")
     assert r.status_code == 409
     assert "par level" in r.json()["detail"]
+
+
+def test_a_run_whose_process_died_does_not_stay_running_for_ever(client):
+    """A server restart or a kill mid-inference would otherwise strand it."""
+    from datetime import datetime, timedelta
+
+    from app.config import get_settings
+    from app.db import SessionLocal
+    from app.models import AgentRun
+
+    s = SessionLocal()
+    try:
+        old = AgentRun(
+            agent="stockroom", model="qwen3:4b", prompt="orphaned", status="running",
+            transcript=[],
+            started_at=datetime.utcnow() - timedelta(seconds=get_settings().agent_max_seconds + 600),
+        )
+        s.add(old)
+        s.commit()
+        rid = old.id
+    finally:
+        s.close()
+
+    body = client.get(f"/api/agents/runs/{rid}").json()
+    assert body["status"] == "failed"
+    assert "did not" in (body["error"] or "") or "stopped without finishing" in (body["error"] or "")
+
+
+def test_a_fresh_run_is_not_reaped(client, monkeypatch):
+    from app.ai import ollama as _ollama
+
+    monkeypatch.setattr(_ollama, "health", lambda: {
+        "reachable": True, "error": None, "model": "qwen3:4b",
+        "models": ["qwen3:4b"], "capabilities": ["tools"], "can_run_agents": True})
+    monkeypatch.setattr("app.routers.agents.run_in_background", lambda *a, **k: None)
+    started = client.post("/api/agents/registrar/run", json={}).json()
+    assert client.get(f"/api/agents/runs/{started['id']}").json()["status"] == "running"
