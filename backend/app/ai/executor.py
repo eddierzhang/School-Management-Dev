@@ -117,12 +117,41 @@ def _apply_support_plan(db: Session, p: Proposal) -> str:
     return f"Opened a {kind} plan for {st.name}."
 
 
+def _apply_budget_transfer(db: Session, p: Proposal) -> str:
+    from ..finance import transfer_problem
+    from ..models import BudgetLine, BudgetTransfer
+
+    src, dst, amount = p.payload["from_line"], p.payload["to_line"], float(p.payload["amount"])
+    problem = transfer_problem(db, src, dst, amount)
+    if problem:
+        raise ApplyError(problem + " The budget changed since this was proposed.")
+    lines = {ln.code: ln for ln in db.scalars(select(BudgetLine).where(BudgetLine.code.in_([src, dst]))).all()}
+    db.add(BudgetTransfer(from_line_id=lines[src].id, to_line_id=lines[dst].id, amount=amount,
+                          reason=p.reason or "", approved_by="Business office (agent proposal)"))
+    return f"Moved ${amount:,.2f} from {src} to {dst}."
+
+
+def _apply_transaction_review(db: Session, p: Proposal) -> str:
+    from ..models import Transaction
+
+    t = db.get(Transaction, int(p.payload["transaction_id"]))
+    if t is None:
+        raise ApplyError("That transaction no longer exists.")
+    if t.review_status != "clear":
+        raise ApplyError(f"Transaction #{t.id} is already {t.review_status}.")
+    t.review_status = "flagged"
+    t.review_note = p.payload.get("concern", "")
+    return f"Transaction #{t.id} ({t.vendor}, ${t.amount:,.2f}) is held for review."
+
+
 HANDLERS = {
     "requisition": _apply_requisition,
     "reorder_point": _apply_reorder_point,
     "new_section": _apply_new_section,
     "capacity_change": _apply_capacity_change,
     "support_plan": _apply_support_plan,
+    "budget_transfer": _apply_budget_transfer,
+    "transaction_review": _apply_transaction_review,
 }
 
 

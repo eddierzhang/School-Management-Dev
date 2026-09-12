@@ -156,6 +156,39 @@ frontend/
 
 ---
 
+## Finance
+
+The Finance tab tracks the FY2027 budget line by line: allocation, transfers,
+spending, and **committed** money — the stockroom's open requisition, costed to
+par and charged to the department that buys it, so an approved order shows up as
+soon as it is approved. Each line is judged against how much of the year has gone
+(`app/finance.py`, shared by the API, the screen and the agent):
+
+```
+over budget      spent + committed exceed the budget
+at risk          the year-end projection exceeds the budget
+under-spending   under 35% of the expected pace, after the first six weeks
+on track         everything else
+```
+
+One-time purchases are kept out of the projection's monthly pace; otherwise a
+front-loaded line — an August laptop refresh — reads as a runaway. Two rules raise
+charges for review: the same vendor and amount twice within ten days, and one
+charge over a quarter of its line. Transfers never edit an allocation; they are
+recorded beside it.
+
+The **finance agent** proposes transfers into lines that are over or at risk, from
+lines that stay on track afterwards, and proposes holding suspicious charges. On its
+first live run it found both planted problems — an HVAC invoice paid twice under the
+same reference, and forty climbing harnesses bought for a course that no longer
+exists — but tried four transfers from lines that were themselves at risk, because
+it had only been shown the problem lines. Every one was refused; its opening read
+now also lists the lines that can give, and how much.
+
+The seeded ledger is fictional (`app/finance_seed.py`).
+
+---
+
 ## The course catalog
 
 The 14 running sections are mapped to real courses in the *2026-27 Upper School

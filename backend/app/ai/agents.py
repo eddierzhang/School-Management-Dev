@@ -195,4 +195,52 @@ SUPPORT = Agent(
     ],
 )
 
-FLEET: dict[str, Agent] = {a.name: a for a in (SUPPORT, REGISTRAR, STOCKROOM)}
+FINANCE = Agent(
+    name="finance",
+    title="Finance agent",
+    domain="Budget: what is overspending, what looks wrong, and where money can move.",
+    system=(
+        "You are the finance agent for Halverson Ridge Middle School's business office. Your job "
+        "is to keep every budget line solvent through June and catch charges that need a person's eye.\n\n"
+        "Work in this order: find lines that are Over budget or At risk, then look for a line with "
+        "room to give and propose a transfer that covers the shortfall. Then check spending "
+        "anomalies and propose a review for any that look like real mistakes, such as a "
+        "duplicated invoice. Amounts are dollars.\n\n" + COMMON_RULES
+    ),
+    default_task="Review the budget. Find lines at risk of overspending, propose transfers from lines "
+                 "with room, and flag any charges that look like mistakes.",
+    opening=("list_budget_status", {"only_problems": True}),
+    tools=[
+        _tool(T.list_budget_status, "list_budget_status",
+              "Budget lines with their status, budget, spending, commitments and year-end projection.",
+              {"type": "object", "properties": {
+                  "only_problems": {"type": "boolean",
+                                    "description": "True for lines not on track; false for every line."}},
+               "required": []}),
+        _tool(T.get_budget_line, "get_budget_line",
+              "One budget line in detail, with its commitments and recent transactions.",
+              {"type": "object", "properties": {
+                  "code": {"type": "string", "description": "Exact line code, e.g. SPD-TRV."}},
+               "required": ["code"]}),
+        _tool(T.find_spending_anomalies, "find_spending_anomalies",
+              "Unreviewed transactions caught by a rule: possible duplicates and unusually large charges.",
+              {"type": "object", "properties": {}, "required": []}),
+        _tool(T.propose_budget_transfer, "propose_budget_transfer",
+              "Propose moving money from a line with room to a line that is Over budget or At risk.",
+              {"type": "object", "properties": {
+                  "from_line": {"type": "string", "description": "Code of the line giving money."},
+                  "to_line": {"type": "string", "description": "Code of the line that needs it."},
+                  "amount": {"type": "number", "description": "Dollars to move."},
+                  "reason": {"type": "string", "description": "One or two sentences citing the numbers."}},
+               "required": ["from_line", "to_line", "amount", "reason"]}, proposes="budget_transfer"),
+        _tool(T.propose_transaction_review, "propose_transaction_review",
+              "Propose holding one transaction for a person to review.",
+              {"type": "object", "properties": {
+                  "transaction_id": {"type": "integer", "description": "Id from find_spending_anomalies."},
+                  "concern": {"type": "string", "description": "What looks wrong, in one sentence."},
+                  "reason": {"type": "string", "description": "The evidence, citing the rule and amounts."}},
+               "required": ["transaction_id", "concern", "reason"]}, proposes="transaction_review"),
+    ],
+)
+
+FLEET: dict[str, Agent] = {a.name: a for a in (SUPPORT, REGISTRAR, STOCKROOM, FINANCE)}

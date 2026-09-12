@@ -30,6 +30,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from app.catalog import COHORT_GAP as CATALOG_GAP                       # noqa: E402
 from app.catalog import SKILLS as CATALOG_SKILLS, catalog_fields       # noqa: E402
 from app.config import get_settings                                    # noqa: E402
+from app.finance_seed import seed_finance                              # noqa: E402
 from app.db import Base, SessionLocal, engine                          # noqa: E402
 from app.models import (Assessment, AttendanceDay, Course, Enrollment,  # noqa: E402
                         Intervention, InventoryItem, Score, Student)
@@ -258,6 +259,8 @@ def build(keep: bool = False) -> None:
         print(f"courses           {len(courses)}")
         print(f"enrollments       {db.query(Enrollment).count()}")
         print(f"assessments       {n_assess}  ({db.query(Assessment).filter(Assessment.due_on <= TODAY).count()} graded)")
+        n_lines, n_txn = seed_finance(db)
+        print(f"budget lines      {n_lines}  with {n_txn} transactions")
         print(f"scores            {n_scores}")
         print(f"attendance rows   {db.query(AttendanceDay).count()}  over {len(days)} school days")
         print(f"support plans     {opened} already open")
