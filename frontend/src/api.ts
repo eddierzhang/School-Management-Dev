@@ -1,7 +1,8 @@
 import type {
   AgentRun, CourseDetail, CourseRow, Fleet, Intervention, InventoryDetail, InventoryPatch,
   InventoryRow, NewIntervention, ProposalRow, Recommendation, Requisition, SkillGap,
-  StockroomSummary, StudentDetail, StudentDocumentDetail, StudentDocumentRow, StudentRow, Summary,
+  StockroomSummary, StudentDetail, Anomaly, BudgetLine, BudgetLineDetail, BudgetTransferRow,
+  FinanceSummary, Txn, StudentDocumentDetail, StudentDocumentRow, StudentRow, Summary,
 } from './types'
 
 const BASE = '/api'
@@ -75,6 +76,23 @@ export const api = {
   reanalyseDocument: (id: number) =>
     req<StudentDocumentRow>(`/documents/${id}/analyze`, { method: 'POST' }),
   deleteDocument: (id: number) => req<void>(`/documents/${id}`, { method: 'DELETE' }),
+
+  // --- finance ---
+  financeSummary: () => req<FinanceSummary>('/finance/summary'),
+  budgetLines: () => req<BudgetLine[]>('/finance/lines'),
+  budgetLine: (code: string) => req<BudgetLineDetail>(`/finance/lines/${encodeURIComponent(code)}`),
+  anomalies: () => req<Anomaly[]>('/finance/anomalies'),
+  flaggedTransactions: () => req<Txn[]>('/finance/transactions?review_status=flagged'),
+  recordTransaction: (body: {
+    line_code: string; vendor: string; description: string; amount: number
+    posted_on?: string; reference?: string; one_time?: boolean
+  }) => req<Txn>('/finance/transactions', { method: 'POST', body: JSON.stringify(body) }),
+  reviewTransaction: (id: number, review_status: Txn['review_status'], review_note = '') =>
+    req<Txn>(`/finance/transactions/${id}`, {
+      method: 'PATCH', body: JSON.stringify({ review_status, review_note }),
+    }),
+  transfer: (body: { from_line: string; to_line: string; amount: number; reason: string }) =>
+    req<BudgetTransferRow>('/finance/transfers', { method: 'POST', body: JSON.stringify(body) }),
 
   // --- stockroom ---
   inventory: (p: { category?: string; needs_attention?: boolean; q?: string } = {}) =>

@@ -288,3 +288,118 @@ def propose_support_plan(db: Session, ctx: dict, student_sid: str, kind: str, ti
                     [{"sid": sid, "band": sig.band if sig else None,
                       "struggle": sig.struggle_index if sig else None,
                       "reasons": [r.label for r in sig.reasons[:3]] if sig else []}])
+
+
+# ===================== finance =======================================
+def _position_row(p) -> dict:
+    return {"code": p.code, "name": p.name, "department": p.department, "status": p.status_label,
+            "budget": p.budget, "spent": p.spent, "committed": p.committed, "available": p.available,
+            "projected_year_end": p.projected, "note": p.note}
+
+
+def _lines_with_room(everything, limit: int = 4) -> list[dict]:
+    from ..finance import max_giveable
+
+    rows = [{"code": p.code, "name": p.name, "can_give_up_to": max_giveable(p)} for p in everything]
+    rows = [r for r in rows if r["can_give_up_to"] > 0]
+    return sorted(rows, key=lambda r: -r["can_give_up_to"])[:limit]
+
+
+def list_budget_status(db: Session, ctx: dict, only_problems: bool = True) -> dict:
+    from ..finance import elapsed_fraction, positions
+
+    everything = positions(db)
+    rows = [p for p in everything if p.status != "good"] if only_problems else everything
+    out = _capped([_position_row(p) for p in rows])
+    # Observed: shown only the problem lines, the model tried four transfers from
+    # lines that were themselves at risk. It needs to see where the room is.
+    out["lines_with_room"] = _lines_with_room(everything)
+    out["year_elapsed_pct"] = round(elapsed_fraction() * 100, 1)
+    out["how_to_read"] = ("Over budget and At risk lines need money. Under-spending and On track "
+                          "lines with a large 'available' can give it.")
+    return out
+
+
+def get_budget_line(db: Session, ctx: dict, code: str) -> dict:
+    from ..finance import positions
+    from ..models import BudgetLine, Transaction
+
+    code = str(code).strip().upper()
+    pos = next((p for p in positions(db) if p.code == code), None)
+    if pos is None:
+        raise ToolError(f"No budget line {code}. Call list_budget_status for real codes.")
+    ln = db.scalar(select(BudgetLine).where(BudgetLine.code == code))
+    txns = db.scalars(select(Transaction).where(Transaction.line_id == ln.id)
+                      .order_by(Transaction.posted_on.desc())).all()
+    return _position_row(pos) | {
+        "commitments": pos.commitments[:6],
+        "recent_transactions": [{"id": t.id, "posted_on": t.posted_on.isoformat(), "vendor": t.vendor,
+                                 "description": t.description, "amount": t.amount,
+                                 "one_time": t.one_time, "review": t.review_status}
+                                for t in txns[:8]],
+    }
+
+
+def find_spending_anomalies(db: Session, ctx: dict) -> dict:
+    from ..finance import anomalies
+
+    rows = [a for a in anomalies(db) if a["review_status"] == "clear"]
+    return _capped([{k: a[k] for k in ("transaction_id", "rule", "line", "vendor", "amount", "posted_on", "detail")}
+                    for a in rows])
+
+
+def propose_budget_transfer(db: Session, ctx: dict, from_line: str, to_line: str, amount: float,
+                            reason: str) -> dict:
+    from ..finance import positions, transfer_problem
+
+    src, dst = str(from_line).strip().upper(), str(to_line).strip().upper()
+    try:
+        amount = round(float(amount), 2)
+    except (TypeError, ValueError):
+        raise ToolError("amount must be a number of dollars, e.g. 1200.") from None
+    problem = transfer_problem(db, src, dst, amount)
+    if problem:
+        donors = [d for d in _lines_with_room(positions(db)) if d["code"] != dst]
+        hint = (" Lines that can give: " + "; ".join(f"{d['code']} up to ${d['can_give_up_to']:,.0f}" for d in donors)
+                + ".") if donors else ""
+        raise ToolError(problem + hint)
+    by_code = {p.code: p for p in positions(db)}
+    if by_code[dst].status not in ("critical", "serious"):
+        raise ToolError(f"{dst} is {by_code[dst].status_label.lower()}. Transfers go to lines that are "
+                        "Over budget or At risk — call list_budget_status to find them.")
+    need = max(0.0, by_code[dst].projected - by_code[dst].budget)
+    if amount > max(need * 1.25, 250):
+        raise ToolError(f"{dst} needs about ${need:,.0f} to cover its projection. Propose no more than "
+                        f"${max(need * 1.25, 250):,.0f}.")
+    for p in ctx.get("proposals", []):
+        if p["kind"] == "budget_transfer" and p["payload"]["to_line"] == dst:
+            raise ToolError(f"You already proposed a transfer into {dst} in this run.")
+    return _propose(ctx, "budget_transfer",
+                    f"Move ${amount:,.2f} from {src} to {dst}", reason,
+                    {"from_line": src, "to_line": dst, "amount": amount},
+                    [_position_row(by_code[src]), _position_row(by_code[dst])])
+
+
+def propose_transaction_review(db: Session, ctx: dict, transaction_id: int, concern: str,
+                               reason: str) -> dict:
+    from ..finance import anomalies
+    from ..models import Transaction
+
+    try:
+        tid = int(transaction_id)
+    except (TypeError, ValueError):
+        raise ToolError("transaction_id must be a number from find_spending_anomalies.") from None
+    t = db.get(Transaction, tid)
+    if t is None:
+        raise ToolError(f"No transaction {tid}. Use an id from find_spending_anomalies.")
+    if t.review_status != "clear":
+        raise ToolError(f"Transaction {tid} is already {t.review_status}.")
+    if not str(concern).strip():
+        raise ToolError("concern must say what looks wrong, in one sentence.")
+    rules = [a for a in anomalies(db) if a["transaction_id"] == tid]
+    return _propose(ctx, "transaction_review",
+                    f"Hold #{tid} for review: {t.vendor}, ${t.amount:,.2f}", reason,
+                    {"transaction_id": tid, "concern": str(concern).strip()[:300]},
+                    [{"id": t.id, "line": t.line.code, "vendor": t.vendor, "amount": t.amount,
+                      "posted_on": t.posted_on.isoformat(), "reference": t.reference,
+                      "rules": [r["rule"] + ": " + r["detail"] for r in rules]}])

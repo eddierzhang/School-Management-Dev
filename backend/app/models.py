@@ -249,3 +249,58 @@ class StudentDocument(Base):
     analysed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     student: Mapped[Student] = relationship(back_populates="documents")
+
+
+# ---- finance ---------------------------------------------------------------
+class BudgetLine(Base):
+    """One department's allocation for one purpose in one fiscal year."""
+
+    __tablename__ = "budget_lines"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code: Mapped[str] = mapped_column(String(24), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    department: Mapped[str] = mapped_column(String(60))
+    category: Mapped[str] = mapped_column(String(60))
+    fiscal_year: Mapped[str] = mapped_column(String(8), default="FY2027")
+    allocated: Mapped[float] = mapped_column(Float, default=0.0)
+    owner: Mapped[str] = mapped_column(String(120), default="")
+
+    transactions: Mapped[list[Transaction]] = relationship(back_populates="line", cascade="all, delete-orphan")
+
+
+class Transaction(Base):
+    """Money that has actually left (or come back to) a budget line."""
+
+    __tablename__ = "transactions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    line_id: Mapped[int] = mapped_column(ForeignKey("budget_lines.id", ondelete="CASCADE"), index=True)
+    posted_on: Mapped[date] = mapped_column(Date)
+    vendor: Mapped[str] = mapped_column(String(120))
+    description: Mapped[str] = mapped_column(String(240))
+    amount: Mapped[float] = mapped_column(Float)          # positive = spent, negative = refund
+    reference: Mapped[str] = mapped_column(String(40), default="")
+    # A one-time purchase (an August laptop refresh) must not be extrapolated as a
+    # monthly run rate, or every front-loaded line looks like it will overspend.
+    one_time: Mapped[bool] = mapped_column(Boolean, default=False)
+    review_status: Mapped[str] = mapped_column(String(16), default="clear")  # clear | flagged | cleared
+    review_note: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    line: Mapped[BudgetLine] = relationship(back_populates="transactions")
+
+
+class BudgetTransfer(Base):
+    """Moving allocation between lines. Allocations themselves are never edited,
+    so the original budget stays readable next to every change made to it."""
+
+    __tablename__ = "budget_transfers"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    from_line_id: Mapped[int] = mapped_column(ForeignKey("budget_lines.id", ondelete="CASCADE"))
+    to_line_id: Mapped[int] = mapped_column(ForeignKey("budget_lines.id", ondelete="CASCADE"))
+    amount: Mapped[float] = mapped_column(Float)
+    reason: Mapped[str] = mapped_column(Text, default="")
+    approved_by: Mapped[str] = mapped_column(String(120), default="Business office")
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

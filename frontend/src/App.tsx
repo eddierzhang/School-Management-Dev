@@ -8,14 +8,15 @@ import { Overview } from './views/Overview'
 import { Plans } from './views/Plans'
 import { SkillGaps } from './views/SkillGaps'
 import { Stockroom } from './views/Stockroom'
+import { Finance } from './views/Finance'
 import { Strengths, Watchlist } from './views/Watchlist'
 import { ErrorNote } from './components/ui'
 
 type Tab = 'overview' | 'watchlist' | 'strengths' | 'classes' | 'skills' | 'plans'
-  | 'stockroom' | 'agents'
+  | 'stockroom' | 'finance' | 'agents'
 
 const TAB_IDS: Tab[] = ['overview', 'watchlist', 'strengths', 'classes', 'skills', 'plans',
-  'stockroom', 'agents']
+  'stockroom', 'finance', 'agents']
 
 /* The URL is the view: #/watchlist, #/classes, #/watchlist/S-1507 with a student
    open. A support office bookmarks the watchlist and mails a colleague a link to
@@ -40,6 +41,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'skills', label: 'What they struggle on' },
   { id: 'plans', label: 'Support plans' },
   { id: 'stockroom', label: 'Stockroom' },
+  { id: 'finance', label: 'Finance' },
   { id: 'agents', label: 'Agents' },
 ]
 
@@ -61,6 +63,7 @@ export default function App() {
   const [refresh, setRefresh] = useState(0)
   const summary = useApi(() => api.summary(), [refresh])
   const stock = useApi(() => api.stockroomSummary(), [refresh])
+  const money = useApi(() => api.financeSummary(), [refresh])
 
   const bump = useCallback(() => setRefresh((n) => n + 1), [])
 
@@ -90,6 +93,7 @@ export default function App() {
         }
       : {}),
     ...(stock.data ? { stockroom: stock.data.needs_attention } : {}),
+    ...(money.data ? { finance: money.data.needs_attention } : {}),
   }
 
   return (
@@ -136,6 +140,7 @@ export default function App() {
         {tab === 'skills' && <SkillGaps />}
         {tab === 'plans' && <Plans onOpenStudent={setOpenSid} onChanged={bump} />}
         {tab === 'stockroom' && <Stockroom onChanged={bump} />}
+        {tab === 'finance' && <Finance onChanged={bump} />}
         {tab === 'agents' && <Agents onChanged={bump} />}
       </main>
 

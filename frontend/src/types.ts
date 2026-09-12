@@ -396,3 +396,89 @@ export interface StudentDocumentDetail extends StudentDocumentRow {
   notices: string[]
   text: string
 }
+
+/* ---- finance ---- */
+
+export interface Commitment { source: string; sku: string; name: string; amount: number }
+
+export interface BudgetLine {
+  code: string
+  name: string
+  department: string
+  category: string
+  owner: string
+  allocated: number
+  transfers_in: number
+  transfers_out: number
+  budget: number
+  spent: number
+  one_time: number
+  committed: number
+  available: number
+  used_pct: number
+  projected: number
+  status: StockStatus
+  status_label: string
+  note: string
+  transaction_count: number
+  commitments: Commitment[]
+}
+
+export interface Txn {
+  id: number
+  line: string
+  line_name: string
+  posted_on: string
+  vendor: string
+  description: string
+  amount: number
+  reference: string
+  one_time: boolean
+  review_status: 'clear' | 'flagged' | 'cleared'
+  review_note: string
+}
+
+export interface BudgetTransferRow {
+  id: number
+  from_line: string | null
+  to_line: string | null
+  amount: number
+  reason: string
+  approved_by: string
+  created_at: string | null
+}
+
+export interface BudgetLineDetail extends BudgetLine {
+  transactions: Txn[]
+  transfers: BudgetTransferRow[]
+}
+
+export interface Anomaly {
+  rule: string
+  transaction_id: number
+  related_id: number | null
+  line: string
+  vendor: string
+  amount: number
+  posted_on: string
+  review_status: 'clear' | 'flagged' | 'cleared'
+  detail: string
+}
+
+export interface FinanceSummary {
+  fiscal_year: string
+  as_of: string
+  elapsed_pct: number
+  budget: number
+  spent: number
+  committed: number
+  available: number
+  projected: number
+  lines: number
+  over: number
+  at_risk: number
+  underspending: number
+  anomalies: number
+  flagged: number
+  needs_attention: number
+}
