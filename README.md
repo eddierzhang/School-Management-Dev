@@ -555,6 +555,33 @@ the one part that cannot be asserted on, so everything around it is.
 
 ---
 
+## The general manager
+
+The **General manager** panel sits at the top of the home page and the Agents tab.
+It does two things, and deliberately has no propose_ tools for either.
+
+**It answers questions about the school.** Its read tool is a briefing computed
+in `app/school_briefing.py` from the same modules every screen uses — student
+bands, class averages and skill gaps, class demand, the stockroom, the budget,
+and proposals waiting. A 4B model asked to summarise raw tables drops and invents
+figures; handed a correct digest, it quotes it. The panel also shows the
+briefing's "needs attention now" lines directly, with no model involved.
+
+**It puts the other agents to work.** `dispatch_agent` starts a specialist with a
+task the manager writes, naming the students, classes, items or budget lines to
+look at. That needs no approval, because a specialist can itself only propose:
+the manager changes what gets looked at, never what gets done. Dispatched runs
+queue and start one at a time after current work, since Ollama serves one model;
+the queue is rebuilt from `queued` rows if the server restarts. At most three
+dispatches per run, never itself, never an agent that is already busy.
+
+On its first live runs it answered "how is the school doing?" from the briefing
+with every figure correct, and asked to get the team working, dispatched
+support, classes and finance — each with a task naming the actual students,
+classes and budget lines behind it.
+
+---
+
 ## Registrar console (the Artifact)
 
 **Live page:** https://claude.ai/code/artifact/a9dc09a4-bc24-446a-bc7b-0206130573b5

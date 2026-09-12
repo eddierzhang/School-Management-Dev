@@ -1,6 +1,7 @@
 import {
   FleetCards, FleetMessages, ProposalInbox, RunDrawer, RunHistory, RuntimeNotice, useFleet,
 } from '../components/fleet'
+import { ManagerPanel } from '../components/ManagerPanel'
 
 /** The full console: a task box per agent, every proposal, and the run history
     with transcripts. The home page carries a compact version of the first two. */
@@ -10,6 +11,8 @@ export function Agents({ onChanged }: { onChanged?: () => void }) {
 
   return (
     <>
+      <ManagerPanel onChanged={() => { void f.refresh(); onChanged?.() }} />
+
       <section className="sec">
         <div className="sec-head">
           <h2>Agent fleet</h2>
