@@ -115,6 +115,15 @@ export interface CourseRow {
   excelling: number
   weakest_skill: string | null
   weakest_skill_mean: number | null
+  description: string
+  length: string
+  credits: number
+  prerequisite: string
+  uc_approved: boolean
+  extra_period: boolean
+  graded: boolean
+  catalog_page: number | null
+  legacy_title: string
 }
 
 export interface CourseStudentRow {

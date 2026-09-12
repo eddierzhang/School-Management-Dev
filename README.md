@@ -156,6 +156,26 @@ frontend/
 
 ---
 
+## The course catalog
+
+The 14 running sections are mapped to real courses in the *2026-27 Upper School
+Course of Study* (`backend/app/catalog.py`). Codes, teachers, rooms and periods
+are unchanged; each section now carries the catalog title, department, length,
+credits, prerequisite, UC-approval flag and page number, shown on the class page.
+
+Nine map directly. Five had no counterpart and use the nearest real course:
+Esports & Game Design → Digital World, Model UN → Introduction to Speech and
+Debate, Rock Climbing → Personal Fitness, Culinary Basics → Biotechnology, Life
+Science → Biology. Skill strands were renamed position by position, so existing
+scores carry over. Three stockroom items (climbing harness, kitchen apron, chef
+knife) no longer belong to any class and are unlinked.
+
+Known mismatches: the catalog is for grades 9–12 and this school's students are
+6–8, so several prerequisites (Biology needs Chemistry) would not be met; and the
+catalog says P.E. is ungraded, while the gradebook still scores Personal Fitness.
+
+---
+
 ## Reading documents about a student
 
 Open any student's record and upload a teacher note, report card, assessment or

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { api } from '../api'
 import { useApi } from '../useApi'
+import type { CourseRow } from '../types'
 import { Columns, RankedBars, TipRows } from '../components/charts'
 import { Delta, ErrorNote, Loading, Meter, Pill, gradeStatus, pctText } from '../components/ui'
 
@@ -45,7 +46,10 @@ export function Classes({ onOpenStudent }: { onOpenStudent: (sid: string) => voi
                   <tr key={c.code}>
                     <td>
                       <button className="rowbtn" onClick={() => setSelected(c.code)}>{c.title}</button>
-                      <div className="sub"><span className="code">{c.code}</span> · {c.dept} · {c.enrolled}/{c.capacity} seats</div>
+                      <div className="sub">
+                        <span className="code">{c.code}</span> · {c.dept} · {c.length === 'semester' ? 'Semester' : 'Year'} ·{' '}
+                        {c.enrolled}/{c.capacity} seats
+                      </div>
                     </td>
                     <td className="nowrap sub">{c.teacher}</td>
                     <td style={{ minWidth: 130 }}>
@@ -87,6 +91,8 @@ export function Classes({ onOpenStudent }: { onOpenStudent: (sid: string) => voi
                 <span className="spacer" />
                 <button className="btn sm ghost" onClick={() => setSelected(null)}>Close</button>
               </div>
+
+              <CatalogCard course={detail.data.course} />
 
               <div className="split">
                 <div className="chartcard">
@@ -165,5 +171,27 @@ export function Classes({ onOpenStudent }: { onOpenStudent: (sid: string) => voi
         </section>
       )}
     </>
+  )
+}
+
+/** What the course of study says about this section. */
+function CatalogCard({ course }: { course: CourseRow }) {
+  if (!course.description) return null
+  const credit = `${course.credits} credit${course.credits === 1 ? '' : 's'}`
+  return (
+    <div className="panelbox panelbox-pad" style={{ marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <p style={{ margin: 0, fontSize: 13 }}>{course.description}</p>
+      <dl className="kv" style={{ margin: 0 }}>
+        <dt>Length</dt><dd>{course.length === 'semester' ? 'One semester' : 'Full year'} · {credit}</dd>
+        <dt>Prerequisite</dt><dd>{course.prerequisite || 'None'}</dd>
+        <dt>UC approved</dt><dd>{course.uc_approved ? 'Yes' : 'Not listed as UC approved'}</dd>
+        {course.extra_period && <><dt>Scheduling</dt><dd>Extra Period Option — outside the 5–6 class load</dd></>}
+        {!course.graded && <><dt>Grading</dt><dd>Ungraded in the course of study; this app still records scores</dd></>}
+      </dl>
+      <div className="sub">
+        Course of study 2026–27{course.catalog_page ? `, p. ${course.catalog_page}` : ''}
+        {course.legacy_title && course.legacy_title !== course.title && <> · formerly listed here as {course.legacy_title}</>}
+      </div>
+    </div>
   )
 }

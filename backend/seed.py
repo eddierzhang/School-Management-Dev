@@ -27,6 +27,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+from app.catalog import COHORT_GAP as CATALOG_GAP                       # noqa: E402
+from app.catalog import SKILLS as CATALOG_SKILLS, catalog_fields       # noqa: E402
 from app.config import get_settings                                    # noqa: E402
 from app.db import Base, SessionLocal, engine                          # noqa: E402
 from app.models import (Assessment, AttendanceDay, Course, Enrollment,  # noqa: E402
@@ -38,31 +40,10 @@ TERM_START = date(2026, 8, 10)          # week 1, Monday
 SEED_DIR = Path(__file__).parent.parent / "seed"
 RNG = random.Random(20260912)
 
-# Four strands per course — the vocabulary the engine reports "struggling on".
-SKILLS: dict[str, list[str]] = {
-    "SCI-210": ["evidence handling", "fingerprint analysis", "chromatography", "case write-up"],
-    "SCI-118": ["cell structure", "ecosystems", "scientific method", "data analysis"],
-    "MAT-150": ["linear equations", "function notation", "graphing", "word problems"],
-    "MAT-210": ["proof writing", "transformations", "area and volume", "coordinate geometry"],
-    "ENG-201": ["narrative structure", "revision", "peer critique", "mechanics"],
-    "WLD-101": ["present tense", "vocabulary", "listening", "pronunciation"],
-    "SOC-130": ["position papers", "research", "debate", "parliamentary procedure"],
-    "ART-140": ["hand-building", "wheel throwing", "glaze chemistry", "critique"],
-    "ART-112": ["exposure", "composition", "editing", "print finishing"],
-    "MUS-105": ["sight reading", "improvisation", "ensemble timing", "tone"],
-    "CTE-118": ["drivetrain assembly", "sensor wiring", "programming", "iteration log"],
-    "CTE-122": ["knife skills", "food safety", "recipe execution", "service"],
-    "PE-160":  ["belay technique", "route reading", "knots", "conditioning"],
-    "TEC-130": ["level design", "playtesting", "analytics", "team process"],
-}
-# One strand per course the whole cohort finds hard — the reteach signal.
-COHORT_GAP: dict[str, str] = {
-    "MAT-150": "word problems", "SCI-118": "data analysis", "MAT-210": "proof writing",
-    "ENG-201": "mechanics", "WLD-101": "listening", "SCI-210": "chromatography",
-    "CTE-118": "programming", "TEC-130": "analytics", "ART-140": "glaze chemistry",
-    "ART-112": "editing", "MUS-105": "sight reading", "SOC-130": "research",
-    "CTE-122": "food safety", "PE-160": "knots",
-}
+# Four strands per course, and the one the whole cohort finds hard — both from
+# the course of study mapping in app/catalog.py.
+SKILLS = CATALOG_SKILLS
+COHORT_GAP = CATALOG_GAP
 KINDS = [("homework", 20, 0.5), ("quiz", 25, 1.0), ("lab", 40, 1.2),
          ("project", 60, 1.6), ("test", 100, 2.0)]
 
@@ -135,8 +116,8 @@ def build(keep: bool = False) -> None:
         # --- courses and enrollments ------------------------------------
         courses: dict[str, Course] = {}
         for row in raw_courses:
-            c = Course(code=row["code"], title=row["title"], dept=row["dept"],
-                       teacher=row["teacher"], period=row.get("period") or 0,
+            c = Course(**({"title": row["title"], "dept": row["dept"]} | catalog_fields(row["code"])),
+                       code=row["code"], teacher=row["teacher"], period=row.get("period") or 0,
                        room=row.get("room") or "TBD", capacity=row["capacity"],
                        term=row.get("term") or settings.term)
             db.add(c)

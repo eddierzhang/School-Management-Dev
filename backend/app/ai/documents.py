@@ -204,20 +204,22 @@ def asserts_a_diagnosis(finding: dict) -> str | None:
 
 # Everyday words a teacher writes, mapped to the classes they mean. A department is
 # only used where every class in it fits the word: "math" is both maths classes, but
-# "writing" is one class, not all of Humanities — mapping it to the department put
-# Model UN's grade next to a finding about short stories.
+# "writing" is one class, not a whole department — mapping it to the department once
+# put a debate course's grade next to a finding about short stories.
 SUBJECT_DEPARTMENTS = {
     "math": "Mathematics", "maths": "Mathematics", "algebra": "Mathematics",
     "geometry": "Mathematics", "equation": "Mathematics", "equations": "Mathematics",
     "science": "Science", "lab": "Science",
 }
 SUBJECT_TITLES = {
-    "writing": "writing", "essay": "writing", "stories": "writing", "story": "writing",
-    "spanish": "spanish", "debate": "model un",
+    "writing": "poetry and fiction", "essay": "poetry and fiction", "stories": "poetry and fiction",
+    "story": "poetry and fiction", "poetry": "poetry and fiction", "fiction": "poetry and fiction",
+    "spanish": "spanish", "debate": "speech and debate", "speech": "speech and debate",
     "photograph": "photography", "photographs": "photography", "photography": "photography",
-    "ceramics": "ceramics", "clay": "ceramics", "band": "jazz band", "music": "jazz band",
-    "robotics": "robotics", "cooking": "culinary", "kitchen": "culinary",
-    "coding": "game design", "gaming": "esports", "climbing": "climbing", "forensic": "forensic",
+    "ceramics": "ceramics", "clay": "ceramics", "band": "jazz band", "jazz": "jazz band",
+    "robotics": "robotics", "robot": "robotics", "biotechnology": "biotechnology",
+    "biology": "biology", "coding": "digital world", "computer": "digital world",
+    "fitness": "personal fitness", "forensic": "forensic",
 }
 ATTENDANCE_WORDS = ("absent", "absence", "attendance", "missed school", "tardy", "late to class", "not in class")
 SUBMISSION_WORDS = ("homework", "missing", "turn in", "turned in", "hand in", "handed in",

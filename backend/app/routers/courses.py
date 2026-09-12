@@ -29,6 +29,10 @@ def _course_row(c: Course, enrolled: int, sigs: dict[str, StudentSignal],
                       if cs.course_code == c.code and cs.excel_index >= 70),
         weakest_skill=weakest.skill if weakest else None,
         weakest_skill_mean=weakest.class_mean if weakest else None,
+        description=c.description or "", length=c.length or "year", credits=c.credits or 0.0,
+        prerequisite=c.prerequisite or "", uc_approved=bool(c.uc_approved),
+        extra_period=bool(c.extra_period), graded=c.graded is not False,
+        catalog_page=c.catalog_page, legacy_title=c.legacy_title or "",
     )
 
 

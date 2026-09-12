@@ -111,6 +111,16 @@ class CourseRow(Base):
     excelling: int = 0
     weakest_skill: str | None = None
     weakest_skill_mean: float | None = None
+    # from the course of study
+    description: str = ""
+    length: str = "year"
+    credits: float = 1.0
+    prerequisite: str = ""
+    uc_approved: bool = False
+    extra_period: bool = False
+    graded: bool = True
+    catalog_page: int | None = None
+    legacy_title: str = ""
 
 
 class CourseStudentRow(Base):
