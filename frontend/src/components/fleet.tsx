@@ -10,6 +10,7 @@ import { ErrorNote, Icon, Loading, Pill } from './ui'
 const KIND_LABEL: Record<string, string> = {
   requisition: 'Order stock',
   reorder_point: 'Change reorder point',
+  new_item: 'Stock a new item',
   new_section: 'Open a section',
   capacity_change: 'Change capacity',
   support_plan: 'Open a support plan',

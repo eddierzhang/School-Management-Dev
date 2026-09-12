@@ -5,7 +5,7 @@ import type {
   SchoolSchedule, StudentSchedule,
   DemandReport, NewClass, NewSection, Opened, Openings,
   AgentRun, CourseDetail, CourseRow, Fleet, Intervention, InventoryDetail, InventoryPatch,
-  InventoryRow, NewIntervention, ProposalRow, Recommendation, Requisition, SkillGap,
+  InventoryRow, NewIntervention, NewInventoryItem, ProposalRow, Recommendation, Requisition, SkillGap,
   StockroomSummary, StudentDetail, Anomaly, BudgetLine, BudgetLineDetail, BudgetTransferRow,
   FinanceSummary, Txn, StudentDocumentDetail, StudentDocumentRow, StudentRow, Summary,
 } from './types'
@@ -145,6 +145,8 @@ export const api = {
     req<InventoryDetail>(`/inventory/${encodeURIComponent(sku)}`, {
       method: 'PATCH', body: JSON.stringify(body),
     }),
+  addItem: (body: NewInventoryItem) =>
+    req<InventoryDetail>('/inventory', { method: 'POST', body: JSON.stringify(body) }),
   countItem: (sku: string, on_hand: number) =>
     req<InventoryDetail>(`/inventory/${encodeURIComponent(sku)}/count`, {
       method: 'POST', body: JSON.stringify({ on_hand }),

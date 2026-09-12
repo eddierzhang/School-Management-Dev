@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react'
 import { api, ApiError } from '../api'
 import { useApi } from '../useApi'
-import type { InventoryDetail, InventoryRow, StockStatus } from '../types'
+import type { InventoryDetail, InventoryRow, NewInventoryItem, StockStatus } from '../types'
 import { ErrorNote, Icon, Loading, Meter, Pill, Stat } from '../components/ui'
 
 const money = (n: number) =>
@@ -177,12 +177,152 @@ function ItemDrawer({ sku, onClose, onChanged }: {
   )
 }
 
+const BLANK: NewInventoryItem = {
+  sku: '', name: '', category: '', unit: 'unit', on_hand: 0, reorder_point: 0, par: 1,
+  location: 'Main supply room', supplier: 'Central District Warehouse', unit_cost: 0, linked_courses: [],
+}
+
+function AddItemDrawer({ categories, onClose, onAdded }: {
+  categories: string[]; onClose: () => void; onAdded: (sku: string) => void
+}) {
+  const courses = useApi(() => api.courses(), [])
+  const [form, setForm] = useState<NewInventoryItem>({ ...BLANK, category: categories[0] ?? 'Facilities' })
+  const [busy, setBusy] = useState(false)
+  const [problem, setProblem] = useState<string | null>(null)
+
+  const set = <K extends keyof NewInventoryItem>(key: K, value: NewInventoryItem[K]) =>
+    setForm((f) => ({ ...f, [key]: value }))
+  const num = (key: 'on_hand' | 'reorder_point' | 'par' | 'unit_cost') => ({
+    value: String(form[key]),
+    onChange: (e: ChangeEvent<HTMLInputElement>) => set(key, Math.max(0, Number(e.target.value))),
+  })
+  const toggleCourse = (code: string) =>
+    set('linked_courses', form.linked_courses.includes(code)
+      ? form.linked_courses.filter((c) => c !== code)
+      : [...form.linked_courses, code])
+
+  const localProblem =
+    form.reorder_point > form.par ? `Reorder point (${form.reorder_point}) cannot be above par (${form.par}).`
+      : form.par < 1 ? 'Par must be at least 1.'
+      : null
+
+  async function submit(e: FormEvent) {
+    e.preventDefault()
+    setBusy(true); setProblem(null)
+    try {
+      const created = await api.addItem({ ...form, sku: form.sku.trim().toUpperCase(), name: form.name.trim() })
+      onAdded(created.sku)
+    } catch (err) {
+      setProblem(err instanceof ApiError ? err.message : 'The item did not save.')
+    } finally { setBusy(false) }
+  }
+
+  const uniqueCourses = useMemo(() => {
+    const seen = new Map<string, string>()
+    for (const c of courses.data ?? []) if (!seen.has(c.code)) seen.set(c.code, c.title)
+    return [...seen.entries()]
+  }, [courses.data])
+
+  const text = (key: 'sku' | 'name' | 'unit' | 'location' | 'supplier', label: string, placeholder?: string) => (
+    <div className="field">
+      <label htmlFor={`new-${key}`}>{label}</label>
+      <input id={`new-${key}`} className="inp" value={form[key]} placeholder={placeholder}
+        required={key === 'sku' || key === 'name'} onChange={(e) => set(key, e.target.value)} />
+    </div>
+  )
+
+  return (
+    <>
+      <button className="scrim" onClick={onClose} aria-label="Close" />
+      <aside className="drawer" role="dialog" aria-modal="true" aria-labelledby="new-item-title">
+        <form onSubmit={(e) => void submit(e)} style={{ display: 'contents' }}>
+          <div className="drawer-head">
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <h2 id="new-item-title">Add a stockroom item</h2>
+              <div className="sub" style={{ marginTop: 3 }}>It is counted today at the quantity you enter.</div>
+            </div>
+            <button type="button" className="btn sm ghost" onClick={onClose}>Close</button>
+          </div>
+
+          <div className="drawer-body">
+            {problem && <ErrorNote error={problem} />}
+            <div className="block">
+              <h3>Item</h3>
+              {text('name', 'Name', 'Glass beaker, 250 ml')}
+              {text('sku', 'SKU', 'SCI-BKR-250')}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <div className="field" style={{ flex: 1, minWidth: 140 }}>
+                  <label htmlFor="new-category">Category</label>
+                  <input id="new-category" className="inp" list="new-category-list" value={form.category}
+                    required onChange={(e) => set('category', e.target.value)} />
+                  <datalist id="new-category-list">
+                    {categories.map((c) => <option key={c} value={c} />)}
+                  </datalist>
+                </div>
+                <div style={{ flex: 1, minWidth: 100 }}>{text('unit', 'Counted in', 'unit, box, kit')}</div>
+              </div>
+            </div>
+
+            <div className="block">
+              <h3>Levels</h3>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {([['on_hand', 'On hand'], ['reorder_point', 'Reorder at'], ['par', 'Par level']] as const).map(([key, label]) => (
+                  <div className="field" key={key} style={{ flex: 1, minWidth: 90 }}>
+                    <label htmlFor={`new-${key}`}>{label}</label>
+                    <input id={`new-${key}`} className="inp" type="number" min={key === 'par' ? 1 : 0} {...num(key)} />
+                  </div>
+                ))}
+              </div>
+              {localProblem && <p className="sub" style={{ margin: 0, color: 'var(--critical)' }}>{localProblem}</p>}
+            </div>
+
+            <div className="block">
+              <h3>Supply</h3>
+              {text('supplier', 'Supplier')}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <div className="field" style={{ flex: 1, minWidth: 110 }}>
+                  <label htmlFor="new-unit_cost">Unit cost ($)</label>
+                  <input id="new-unit_cost" className="inp" type="number" min={0} step="0.01" {...num('unit_cost')} />
+                </div>
+                <div style={{ flex: 2, minWidth: 160 }}>{text('location', 'Location')}</div>
+              </div>
+            </div>
+
+            <div className="block">
+              <h3>Classes that draw on this</h3>
+              {courses.loading && <Loading what="classes" />}
+              {courses.error && <ErrorNote error={courses.error} onRetry={courses.reload} />}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 220, overflowY: 'auto' }}>
+                {uniqueCourses.map(([code, title]) => (
+                  <label key={code} className="toggle" style={{ paddingBottom: 3 }}>
+                    <input type="checkbox" checked={form.linked_courses.includes(code)}
+                      onChange={() => toggleCourse(code)} />
+                    <span className="code">{code}</span> {title}
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="drawer-foot">
+            <button type="submit" className="btn primary"
+              disabled={busy || !!localProblem || !form.sku.trim() || !form.name.trim() || !form.category.trim()}>
+              Add to stockroom
+            </button>
+          </div>
+        </form>
+      </aside>
+    </>
+  )
+}
+
 export function Stockroom({ onChanged }: { onChanged?: () => void }) {
   const [category, setCategory] = useState('')
   const [q, setQ] = useState('')
   const [attnOnly, setAttnOnly] = useState(false)
   const [openSku, setOpenSku] = useState<string | null>(null)
   const [showRequisition, setShowRequisition] = useState(false)
+  const [adding, setAdding] = useState(false)
   const [nonce, setNonce] = useState(0)
   const [problem, setProblem] = useState<string | null>(null)
 
@@ -230,6 +370,7 @@ export function Stockroom({ onChanged }: { onChanged?: () => void }) {
           <h2>Stockroom</h2>
           <span className="spacer" />
           {s && <span className="sub">{s.items} items · {money(s.value_on_hand)} on hand</span>}
+          <button className="btn sm primary" onClick={() => setAdding(true)}>Add item</button>
         </div>
         <p className="sec-note">
           Counts are shared: an adjustment here is what the next person sees, and what the stockroom
@@ -384,6 +525,10 @@ export function Stockroom({ onChanged }: { onChanged?: () => void }) {
 
       {openSku && (
         <ItemDrawer sku={openSku} onClose={() => setOpenSku(null)} onChanged={bump} />
+      )}
+      {adding && (
+        <AddItemDrawer categories={categories} onClose={() => setAdding(false)}
+          onAdded={(sku) => { setAdding(false); bump(); setOpenSku(sku) }} />
       )}
     </>
   )

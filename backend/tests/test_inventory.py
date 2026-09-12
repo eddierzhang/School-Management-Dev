@@ -192,3 +192,74 @@ def test_add_rejects_reorder_above_par(client):
     r = client.post("/api/inventory", json={
         "sku": "TST-002", "name": "Test item", "reorder_point": 50, "par": 10})
     assert r.status_code == 422
+
+
+def test_add_rejects_a_malformed_sku(client):
+    r = client.post("/api/inventory", json={"sku": "not a sku", "name": "Test item"})
+    assert r.status_code == 422
+    assert "SKU" in r.json()["detail"]
+
+
+def test_add_rejects_an_item_already_stocked_under_another_sku(client):
+    r = client.post("/api/inventory", json={"sku": "SCI-FPK-999", "name": "fingerprint  lifting kit"})
+    assert r.status_code == 409
+    assert "SCI-FPK-020" in r.json()["detail"]
+
+
+# --- adding through the agent ----------------------------------------------
+NEW_ITEM = dict(sku="sci-bkr-250", name="Glass beaker, 250 ml", category="Science Lab", unit="unit",
+                par=30, reorder_point=10, unit_cost=3.25, reason="test", linked_courses=["SCI-210"])
+
+
+def test_proposing_a_new_item_records_it_without_writing(db):
+    ctx: dict = {"proposals": []}
+    before = db.query(InventoryItem).count()
+    T.propose_new_item(db, ctx, **NEW_ITEM)
+    assert db.query(InventoryItem).count() == before
+    (p,) = ctx["proposals"]
+    assert p["kind"] == "new_item"
+    assert p["payload"]["sku"] == "SCI-BKR-250"
+    assert p["payload"]["supplier"] == "Carolina Biological", "defaults to the category's usual supplier"
+
+
+@pytest.mark.parametrize("change, message", [
+    ({"category": "Snacks"}, "Categories:"),
+    ({"sku": "SCI-FPK-020"}, "already in the stockroom"),
+    ({"name": "Fingerprint lifting kit"}, "SCI-FPK-020"),
+    ({"reorder_point": 40}, "above par"),
+    ({"linked_courses": ["XXX-999"]}, "XXX-999"),
+    ({"unit_cost": 0}, "unit cost"),
+])
+def test_proposing_a_new_item_refuses_bad_input_with_guidance(db, change, message):
+    from app.ai.toolkit import ToolError
+
+    with pytest.raises(ToolError, match=message):
+        T.propose_new_item(db, {"proposals": []}, **(NEW_ITEM | change))
+
+
+def test_approving_a_new_item_adds_it_and_orders_it(db, restore_stock):
+    from app.ai.executor import ApplyError, apply_proposal
+    from app.models import Proposal
+
+    ctx: dict = {"proposals": []}
+    T.propose_new_item(db, ctx, **NEW_ITEM)
+    draft = ctx["proposals"][0]
+    make = lambda: Proposal(agent="stockroom", kind="new_item", summary=draft["summary"],  # noqa: E731
+                            reason="test", payload=draft["payload"], evidence=[], status="pending")
+    p = make()
+    db.add(p)
+    db.commit()
+    result = apply_proposal(db, p)
+    item = db.scalar(select(InventoryItem).where(InventoryItem.sku == "SCI-BKR-250"))
+    assert item is not None and "SCI-BKR-250" in result
+    assert item.on_hand == 0 and item.requisitioned is True
+    assert item.linked_courses == ["SCI-210"]
+
+    again = make()
+    db.add(again)
+    db.commit()
+    with pytest.raises(ApplyError, match="already in the stockroom"):
+        apply_proposal(db, again)
+    db.delete(again)
+    db.delete(p)
+    db.commit()
