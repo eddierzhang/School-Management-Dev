@@ -2,6 +2,7 @@ import { api } from '../api'
 import { useApi } from '../useApi'
 import type { CourseAssessmentRow, CourseDetail } from '../types'
 import { Columns, RankedBars, TipRows, useTooltip } from '../components/charts'
+import { ClassPlans } from '../components/ClassPlans'
 import { Delta, ErrorNote, Loading, Meter, Pill, Stat, gradeStatus, pctText } from '../components/ui'
 
 /** The list when no class is open; the class's own page when one is. The open
@@ -232,6 +233,8 @@ function ClassBody({ d, onOpenClass, onOpenStudent }: {
           </div>
         </div>
       </section>
+
+      <ClassPlans code={c.code} />
 
       <section className="sec">
         <div className="sec-head">

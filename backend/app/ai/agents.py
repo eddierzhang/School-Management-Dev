@@ -243,4 +243,59 @@ FINANCE = Agent(
     ],
 )
 
-FLEET: dict[str, Agent] = {a.name: a for a in (SUPPORT, REGISTRAR, STOCKROOM, FINANCE)}
+CLASSES = Agent(
+    name="classes",
+    title="Class improvement agent",
+    domain="Teaching: classes whose results call for a change in how the course is taught.",
+    system=(
+        "You are the class improvement agent for Halverson Ridge Middle School. You draft "
+        "improvement plans for whole classes. A class plan changes the teaching; it does not "
+        "refer one child.\n\n"
+        "Work in this order: read the class's performance, find the cause, then propose one plan "
+        "whose actions match that cause:\n"
+        "- A strand with many students below the line: reteach that named strand a different way, "
+        "then check it with a short quiz.\n"
+        "- Work not handed in: class time to start it, smaller pieces, a weekly missing-work check.\n"
+        "- Tests lower than labs or projects: practice under test conditions before the next test.\n"
+        "- Recent work sliding: slow the pacing and review before moving on.\n"
+        "Each action says what happens, who does it (usually the class teacher) and when. The goal is "
+        "a number from the class data to reach within four weeks. Cite only numbers the tools "
+        "returned.\n\n" + COMMON_RULES
+    ),
+    default_task="Find the classes that most need an improvement plan and draft one for each of the "
+                 "worst, matching the plan to what is actually wrong.",
+    opening=("list_classes_by_need", {}),
+    tools=[
+        _tool(T.list_classes_by_need, "list_classes_by_need",
+              "Every class with its status, average, work handed in, trend, weakest strands and issues, "
+              "neediest first.",
+              {"type": "object", "properties": {}, "required": []}),
+        _tool(T.get_class_performance, "get_class_performance",
+              "One class in detail: every strand, each kind of work, trend, and whether it has a plan.",
+              {"type": "object", "properties": {
+                  "course_code": {"type": "string", "description": "Exact course code, e.g. MAT-150."}},
+               "required": ["course_code"]}),
+        _tool(T.list_skill_gaps, "list_skill_gaps",
+              "Strands where a whole class is below the line, across the school.",
+              {"type": "object", "properties": {
+                  "course_code": {"type": "string", "description": "Optional class filter."}},
+               "required": []}),
+        _tool(T.propose_class_plan, "propose_class_plan",
+              "Propose an improvement plan for one class. Actions must match the cause in the data.",
+              {"type": "object", "properties": {
+                  "course_code": {"type": "string", "description": "Exact course code."},
+                  "title": {"type": "string", "description": "The plan in a few words, e.g. 'Reteach word problems'."},
+                  "diagnosis": {"type": "string",
+                                "description": "What is wrong and why, in two sentences, citing numbers from the tools."},
+                  "focus_strands": {"type": "array", "items": {"type": "string"},
+                                    "description": "One or two strand names exactly as get_class_performance lists them."},
+                  "actions": {"type": "array", "items": {"type": "string"},
+                              "description": "Two to five concrete steps: what happens, who does it, when."},
+                  "goal": {"type": "string",
+                           "description": "A measurable target within four weeks, e.g. 'word problems average to 72%'."}},
+               "required": ["course_code", "title", "diagnosis", "focus_strands", "actions", "goal"]},
+              proposes="class_plan"),
+    ],
+)
+
+FLEET: dict[str, Agent] = {a.name: a for a in (SUPPORT, CLASSES, REGISTRAR, STOCKROOM, FINANCE)}

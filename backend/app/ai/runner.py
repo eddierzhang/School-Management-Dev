@@ -35,10 +35,13 @@ def _preview(value, limit: int = 700) -> str:
     return text[:limit] + ("…" if len(text) > limit else "")
 
 
-def run_agent(db: Session, agent: Agent, task: str, run: AgentRun) -> AgentRun:
+def run_agent(db: Session, agent: Agent, task: str, run: AgentRun,
+              opening: tuple[str, dict] | None = None, scope: dict | None = None) -> AgentRun:
+    """`opening` replaces the agent's own first read for this run; `scope` is merged
+    into the tool context, so a run about one class cannot propose for another."""
     started = time.time()
     tools_by_name = agent.by_name()
-    ctx: dict = {"proposals": []}
+    ctx: dict = {"proposals": [], **(scope or {})}
     seen_calls: set[str] = set()
     nudges = 0
     transcript: list[dict] = []
@@ -50,8 +53,8 @@ def run_agent(db: Session, agent: Agent, task: str, run: AgentRun) -> AgentRun:
     ]
 
     # Ground the model in real data before it speaks, so it cannot open by inventing one.
-    if agent.opening:
-        open_name, open_args = agent.opening
+    if opening or agent.opening:
+        open_name, open_args = opening or agent.opening
         open_tool = tools_by_name.get(open_name)
         if open_tool is not None:
             try:
@@ -243,7 +246,8 @@ def _harvest(db: Session, agent: Agent, proposers: list, messages: list[dict], c
     return errors, note
 
 
-def run_in_background(run_id: int, agent_name: str, task: str) -> None:
+def run_in_background(run_id: int, agent_name: str, task: str,
+                      opening: tuple[str, dict] | None = None, scope: dict | None = None) -> None:
     """Entry point for FastAPI BackgroundTasks — owns its own session."""
     from ..db import SessionLocal
 
@@ -257,7 +261,7 @@ def run_in_background(run_id: int, agent_name: str, task: str) -> None:
             run.status, run.error = "failed", f"No agent named {agent_name!r}."
             db.commit()
             return
-        run_agent(db, agent, task, run)
+        run_agent(db, agent, task, run, opening=opening, scope=scope)
     except Exception as e:                                   # never leave a run stuck on "running"
         db.rollback()
         run = db.get(AgentRun, run_id)

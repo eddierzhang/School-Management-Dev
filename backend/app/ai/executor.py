@@ -12,6 +12,7 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..class_plans import adopt
 from ..config import get_settings
 from ..models import Course, Enrollment, InventoryItem, Intervention, Proposal, Student
 from ..timetable import SchedulingError, open_section
@@ -120,6 +121,16 @@ def _apply_transaction_review(db: Session, p: Proposal) -> str:
     return f"Transaction #{t.id} ({t.vendor}, ${t.amount:,.2f}) is held for review."
 
 
+def _apply_class_plan(db: Session, p: Proposal) -> str:
+    try:
+        plan = adopt(db, run_id=p.run_id, proposal_id=p.id, **{k: p.payload[k] for k in (
+            "course_code", "title", "diagnosis", "focus_strands", "actions", "goal")})
+    except ValueError as e:
+        raise ApplyError(str(e)) from e
+    return (f"Adopted an improvement plan for {plan.course_code}, owned by {plan.owner}; "
+            f"review on {plan.review_on:%b} {plan.review_on.day}.")
+
+
 HANDLERS = {
     "requisition": _apply_requisition,
     "reorder_point": _apply_reorder_point,
@@ -128,6 +139,7 @@ HANDLERS = {
     "support_plan": _apply_support_plan,
     "budget_transfer": _apply_budget_transfer,
     "transaction_review": _apply_transaction_review,
+    "class_plan": _apply_class_plan,
 }
 
 

@@ -277,6 +277,49 @@ GET /api/students/{sid}/schedule   one student's day, with free periods and clas
 
 ---
 
+## Class improvement plans
+
+Every class page has an **Improvement plan** section. A support plan is for one
+child; a class plan is for the course, for when half the room is below the line
+on one strand or a sixth of the work never comes in.
+
+**What the numbers say** is deterministic (`app/class_plans.py`): class average,
+work handed in, trend, every strand, and each kind of work, with a status
+(*needs a plan*, *worth watching*, *doing well*) and named issues. On the seeded
+term, Speech and Debate, Algebra 1 and English 4 need a plan.
+
+**Draft a plan with the AI agent** starts the **class improvement agent** on that
+one class. It opens on the class's performance and can only propose for that
+class. A run takes about 40–140 seconds on qwen3:4b. The draft has a diagnosis,
+one or two focus strands, two to five actions and a measurable four-week goal.
+Adopting it records today's numbers as the baseline, so the plan shows
+**at adoption / now / change** for the class average, work handed in and each
+focus strand until it is completed or retired. The same agent is in the fleet,
+where a blank run drafts plans for the neediest classes.
+
+A draft is sent back to the model, with the reason, when it:
+
+- **cites a percentage the data doesn't contain.** Targets ("to 75%") are exempt.
+  Observed live: an invented "20%", fixed on the next call.
+- **miscounts.** Observed live: "15 of 28 students below the 72% line" for Algebra 1.
+  Every percentage in that sentence was real, but 15 of 28 is the word-problems
+  strand; the class is 13 of 28. A count is checked against the measure its
+  sentence names, not just against any number in the data.
+- **ignores missing work.** Observed live: Speech and Debate, with 16% of work not
+  handed in, got a plan of two reteach lessons. Reteaching doesn't fix work that
+  never arrives, so a plan must address it; on its third call the model added one.
+- names a strand the course doesn't teach, has vague actions or an unmeasurable
+  goal, or duplicates an active plan or a draft already waiting.
+
+```
+GET   /api/improvement                        every class, neediest first, with plans and drafts
+GET   /api/courses/{code}/improvement         snapshot, plans with progress, drafts, latest run
+POST  /api/courses/{code}/improvement/draft   start the agent on one class (202)
+PATCH /api/improvement-plans/{id}             complete or retire, with an outcome
+```
+
+---
+
 ## Reading documents about a student
 
 Open any student's record and upload a teacher note, report card, assessment or
