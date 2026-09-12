@@ -198,6 +198,43 @@ now also lists the lines that can give, and how much.
 
 The seeded ledger is fictional (`app/finance_seed.py`).
 
+### Opening lines and revising the budget
+
+**Moving money to where it is needed**, on the Finance tab, lists the lines that
+need money, and how much, beside the lines that can give. "Needs money" means
+overspending, projected overspending by June, or low stock nobody has ordered
+that the line can't absorb. "Can give" is the most a line can lose and stay on
+track. From there:
+
+- **A budget revision** moves money across several lines at once and is approved
+  as one package. It's judged on its combined effect: a line giving to two others
+  must stay on track after both, no line receives more than 125% of its need, and
+  no line both gives and receives. If the budget changed before approval, none of
+  it is applied.
+- **Opening a line** creates a line for a purpose no existing line covers. It
+  opens at zero allocation and is funded by a transfer from a line with room, so
+  no approved allocation is ever edited.
+
+A person can do either on the page (`POST /api/finance/revisions`,
+`POST /api/finance/lines`). The finance agent proposes them with
+`propose_budget_revision` and `propose_new_budget_line`, and both wait for
+approval on the Finance tab and in the fleet inbox. Any dollar figure the agent
+cites must match the budget data.
+
+**Observed live, and why the agent no longer has a single-transfer tool.** Given
+both tools, with five lines short, qwen3:4b funded one of them with a transfer and
+stopped. With only the revision tool, the same sweep proposed one revision
+covering all five ($15,563 from four lines with room), and the narrower task
+"address PE-EQP, MAT-INS and CSC-ROB" got a revision covering exactly those
+three. Both runs had no tool errors. Asked for a maths workshop line, it opened
+`MAT-WKS` with $1,500 from tutoring.
+
+```
+GET  /api/finance/needs       lines needing money, and lines that can give
+POST /api/finance/lines       open a line, funded by a transfer
+POST /api/finance/revisions   several transfers, validated and applied together
+```
+
 ---
 
 ## The course catalog

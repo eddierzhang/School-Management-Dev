@@ -1,4 +1,5 @@
 import type {
+  BudgetMove, FinanceNeeds,
   ClassImprovement, ClassNeedRow, ClassPlan, DraftRun,
   SchoolSchedule, StudentSchedule,
   DemandReport, NewClass, NewSection, Opened, Openings,
@@ -112,6 +113,15 @@ export const api = {
     }),
   transfer: (body: { from_line: string; to_line: string; amount: number; reason: string }) =>
     req<BudgetTransferRow>('/finance/transfers', { method: 'POST', body: JSON.stringify(body) }),
+  financeNeeds: () => req<FinanceNeeds>('/finance/needs'),
+  openBudgetLine: (body: {
+    code: string; name: string; department: string; category: string; owner?: string
+    from_line: string; amount: number; reason: string
+  }) => req<BudgetLine>('/finance/lines', { method: 'POST', body: JSON.stringify(body) }),
+  reviseBudget: (moves: BudgetMove[], reason: string) =>
+    req<{ moved: number; transfers: BudgetTransferRow[] }>('/finance/revisions', {
+      method: 'POST', body: JSON.stringify({ moves, reason }),
+    }),
 
   // --- stockroom ---
   inventory: (p: { category?: string; needs_attention?: boolean; q?: string } = {}) =>

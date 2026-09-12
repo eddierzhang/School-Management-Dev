@@ -23,6 +23,7 @@ every front-loaded line as overspending.
 """
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date, timedelta
@@ -249,4 +250,140 @@ def transfer_problem(db: Session, from_code: str, to_code: str, amount: float,
     if status in ("critical", "serious"):
         return (f"Moving ${amount:,.2f} out of {src.code} would put that line at risk itself. "
                 "Take less, or take it from a line with more room.")
+    return None
+
+
+# ---- where money is needed, opening lines, and revisions ----------------------
+# Opening a line and revising the budget follow the rule transfers already keep:
+# no allocation is ever edited. A new line starts at zero and is funded by a
+# recorded transfer; a revision is several transfers approved together. The
+# board-approved budget stays readable beside every change made to it.
+
+LINE_CODE = re.compile(r"^[A-Z]{2,4}-[A-Z]{3}$")
+REVISION_MAX_MOVES = 6
+NEED_HEADROOM = 1.25          # a line may receive up to 125% of its need, rounding up to whole steps
+
+
+@dataclass
+class LineNeed:
+    code: str
+    name: str
+    status_label: str
+    overrun: float            # beyond the budget: already over, or projected to be by June
+    unfunded_stock: float     # low stock charged to this line that nobody has ordered yet
+    need: float
+    reasons: list[str] = field(default_factory=list)
+
+
+def needs(db: Session, today: date | None = None) -> list[LineNeed]:
+    """Lines where money is more necessary than where it sits, biggest need first."""
+    from .stock import status_of
+
+    course_dept = {c.code: c.dept for c in db.scalars(select(Course)).all()}
+    stock: dict[str, list[InventoryItem]] = defaultdict(list)
+    for item in db.scalars(select(InventoryItem)).all():
+        if status_of(item).needs_attention and not item.requisitioned and cost_to_par(item) > 0:
+            stock[charge_line_for(item, course_dept)].append(item)
+
+    out = []
+    for p in positions(db, today):
+        overrun = max(0.0, p.spent + p.committed - p.budget, p.projected - p.budget)
+        unfunded = sum(cost_to_par(i) for i in stock.get(p.code, []))
+        # Unordered stock only counts where the line cannot already absorb it.
+        stock_gap = max(0.0, unfunded - max(0.0, p.available - overrun))
+        reasons = []
+        if p.spent + p.committed > p.budget:
+            reasons.append(f"{money(p.spent + p.committed - p.budget)} over its budget, counting commitments")
+            if p.projected - p.budget > p.spent + p.committed - p.budget:
+                reasons.append(f"projected {money(p.projected - p.budget)} over by June")
+        elif p.projected > p.budget:
+            reasons.append(f"projected to reach {money(p.projected)} by June, {money(p.projected - p.budget)} over")
+        if stock_gap > 0:
+            names = ", ".join(i.name for i in stock[p.code][:3])
+            reasons.append(f"{money(unfunded)} of low stock not yet ordered ({names})")
+        need = round(overrun + stock_gap, 2)
+        if need > 0:
+            out.append(LineNeed(code=p.code, name=p.name, status_label=p.status_label,
+                                overrun=round(overrun, 2), unfunded_stock=round(stock_gap, 2),
+                                need=need, reasons=reasons))
+    return sorted(out, key=lambda n: -n.need)
+
+
+def _donor_problem(src: LinePosition, amount: float, today: date | None = None) -> str | None:
+    if amount > src.available:
+        return (f"{src.code} has {money(src.available)} available after spending and commitments; "
+                f"it cannot give {money(amount)}.")
+    status, _, _, _ = classify(src.budget - amount, src.spent, src.one_time, src.committed,
+                               elapsed_fraction(today), today)
+    if status in ("critical", "serious"):
+        return (f"Moving {money(amount)} out of {src.code} would put that line at risk itself. "
+                "Take less, or take it from a line with more room.")
+    return None
+
+
+def new_line_problem(db: Session, code: str, name: str, department: str, category: str,
+                     from_line: str, amount: float, today: date | None = None) -> str | None:
+    """Why a new line should not be opened as asked, or None."""
+    code = code.strip().upper()
+    if not LINE_CODE.match(code):
+        return f"{code!r} is not a line code. Use two to four letters, a dash and three letters, e.g. MAT-TUT."
+    lines = db.scalars(select(BudgetLine).where(BudgetLine.fiscal_year == FISCAL_YEAR)).all()
+    if any(ln.code == code for ln in lines):
+        return f"{code} already exists. Transfer into it instead of opening it again."
+    if len(name.strip()) < 4:
+        return "The line needs a name that says what the money is for."
+    departments = {ln.department for ln in lines} | {c.dept for c in db.scalars(select(Course)).all()}
+    if department.strip() not in departments:
+        return f"No department called {department!r}. Departments: {', '.join(sorted(departments))}."
+    same = next((ln for ln in lines if ln.department == department.strip()
+                 and ln.name.strip().lower() == name.strip().lower()), None)
+    if same:
+        return f"{same.code} is already {same.name!r} for {same.department}. Transfer into it instead."
+    if amount <= 0:
+        return "A new line must be funded with more than zero."
+    src = next((p for p in positions(db, today) if p.code == from_line.strip().upper()), None)
+    if src is None:
+        return f"No budget line with code: {from_line}."
+    return _donor_problem(src, amount, today)
+
+
+def revision_problem(db: Session, moves: list[dict], today: date | None = None) -> str | None:
+    """Why a set of moves should not be approved together, or None.
+
+    Judged on the combined effect: a donor giving to two lines must still be on
+    track after both, and a line receiving from two donors must not end up with
+    more than it needs.
+    """
+    if not 1 <= len(moves) <= REVISION_MAX_MOVES:
+        return f"A revision moves money between one and {REVISION_MAX_MOVES} pairs of lines."
+    by_code = {p.code: p for p in positions(db, today)}
+    need_by = {n.code: n for n in needs(db, today)}
+    give: dict[str, float] = defaultdict(float)
+    get: dict[str, float] = defaultdict(float)
+    for m in moves:
+        src, dst, amount = m["from_line"], m["to_line"], m["amount"]
+        if src == dst:
+            return f"{src} cannot move money to itself."
+        missing = [c for c in (src, dst) if c not in by_code]
+        if missing:
+            return f"No budget line with code: {', '.join(missing)}."
+        if amount <= 0:
+            return "Every amount must be more than zero."
+        give[src] += amount
+        get[dst] += amount
+    both = sorted(set(give) & set(get))
+    if both:
+        return f"{', '.join(both)} would both give and receive. A line is either short or has room, not both."
+    for dst, total in get.items():
+        n = need_by.get(dst)
+        if n is None:
+            return (f"{dst} is {by_code[dst].status_label.lower()} with no shortfall and no unfunded stock, "
+                    "so it does not need money. Move money only to lines listed as needing it.")
+        cap = max(n.need * NEED_HEADROOM, 250.0)
+        if total > cap:
+            return f"{dst} needs about {money(n.need)}; the revision gives it {money(total)}. Give no more than {money(cap)}."
+    for src, total in give.items():
+        problem = _donor_problem(by_code[src], total, today)
+        if problem:
+            return problem
     return None
