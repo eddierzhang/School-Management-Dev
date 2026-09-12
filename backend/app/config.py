@@ -1,0 +1,35 @@
+"""Runtime settings.
+
+`today` exists because the seeded term is a fixed fiction: Fall 2026, five weeks
+elapsed. Pinning the clock keeps "missing work", trends and attendance rates
+stable no matter when the app is run, and keeps the numbers consistent with the
+registrar console in the repo root.
+"""
+from datetime import date
+from functools import lru_cache
+
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="HR_", env_file=".env", extra="ignore")
+
+    database_url: str = "sqlite:///./halverson.db"
+    cors_origins: str = "http://localhost:5174,http://127.0.0.1:5174"
+    today: date = date(2026, 9, 12)
+    term: str = "Fall 2026"
+    school_name: str = "Halverson Ridge Middle School"
+
+    # Thresholds the support office can tune without touching the engine.
+    support_threshold: float = 72.0   # below this, a course grade needs a plan
+    concern_floor: float = 65.0       # below this, tutoring rather than monitoring
+    excelling_threshold: float = 86.0 # at or above this, enrichment is on the table
+
+    @property
+    def origins(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()

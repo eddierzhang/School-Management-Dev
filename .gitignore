@@ -2,5 +2,16 @@
 seed/
 batch.json
 
+# backend
+backend/.venv/
+backend/*.db
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# frontend
 node_modules/
+frontend/dist/
+frontend/node_modules/.tmp/
+
 .DS_Store
