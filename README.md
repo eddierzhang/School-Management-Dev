@@ -7,6 +7,7 @@ school, one roster, and one visual identity.
 |---|---|---|
 | **Registrar console** | Stockroom inventory, class registration with waitlists, and the demand signals behind what gets promoted | A published Claude Artifact — no server |
 | **Student support** | Who is struggling, who is excelling, on which topics, and what to do about it | FastAPI backend + React frontend |
+| **Agent fleet** | Three local AI agents — registrar, stockroom, student support — that review their domain and propose changes for approval | Ollama, on this machine |
 
 Both describe the same term at Halverson Ridge Middle School: the same 60
 students, the same 14 classes, generated once by `gen_seed.js` and loaded into
@@ -143,6 +144,108 @@ frontend/
 
 ---
 
+## The agent fleet (local, via Ollama)
+
+Three agents, one domain each, running entirely on the machine through Ollama.
+Local inference is the point rather than a cost saving: **student records never
+leave the building**, so the question of whether a school may send a child's
+grades to a third-party API does not arise.
+
+| Agent | Owns | Can propose |
+|---|---|---|
+| **Registrar** | Sections, rooms, periods, capacity, waitlists | Open a section · change capacity |
+| **Stockroom** | Inventory, reorder points, what classes consume | Order stock · change a reorder point |
+| **Student support** | Who is struggling, on what | Open a support plan |
+
+### Agents propose; they never write
+
+An agent has read tools for its own corner of the school and `propose_*` tools
+that record an intent. Nothing reaches the database until a person approves it,
+and approval runs deterministic code in `app/ai/executor.py` that **re-validates
+against current state** — a seat that filled or a plan opened since the proposal
+was made is refused, not forced through.
+
+This boundary is what makes a 4B model safe to point at a school's records. In
+testing the model hallucinated a SKU (`MAT-ALG-101`) and invented an enrolment
+count. Neither reached the database: the proposal tool rejected the unknown SKU
+with a message telling it how to recover, and it corrected itself on the next
+step.
+
+### What the model can and cannot do, measured
+
+`ollama show` is the gate: an agent needs the `tools` capability.
+
+| Model | Capabilities | Usable as an agent |
+|---|---|---|
+| `gemma3:1b` | `completion` | **No** — cannot call tools at any prompt |
+| `qwen3:4b` | `completion`, `tools`, `thinking` | Yes |
+
+Four behaviours were measured against qwen3:4b rather than assumed, and each one
+is load-bearing in the code:
+
+1. **`think: true` is required, not an optimisation.** With thinking disabled the
+   model writes its reasoning into `content` and emits *no tool call at all*.
+   With it enabled, reasoning goes to a separate field, `content` comes back
+   clean, and the call fires — and it is *faster* (3.0s vs 4.5s).
+2. **It gets arguments wrong.** Observed: `list_items_for_course({"category":
+   "All"})` — the wrong parameter entirely. Every call is schema-checked and a
+   failure is returned as a `tool` message naming what was wrong and what the
+   tool expects, so the model repairs it instead of the run dying.
+3. **It describes actions instead of taking them.** Left alone it writes "I
+   propose ordering X and Y" and stops, having recorded nothing. Two defences: a
+   **seeded opening read** (the runner performs the first query itself and feeds
+   the result in, so the model cannot open by inventing data) and a **nudge** when
+   a turn ends with prose and no proposals.
+4. **It sometimes writes the tool call as prose JSON**, occasionally with a stray
+   `</think>`. Recovered by a fallback parser and flagged in the transcript.
+
+As a backstop, a run that still ends with no proposals gets a **harvest** step:
+one more call with Ollama's constrained JSON decoding (`format` = a schema), so
+the last question is "fill in this shape", not "remember to call a tool". Every
+harvested entry is replayed through the same tool handlers, so all the guardrails
+still apply.
+
+### Runs are slow, and that is fine
+
+A run is 90–180 seconds on this hardware. Agent runs are therefore background
+jobs with a run record and polling, never a blocking request, and they are capped
+by steps (`HR_AGENT_MAX_STEPS`) and wall clock (`HR_AGENT_MAX_SECONDS`). The
+natural framing is a sweep you kick off, not a chat you wait on.
+
+### Every run keeps its whole transcript
+
+Because the model is unreliable, the only basis for trusting a proposal is being
+able to read exactly what happened: each step, each tool call and its arguments,
+each rejection and why, and what the agent concluded. The Agents tab shows all of
+it, including which calls were repaired and whether a nudge or the harvest step
+was needed.
+
+### Running the fleet
+
+```bash
+ollama serve                 # if it is not already running
+ollama pull qwen3:4b         # the tool-capable model
+./dev.sh                     # → http://localhost:5174/#/agents
+```
+
+Point it at a different model with `HR_OLLAMA_MODEL` (and `HR_OLLAMA_URL` for a
+remote Ollama). If the model cannot call tools, the fleet page says so and
+disables the run buttons rather than failing at run time.
+
+A bigger tool-capable model is the single highest-leverage upgrade here — the
+guardrails stay the same, the proposals just get better. Nothing in the
+architecture assumes a small model; it only assumes an unreliable one.
+
+### Tests
+
+The agent layer is covered without ever calling Ollama: argument validation and
+its repair messages, the refusal of hallucinated identifiers, the proposal
+boundary (a test asserts no tool mutates the database), the executor's staleness
+checks, and the routes' behaviour when the model cannot call tools. The model is
+the one part that cannot be asserted on, so everything around it is.
+
+---
+
 ## Registrar console (the Artifact)
 
 **Live page:** https://claude.ai/code/artifact/a9dc09a4-bc24-446a-bc7b-0206130573b5
@@ -181,6 +284,10 @@ stand-in for that store, and `console.html` unmodified. Run
 
 ## Limits worth knowing
 
+- **The agents are advisory.** They cannot change a record. Every proposal is
+  applied by deterministic code after a person approves it, and a small local
+  model will sometimes propose something silly — which is why the transcript and
+  the evidence sit next to every proposal.
 - **No authentication anywhere.** Both halves assume office staff on a trusted
   network. The support side handles real student records; putting it in front of
   anyone would need accounts, roles and an audit trail first.

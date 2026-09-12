@@ -30,7 +30,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from app.config import get_settings                                    # noqa: E402
 from app.db import Base, SessionLocal, engine                          # noqa: E402
 from app.models import (Assessment, AttendanceDay, Course, Enrollment,  # noqa: E402
-                        Intervention, Score, Student)
+                        Intervention, InventoryItem, Score, Student)
 
 settings = get_settings()
 TODAY = settings.today
@@ -91,21 +91,22 @@ def school_days(start: date, end: date) -> list[date]:
     return out
 
 
-def load_console_seed() -> tuple[list[dict], list[dict]]:
+def load_console_seed() -> tuple[list[dict], list[dict], list[dict]]:
     if not SEED_DIR.exists():
         sys.exit(f"No {SEED_DIR} — run `node gen_seed.js` in the repo root first.")
     students = json.loads((SEED_DIR / "catalog__students.json").read_text())["list"]
     courses = [json.loads(p.read_text()) for p in sorted(SEED_DIR.glob("courses__*.json"))]
+    inventory = [json.loads(p.read_text()) for p in sorted(SEED_DIR.glob("inventory__*.json"))]
     if not students or not courses:
         sys.exit(f"{SEED_DIR} is missing students or courses — re-run `node gen_seed.js`.")
-    return students, courses
+    return students, courses, inventory
 
 
 def build(keep: bool = False) -> None:
     if not keep:
         Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
-    raw_students, raw_courses = load_console_seed()
+    raw_students, raw_courses, raw_inventory = load_console_seed()
     db = SessionLocal()
     try:
         if keep and db.query(Student).count():
@@ -150,6 +151,19 @@ def build(keep: bool = False) -> None:
                     continue
                 db.add(Enrollment(student_id=st.id, course_id=c.id,
                                   status=entry.get("state", "enrolled")))
+        db.flush()
+
+        # --- stockroom (same items the registrar console shows) -----------
+        for row in raw_inventory:
+            db.add(InventoryItem(
+                sku=row["sku"], name=row["name"], category=row["category"], unit=row.get("unit", "unit"),
+                on_hand=int(row.get("onHand", 0)), reorder_point=int(row.get("reorderPoint", 0)),
+                par=max(1, int(row.get("par", 1))), location=row.get("location", "Main supply room"),
+                supplier=row.get("supplier", "Central District Warehouse"),
+                unit_cost=float(row.get("unitCost", 0.0)),
+                last_counted=date.fromisoformat(row["lastCounted"]) if row.get("lastCounted") else None,
+                linked_courses=list(row.get("linkedCourses") or []),
+                requisitioned=bool(row.get("requisitioned", False))))
         db.flush()
 
         # --- gradebook ---------------------------------------------------
@@ -258,6 +272,8 @@ def build(keep: bool = False) -> None:
             bands[s.band] = bands.get(s.band, 0) + 1
         means = [c.pct for s in sigs.values() for c in s.courses]
         print(f"students          {len(students)}")
+        print(f"stockroom items   {db.query(InventoryItem).count()}"
+              f"  ({db.query(InventoryItem).filter(InventoryItem.on_hand <= InventoryItem.reorder_point).count()} below reorder)")
         print(f"courses           {len(courses)}")
         print(f"enrollments       {db.query(Enrollment).count()}")
         print(f"assessments       {n_assess}  ({db.query(Assessment).filter(Assessment.due_on <= TODAY).count()} graded)")

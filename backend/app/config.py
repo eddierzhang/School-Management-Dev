@@ -20,6 +20,14 @@ class Settings(BaseSettings):
     term: str = "Fall 2026"
     school_name: str = "Halverson Ridge Middle School"
 
+    # Local inference. Nothing leaves the machine.
+    ollama_url: str = "http://localhost:11434"
+    ollama_model: str = "qwen3:4b"
+    ollama_timeout: float = 300.0
+    ollama_temperature: float = 0.1
+    agent_max_steps: int = 8
+    agent_max_seconds: float = 420.0
+
     # Thresholds the support office can tune without touching the engine.
     support_threshold: float = 72.0   # below this, a course grade needs a plan
     concern_floor: float = 65.0       # below this, tutoring rather than monitoring
