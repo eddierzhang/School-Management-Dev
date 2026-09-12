@@ -23,8 +23,18 @@ both halves.
 factors rather than a single grade average.
 
 **Who is excelling** — a separate index on its own axis. A student failing maths
-and top of the class in science appears on *both* lists; averaging the two into
-one number is precisely how such a student gets missed.
+and top of the class in science carries *both*; averaging the two into one
+number is precisely how such a student gets missed.
+
+**Every student, in one place** — the Students tab lists the whole school:
+needs a plan, watch, steady and excelling, each with one **standing** score
+(excelling index − struggle index, from −100 to +100), their lowest and strongest
+class, absence and open plans. Netting the two indices is how a student failing
+one class and top of another would vanish near zero, so anyone with struggle ≥ 35
+*and* excelling ≥ 60 is marked **mixed**. Bands and plans still come from the
+two indices underneath. Filter buttons narrow it to
+struggling, one band, or anyone with a strength (including students who also
+struggle), with live counts on each, so the steady middle is monitored too.
 
 **What they are struggling *on*** — every graded piece is tagged with the strand
 it tests, so mastery rolls up per topic. The system says *word problems, not
@@ -112,8 +122,9 @@ cd frontend && npm run dev
 The Vite dev server proxies `/api` to port 8000, so the browser stays
 same-origin and never needs CORS in development.
 
-The URL is the view: `#/watchlist`, `#/classes`, `#/skills`, and
-`#/watchlist/S-1507` with one student's record open — so a support office can
+The URL is the view: `#/students`, `#/classes`, `#/skills`, and
+`#/students/S-1507` with one student's record open (old `#/watchlist` and
+`#/strengths` links open the Students tab pre-filtered) — so a support office can
 bookmark a list or mail a colleague a link to one student.
 
 ### Tests
@@ -148,7 +159,7 @@ backend/
   tests/
 frontend/
   src/
-    views/           overview · struggling · excelling · classes · strands · plans ·
+    views/           overview · students · classes · strands · plans ·
                      stockroom · agents
     components/      charts, student drawer, plan dialog, UI primitives
     api.ts           typed client, one function per endpoint

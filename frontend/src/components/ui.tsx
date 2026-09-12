@@ -111,6 +111,26 @@ export function Meter({ value, kind, tick, label }: {
   )
 }
 
+/** Standing runs -100..+100 from a centre line: concern fills left, strength right. */
+export function standingStatus(v: number): StatusKind {
+  return v <= -40 ? 'critical' : v <= -15 ? 'serious' : v >= 30 ? 'good' : 'neutral'
+}
+
+export function StandingMeter({ value, mixed }: { value: number; mixed?: boolean }) {
+  const v = Math.max(-100, Math.min(100, value))
+  const half = Math.abs(v) / 2
+  return (
+    <span className="meter-row">
+      <span className="meter standing" style={{ ['--meter' as string]: statusColor(standingStatus(v)) }}>
+        <i style={v < 0 ? { left: `${50 - half}%`, width: `${half}%` } : { left: '50%', width: `${half}%` }} />
+        <u style={{ left: '50%' }} />
+      </span>
+      <span className="meter-lab">{v > 0 ? `+${v}` : v}</span>
+      {mixed && <span className="pill warning" title="A real concern and a real strength at once">mixed</span>}
+    </span>
+  )
+}
+
 export function Stat({ k, v, c }: { k: string; v: ReactNode; c?: ReactNode }) {
   return (
     <div className="stat">

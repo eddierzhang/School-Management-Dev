@@ -4,7 +4,7 @@ import { useApi } from '../useApi'
 import type { Recommendation } from '../types'
 import { RankedBars } from './charts'
 import { TipRows } from './charts'
-import { BandPill, Delta, ErrorNote, Icon, Loading, Meter, Pill, gradeStatus, pctText } from './ui'
+import { BandPill, Delta, ErrorNote, Icon, Loading, Meter, Pill, StandingMeter, gradeStatus, pctText } from './ui'
 import { PlanDialog } from './PlanDialog'
 import { DocumentsBlock } from './Documents'
 import { Timetable } from './Timetable'
@@ -47,8 +47,9 @@ export function StudentDrawer({ sid, onClose, onChanged }: {
               <div className="block">
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                   <BandPill band={data.band} />
+                  <StandingMeter value={data.standing} mixed={data.mixed} />
                   <span className="sub">
-                    struggle {data.struggle_index} · excelling {data.excel_index}
+                    standing = excelling {data.excel_index} − struggle {data.struggle_index}
                   </span>
                 </div>
                 <dl className="kv">

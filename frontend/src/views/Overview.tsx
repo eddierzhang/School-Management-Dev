@@ -46,7 +46,7 @@ export function Overview({ onOpenStudent, onGoto, onChanged }: {
             <b>{s.unaddressed} students need a plan and do not have one.</b> They are ranked below,
             worst first.
           </span>
-          <button className="btn sm" onClick={() => onGoto('watchlist')}>Open the watchlist</button>
+          <button className="btn sm" onClick={() => onGoto('watchlist')}>Open struggling students</button>
         </div>
       )}
 
