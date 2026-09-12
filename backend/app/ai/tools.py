@@ -318,9 +318,13 @@ def list_budget_status(db: Session, ctx: dict, only_problems: bool = True) -> di
     # Observed: shown only the problem lines, the model tried four transfers from
     # lines that were themselves at risk. It needs to see where the room is.
     out["lines_with_room"] = _lines_with_room(everything)
+    # Where money is necessary, and how much: overruns and low stock nobody has ordered.
+    from ..finance import needs
+    out["lines_needing_money"] = [{"code": n.code, "needs": round(n.need), "why": n.reasons}
+                                  for n in needs(db)[:6]]
     out["year_elapsed_pct"] = round(elapsed_fraction() * 100, 1)
-    out["how_to_read"] = ("Over budget and At risk lines need money. Under-spending and On track "
-                          "lines with a large 'available' can give it.")
+    out["how_to_read"] = ("lines_needing_money says where money is necessary and how much. "
+                          "lines_with_room says which lines can give, and the most each can give.")
     return out
 
 
@@ -407,6 +411,108 @@ def propose_transaction_review(db: Session, ctx: dict, transaction_id: int, conc
                     [{"id": t.id, "line": t.line.code, "vendor": t.vendor, "amount": t.amount,
                       "posted_on": t.posted_on.isoformat(), "reference": t.reference,
                       "rules": [r["rule"] + ": " + r["detail"] for r in rules]}])
+
+
+DOLLARS = re.compile(r"\$\s?(\d[\d,]*(?:\.\d+)?)")
+
+
+def _uncited_dollars(text: str, figures: list[float], allowed: list[float]) -> list[str]:
+    """Dollar amounts in `text` that match no figure the tools returned, and none
+    the proposal itself moves. Tolerance: $1, or 2% of the figure."""
+    pool = [abs(f) for f in figures + allowed if f is not None]
+    bad = []
+    for m in DOLLARS.finditer(text):
+        v = float(m.group(1).replace(",", ""))
+        if not any(abs(v - f) <= max(1.0, 0.02 * f) for f in pool):
+            bad.append(m.group(0))
+    return bad
+
+
+def _finance_figures(db: Session) -> list[float]:
+    from ..finance import max_giveable, needs, positions
+    ps = positions(db)
+    out: list[float] = []
+    for p in ps:
+        out += [p.budget, p.spent, p.committed, p.available, p.projected, p.projected - p.budget,
+                p.spent + p.committed - p.budget, max_giveable(p)]
+    for n in needs(db):
+        out += [n.need, n.overrun, n.unfunded_stock]
+    return out
+
+
+def propose_new_budget_line(db: Session, ctx: dict, code: str, name: str, department: str, category: str,
+                            from_line: str, amount: float, reason: str) -> dict:
+    from ..finance import new_line_problem, positions
+    from ..models import BudgetLine
+
+    code, src = str(code).strip().upper(), str(from_line).strip().upper()
+    try:
+        amount = round(float(amount), 2)
+    except (TypeError, ValueError):
+        raise ToolError("amount must be a number of dollars, e.g. 1500.") from None
+    problem = new_line_problem(db, code, name, department, category, src, amount)
+    if problem:
+        donors = _lines_with_room(positions(db))
+        hint = (" Lines that can give: " + "; ".join(f"{d['code']} up to ${d['can_give_up_to']:,.0f}" for d in donors)
+                + ".") if donors and ("give" in problem or "risk" in problem) else ""
+        raise ToolError(problem + hint)
+    categories = sorted({ln.category for ln in db.scalars(select(BudgetLine)).all()})
+    if category.strip() not in categories:
+        raise ToolError(f"No category called {category!r}. Categories: {', '.join(categories)}.")
+    if len(str(reason).strip()) < 30:
+        raise ToolError("reason must say what the new line pays for and why it cannot come from an existing line.")
+    invented = _uncited_dollars(reason, _finance_figures(db), [amount])
+    if invented:
+        raise ToolError(f"These amounts are not in the budget data: {', '.join(invented)}. "
+                        "Cite only figures from list_budget_status or get_budget_line.")
+    for p in ctx.get("proposals", []):
+        if p["kind"] == "budget_line" and p["payload"]["code"] == code:
+            raise ToolError(f"You already proposed opening {code} in this run.")
+    by_code = {p.code: p for p in positions(db)}
+    return _propose(ctx, "budget_line",
+                    f"Open {code} ({name.strip()}) with ${amount:,.2f} from {src}", reason,
+                    {"code": code, "name": name.strip()[:120], "department": department.strip(),
+                     "category": category.strip(), "from_line": src, "amount": amount},
+                    [_position_row(by_code[src])])
+
+
+def propose_budget_revision(db: Session, ctx: dict, moves: list, reason: str) -> dict:
+    from ..finance import needs, positions, revision_problem
+
+    clean = []
+    for i, m in enumerate(moves, 1):
+        if not isinstance(m, dict):
+            raise ToolError(f"Move {i} must be an object with from_line, to_line and amount.")
+        missing = [k for k in ("from_line", "to_line", "amount") if m.get(k) in (None, "")]
+        if missing:
+            raise ToolError(f"Move {i} is missing {', '.join(missing)}. Each move needs from_line, to_line and amount.")
+        try:
+            amount = round(float(m["amount"]), 2)
+        except (TypeError, ValueError):
+            raise ToolError(f"Move {i}: amount must be a number of dollars.") from None
+        clean.append({"from_line": str(m["from_line"]).strip().upper(),
+                      "to_line": str(m["to_line"]).strip().upper(), "amount": amount})
+    if not clean:
+        raise ToolError("A revision needs at least one move: from_line, to_line and amount.")
+    problem = revision_problem(db, clean)
+    if problem:
+        short = "; ".join(f"{n.code} needs ${n.need:,.0f}" for n in needs(db)[:6])
+        donors = "; ".join(f"{d['code']} up to ${d['can_give_up_to']:,.0f}" for d in _lines_with_room(positions(db), 6))
+        raise ToolError(problem + (f" Where money is needed: {short}." if short else "")
+                        + (f" Lines that can give: {donors}." if donors else ""))
+    invented = _uncited_dollars(reason, _finance_figures(db), [m["amount"] for m in clean])
+    if invented:
+        raise ToolError(f"These amounts are not in the budget data: {', '.join(invented)}. "
+                        "Cite only figures from list_budget_status or get_budget_line.")
+    if any(p["kind"] == "budget_revision" for p in ctx.get("proposals", [])):
+        raise ToolError("You already proposed a revision in this run. Put every move in one revision.")
+    total = sum(m["amount"] for m in clean)
+    by_code = {p.code: p for p in positions(db)}
+    involved = sorted({m["from_line"] for m in clean} | {m["to_line"] for m in clean})
+    return _propose(ctx, "budget_revision",
+                    f"Revise the budget: move ${total:,.2f} across {len(clean)} transfers into "
+                    f"{', '.join(sorted({m['to_line'] for m in clean}))}", reason,
+                    {"moves": clean}, [_position_row(by_code[c]) for c in involved])
 
 
 # ===================== class improvement ===============================

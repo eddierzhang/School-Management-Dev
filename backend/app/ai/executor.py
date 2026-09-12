@@ -121,6 +121,46 @@ def _apply_transaction_review(db: Session, p: Proposal) -> str:
     return f"Transaction #{t.id} ({t.vendor}, ${t.amount:,.2f}) is held for review."
 
 
+def _apply_budget_line(db: Session, p: Proposal) -> str:
+    from ..finance import FISCAL_YEAR, new_line_problem
+    from ..models import BudgetLine, BudgetTransfer
+
+    d = p.payload
+    problem = new_line_problem(db, d["code"], d["name"], d["department"], d["category"],
+                               d["from_line"], float(d["amount"]))
+    if problem:
+        raise ApplyError(problem + " The budget changed since this was proposed.")
+    src = db.scalar(select(BudgetLine).where(BudgetLine.code == d["from_line"]))
+    owner = next((ln.owner for ln in db.scalars(select(BudgetLine).where(
+        BudgetLine.department == d["department"])).all() if ln.owner), "Business office")
+    # Opened at zero and funded by a transfer, so the approved allocations stay untouched.
+    line = BudgetLine(code=d["code"], name=d["name"], department=d["department"], category=d["category"],
+                      fiscal_year=FISCAL_YEAR, allocated=0.0, owner=owner)
+    db.add(line)
+    db.flush()
+    db.add(BudgetTransfer(from_line_id=src.id, to_line_id=line.id, amount=float(d["amount"]),
+                          reason=f"Opening {d['code']}: {p.reason or ''}".strip(),
+                          approved_by="Business office (agent proposal)"))
+    return f"Opened {d['code']} ({d['name']}) with ${float(d['amount']):,.2f} from {d['from_line']}."
+
+
+def _apply_budget_revision(db: Session, p: Proposal) -> str:
+    from ..finance import revision_problem
+    from ..models import BudgetLine, BudgetTransfer
+
+    moves = p.payload["moves"]
+    problem = revision_problem(db, moves)
+    if problem:
+        raise ApplyError(problem + " The budget changed since this was proposed, so none of it was applied.")
+    ids = {ln.code: ln.id for ln in db.scalars(select(BudgetLine)).all()}
+    for m in moves:
+        db.add(BudgetTransfer(from_line_id=ids[m["from_line"]], to_line_id=ids[m["to_line"]],
+                              amount=float(m["amount"]), reason=f"Budget revision #{p.id}: {p.reason or ''}".strip(),
+                              approved_by="Business office (agent proposal)"))
+    total = sum(float(m["amount"]) for m in moves)
+    return f"Budget revised: ${total:,.2f} moved in {len(moves)} transfers."
+
+
 def _apply_class_plan(db: Session, p: Proposal) -> str:
     try:
         plan = adopt(db, run_id=p.run_id, proposal_id=p.id, **{k: p.payload[k] for k in (
@@ -140,6 +180,8 @@ HANDLERS = {
     "budget_transfer": _apply_budget_transfer,
     "transaction_review": _apply_transaction_review,
     "class_plan": _apply_class_plan,
+    "budget_line": _apply_budget_line,
+    "budget_revision": _apply_budget_revision,
 }
 
 

@@ -198,17 +198,18 @@ SUPPORT = Agent(
 FINANCE = Agent(
     name="finance",
     title="Finance agent",
-    domain="Budget: what is overspending, what looks wrong, and where money can move.",
+    domain="Budget: what is overspending, where money is needed, what looks wrong, and where money can move.",
     system=(
         "You are the finance agent for Halverson Ridge Middle School's business office. Your job "
         "is to keep every budget line solvent through June and catch charges that need a person's eye.\n\n"
-        "Work in this order: find lines that are Over budget or At risk, then look for a line with "
-        "room to give and propose a transfer that covers the shortfall. Then check spending "
-        "anomalies and propose a review for any that look like real mistakes, such as a "
-        "duplicated invoice. Amounts are dollars.\n\n" + COMMON_RULES
+        "Work in this order: read lines_needing_money and lines_with_room. Propose ONE budget "
+        "revision with a move into each line that needs money, from lines with room, each amount no "
+        "more than that line needs. Open a new line only for a purpose no existing line covers, "
+        "funded from a line with room. Then check spending anomalies and propose a review for any that look like real "
+        "mistakes, such as a duplicated invoice. Amounts are dollars.\n\n" + COMMON_RULES
     ),
-    default_task="Review the budget. Find lines at risk of overspending, propose transfers from lines "
-                 "with room, and flag any charges that look like mistakes.",
+    default_task="Review the budget. Find where money is needed, propose a revision that moves it from "
+                 "lines with room, and flag any charges that look like mistakes.",
     opening=("list_budget_status", {"only_problems": True}),
     tools=[
         _tool(T.list_budget_status, "list_budget_status",
@@ -225,14 +226,6 @@ FINANCE = Agent(
         _tool(T.find_spending_anomalies, "find_spending_anomalies",
               "Unreviewed transactions caught by a rule: possible duplicates and unusually large charges.",
               {"type": "object", "properties": {}, "required": []}),
-        _tool(T.propose_budget_transfer, "propose_budget_transfer",
-              "Propose moving money from a line with room to a line that is Over budget or At risk.",
-              {"type": "object", "properties": {
-                  "from_line": {"type": "string", "description": "Code of the line giving money."},
-                  "to_line": {"type": "string", "description": "Code of the line that needs it."},
-                  "amount": {"type": "number", "description": "Dollars to move."},
-                  "reason": {"type": "string", "description": "One or two sentences citing the numbers."}},
-               "required": ["from_line", "to_line", "amount", "reason"]}, proposes="budget_transfer"),
         _tool(T.propose_transaction_review, "propose_transaction_review",
               "Propose holding one transaction for a person to review.",
               {"type": "object", "properties": {
@@ -240,6 +233,29 @@ FINANCE = Agent(
                   "concern": {"type": "string", "description": "What looks wrong, in one sentence."},
                   "reason": {"type": "string", "description": "The evidence, citing the rule and amounts."}},
                "required": ["transaction_id", "concern", "reason"]}, proposes="transaction_review"),
+        _tool(T.propose_budget_revision, "propose_budget_revision",
+              "Propose moving money across several lines at once, from lines with room to lines that need it.",
+              {"type": "object", "properties": {
+                  "moves": {"type": "array", "description": "One to six moves, one into each line that needs money.",
+                            "items": {"type": "object", "properties": {
+                                "from_line": {"type": "string", "description": "A line from lines_with_room."},
+                                "to_line": {"type": "string", "description": "A line from lines_needing_money."},
+                                "amount": {"type": "number", "description": "Dollars."}},
+                                "required": ["from_line", "to_line", "amount"]}},
+                  "reason": {"type": "string", "description": "Why, citing the needs and amounts from the tools."}},
+               "required": ["moves", "reason"]}, proposes="budget_revision"),
+        _tool(T.propose_new_budget_line, "propose_new_budget_line",
+              "Propose opening a new budget line for a purpose no existing line covers, funded from a line with room.",
+              {"type": "object", "properties": {
+                  "code": {"type": "string", "description": "New code: department letters, dash, three letters, e.g. MAT-TUT."},
+                  "name": {"type": "string", "description": "What the money is for."},
+                  "department": {"type": "string", "description": "An existing department name."},
+                  "category": {"type": "string", "description": "An existing category, e.g. Supplies or Programs."},
+                  "from_line": {"type": "string", "description": "A line from lines_with_room to fund it."},
+                  "amount": {"type": "number", "description": "Dollars to move into the new line."},
+                  "reason": {"type": "string", "description": "What it pays for and why no existing line fits."}},
+               "required": ["code", "name", "department", "category", "from_line", "amount", "reason"]},
+              proposes="budget_line"),
     ],
 )
 

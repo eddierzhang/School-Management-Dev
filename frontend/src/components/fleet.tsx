@@ -14,6 +14,8 @@ const KIND_LABEL: Record<string, string> = {
   capacity_change: 'Change capacity',
   support_plan: 'Open a support plan',
   budget_transfer: 'Move budget',
+  budget_revision: 'Revise the budget',
+  budget_line: 'Open a budget line',
   transaction_review: 'Hold a charge for review',
   class_plan: 'Adopt a class improvement plan',
 }

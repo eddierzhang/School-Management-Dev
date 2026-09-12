@@ -15,8 +15,8 @@ from sqlalchemy.orm import Session
 
 from ..config import get_settings
 from ..db import get_db
-from ..finance import (FISCAL_YEAR, FY_START, anomalies, elapsed_fraction, positions,
-                       transfer_problem)
+from ..finance import (FISCAL_YEAR, FY_START, anomalies, elapsed_fraction, max_giveable, needs,
+                       new_line_problem, positions, revision_problem, transfer_problem)
 from ..models import BudgetLine, BudgetTransfer, Transaction
 
 router = APIRouter(prefix="/finance", tags=["finance"])
@@ -42,6 +42,28 @@ class TransferIn(BaseModel):
     from_line: str
     to_line: str
     amount: float
+    reason: str = Field(min_length=4, max_length=1000)
+
+
+class NewLineIn(BaseModel):
+    code: str = Field(min_length=5, max_length=8)
+    name: str = Field(min_length=4, max_length=120)
+    department: str
+    category: str = Field(min_length=2, max_length=60)
+    owner: str = Field(default="", max_length=120)
+    from_line: str
+    amount: float
+    reason: str = Field(min_length=4, max_length=1000)
+
+
+class MoveIn(BaseModel):
+    from_line: str
+    to_line: str
+    amount: float
+
+
+class RevisionIn(BaseModel):
+    moves: list[MoveIn] = Field(min_length=1, max_length=6)
     reason: str = Field(min_length=4, max_length=1000)
 
 
@@ -169,3 +191,51 @@ def make_transfer(body: TransferIn, db: Session = Depends(get_db)) -> dict:
     db.commit()
     db.refresh(tr)
     return _transfer(db, tr)
+
+
+@router.get("/needs")
+def where_money_is_needed(db: Session = Depends(get_db)) -> dict:
+    """Lines that need money and how much, beside the lines that can give and the most each can."""
+    return {
+        "needs": [asdict(n) for n in needs(db)],
+        "room": sorted(({"code": p.code, "name": p.name, "can_give": g} for p in positions(db)
+                        if (g := max_giveable(p)) > 0), key=lambda r: -r["can_give"]),
+    }
+
+
+@router.post("/lines", status_code=201)
+def open_line(body: NewLineIn, db: Session = Depends(get_db)) -> dict:
+    """Open a line at zero and fund it with a transfer, so no approved allocation is edited."""
+    code, src = body.code.strip().upper(), body.from_line.strip().upper()
+    amount = round(body.amount, 2)
+    problem = new_line_problem(db, code, body.name, body.department, body.category, src, amount)
+    if problem:
+        raise HTTPException(409 if "available" in problem or "at risk" in problem or "exists" in problem
+                            else 422, problem)
+    line = BudgetLine(code=code, name=body.name.strip(), department=body.department.strip(),
+                      category=body.category.strip(), fiscal_year=FISCAL_YEAR, allocated=0.0,
+                      owner=body.owner.strip() or "Business office")
+    db.add(line)
+    db.flush()
+    db.add(BudgetTransfer(from_line_id=_line(db, src).id, to_line_id=line.id, amount=amount,
+                          reason=f"Opening {code}: {body.reason.strip()}"))
+    db.commit()
+    return next(asdict(p) for p in positions(db) if p.code == code)
+
+
+@router.post("/revisions", status_code=201)
+def revise(body: RevisionIn, db: Session = Depends(get_db)) -> dict:
+    """Several transfers approved together, judged on their combined effect."""
+    moves = [{"from_line": m.from_line.strip().upper(), "to_line": m.to_line.strip().upper(),
+              "amount": round(m.amount, 2)} for m in body.moves]
+    problem = revision_problem(db, moves)
+    if problem:
+        raise HTTPException(409, problem)
+    made = []
+    for m in moves:
+        tr = BudgetTransfer(from_line_id=_line(db, m["from_line"]).id, to_line_id=_line(db, m["to_line"]).id,
+                            amount=m["amount"], reason=f"Budget revision: {body.reason.strip()}")
+        db.add(tr)
+        made.append(tr)
+    db.commit()
+    return {"moved": round(sum(m["amount"] for m in moves), 2), "transfers": [_transfer(db, tr) for tr in made]}

@@ -3,6 +3,7 @@ import { api, ApiError } from '../api'
 import { useApi } from '../useApi'
 import type { Anomaly, BudgetLine, Txn } from '../types'
 import { ErrorNote, Icon, Loading, Meter, Pill, Stat } from '../components/ui'
+import { BudgetMoves } from '../components/BudgetMoves'
 
 const money = (n: number, cents = false) => {
   const s = Math.abs(n).toLocaleString('en-US', {
@@ -280,6 +281,8 @@ export function Finance({ onChanged }: { onChanged?: () => void }) {
         )}
         <p className="sub">The tick on each bar marks how much of the fiscal year has gone.</p>
       </section>
+
+      {lines.data && <BudgetMoves lines={lines.data} onChanged={bump} />}
 
       <section className="sec">
         <div className="sec-head">

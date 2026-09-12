@@ -756,3 +756,25 @@ export interface ClassNeedRow {
   active_plan: string | null
   drafts_waiting: number
 }
+
+// ---- budget needs, new lines and revisions ----------------------------------
+export interface LineNeed {
+  code: string
+  name: string
+  status_label: string
+  overrun: number
+  unfunded_stock: number
+  need: number
+  reasons: string[]
+}
+
+export interface FinanceNeeds {
+  needs: LineNeed[]
+  room: { code: string; name: string; can_give: number }[]
+}
+
+export interface BudgetMove {
+  from_line: string
+  to_line: string
+  amount: number
+}
