@@ -242,6 +242,30 @@ reseed needed.
 
 ---
 
+## Schedules
+
+The **Schedule** tab is the master timetable: every running section laid out by
+period, with rows by room or by teacher, filterable by department. Select a class
+to open its page. Below it, pick any student to see their day period by period:
+the classes they're enrolled in, free periods, and classes they're waitlisted
+for. The same timetable appears in every student's record.
+
+Conflicts are shown, never quietly resolved (`app/schedule.py`):
+
+- **Timetable clashes** — a room or teacher booked into two sections in the same period.
+- **Student clashes** — a student enrolled in two classes in the same period.
+
+The seeded term has no timetable clashes but **41 of 60 students have a student
+clash**: `gen_seed.js` fills rosters by balancing class load and never looks at
+periods. The screen lists every one, so the registrar can see the scale of it.
+
+```
+GET /api/schedule                  sections by period, rooms, teachers, both kinds of clash
+GET /api/students/{sid}/schedule   one student's day, with free periods and clashes
+```
+
+---
+
 ## Reading documents about a student
 
 Open any student's record and upload a teacher note, report card, assessment or

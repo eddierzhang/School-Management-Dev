@@ -450,3 +450,64 @@ class Summary(Base):
 
 
 StudentDetail.model_rebuild()
+
+
+# ---- schedule ----------------------------------------------------------------
+class SectionSlotOut(Base):
+    code: str
+    title: str
+    dept: str
+    teacher: str
+    room: str
+    period: int                 # 0 = outside the timetable
+    length: str
+    credits: float
+    enrolled: int
+    capacity: int
+    waitlist: int
+    base_code: str
+
+
+class TimetableClashOut(Base):
+    kind: str                   # room | teacher
+    who: str
+    period: int
+    sections: list[str]
+
+
+class StudentClashOut(Base):
+    sid: str
+    name: str
+    grade: int
+    period: int
+    sections: list[str]
+
+
+class SchoolScheduleOut(Base):
+    periods: list[int]
+    sections: list[SectionSlotOut]
+    rooms: list[str]
+    teachers: list[str]
+    clashes: list[TimetableClashOut]
+    student_clashes: list[StudentClashOut]
+    students_with_clashes: int
+
+
+class StudentPeriodOut(Base):
+    period: int
+    enrolled: list[SectionSlotOut]
+    waitlisted: list[SectionSlotOut]
+    clash: bool
+
+
+class StudentScheduleOut(Base):
+    sid: str
+    name: str
+    grade: int
+    homeroom: str
+    periods: list[StudentPeriodOut]
+    classes: int
+    credits: float
+    free_periods: list[int]
+    clashes: int
+    waitlisted: int

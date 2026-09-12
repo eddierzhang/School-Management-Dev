@@ -7,6 +7,7 @@ import { TipRows } from './charts'
 import { BandPill, Delta, ErrorNote, Icon, Loading, Meter, Pill, gradeStatus, pctText } from './ui'
 import { PlanDialog } from './PlanDialog'
 import { DocumentsBlock } from './Documents'
+import { Timetable } from './Timetable'
 
 export function StudentDrawer({ sid, onClose, onChanged }: {
   sid: string; onClose: () => void; onChanged?: () => void
@@ -98,6 +99,11 @@ export function StudentDrawer({ sid, onClose, onChanged }: {
                   ))}
                 </div>
               )}
+
+              <div className="block">
+                <h3>Schedule</h3>
+                <Timetable sid={sid} compact />
+              </div>
 
               <div className="block">
                 <h3>Grades by class</h3>
