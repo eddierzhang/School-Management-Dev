@@ -42,6 +42,10 @@ levels, each tied to the classes that consume it. A class filling up shows here
 before it runs short, and the number of students depending on an item is what
 ranks a shortage against the others.
 
+**What a document says** — upload a teacher note, report card or piece of work
+and the local model finds specific needs and strengths in it, each backed by a
+verbatim quote and checked against the gradebook.
+
 **What to reteach** — the same strand data aggregated per cohort. One student
 below on a strand is a referral; half the class below on it is a lesson to run
 again, and no amount of tutoring fixes that one student at a time.
@@ -149,6 +153,57 @@ frontend/
     components/      charts, student drawer, plan dialog, UI primitives
     api.ts           typed client, one function per endpoint
 ```
+
+---
+
+## Reading documents about a student
+
+Open any student's record and upload a teacher note, report card, assessment or
+piece of work (PDF, Word or text). The local model reads it in the background —
+about two minutes for a page — and returns specific needs and strengths, each
+with a support plan one click away.
+
+```bash
+.venv/bin/python backend/samples/make_samples.py   # a fictional note about Talia Barnard, in .txt/.docx/.pdf
+```
+
+A 4B model reading prose will invent things, so nothing it finds is shown until it
+has passed three deterministic checks:
+
+1. **It must quote the document.** Every finding carries a verbatim quotation, and
+   the quotation must actually occur in the extracted text. Case, curly quotes and
+   line breaks are forgiven; paraphrase is not. An invented need has nothing to quote.
+2. **It may not diagnose.** "Finds it hard to settle into written work" is something
+   a support office can act on. "Has ADHD" is not this tool's to say; a finding that
+   names a condition is withheld with a notice to route it to the right staff.
+3. **The gradebook check is independent.** The model never sees the student's grades,
+   so it can't parrot them back. Corroboration is computed afterwards and shown as
+   *agrees*, *disagrees* or *mixed* — disagreement is worth a look too. Severity is
+   raised when the gradebook shows a need is worse than the model rated it
+   (observed: "low" for a strand the student scores 13% on), and never lowered.
+
+Withheld claims stay visible with the reason, alongside the full text that was read.
+
+On the sample note the model found five things — word problems, missing algebra
+work, Monday absences, photography, narrative writing — every quote verified and
+every one matched by the gradebook. It did not turn the parent's question about
+ADHD into a finding, and did not attribute another student's habits to Talia.
+
+**Limits.** Scans and photos can't be read: no vision model is installed, and a PDF
+with no text layer is refused with that explanation. Only extracted text is stored,
+never the file; deleting a document removes everything that was read. Documents
+longer than about 100,000 characters are refused — upload the relevant section.
+
+### The context window, and a correction to how agents are run
+
+Ollama runs qwen3:4b at a **4,096-token** window unless told otherwise — not the
+262k the model supports — and input past the window is cut to about half of it
+**with no error**. Measured: a 50,000-character document arrived as 2,050 tokens.
+Every request now sets `num_ctx` (16,384 by default, `HR_OLLAMA_NUM_CTX`), refuses
+input that cannot fit before sending it, and flags replies whose reported token
+count shows they were cut. Documents are split on paragraph boundaries into parts
+well inside the window. This applies to the agent fleet too; its runs had not yet
+been observed overflowing, but longer ones could have, silently.
 
 ---
 

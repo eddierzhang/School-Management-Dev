@@ -25,6 +25,10 @@ class Settings(BaseSettings):
     ollama_model: str = "qwen3:4b"
     ollama_timeout: float = 300.0
     ollama_temperature: float = 0.1
+    # Sent on every request. Ollama's own default is 4,096 tokens, and input past
+    # the window is cut to roughly half of it WITHOUT any error: a 50,000-character
+    # document arrived as 2,050 tokens. 16k costs ~2.4 GB of KV cache on qwen3:4b.
+    ollama_num_ctx: int = 16384
     agent_max_steps: int = 8
     agent_max_seconds: float = 420.0
 

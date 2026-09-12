@@ -327,3 +327,63 @@ export interface InventoryPatch {
   par?: number
   requisitioned?: boolean
 }
+
+
+/* ---- student documents ---- */
+
+export interface DocEvidence {
+  source: string
+  detail: string
+  kind: 'strand' | 'course' | 'attendance' | 'missing'
+  pct?: number
+  rate?: number
+  concern?: boolean
+}
+
+export type Corroboration = 'agrees' | 'disagrees' | 'mixed' | 'no-evidence' | 'no-record'
+
+export interface DocFinding {
+  area: string
+  type: 'need' | 'strength'
+  severity: 'high' | 'medium' | 'low'
+  severity_note: string | null
+  quote: string
+  explanation: string
+  suggested_support: string
+  gradebook: { verdict: Corroboration; evidence: DocEvidence[] }
+}
+
+export interface WithheldFinding {
+  area?: string
+  type?: string
+  quote?: string
+  reason: string
+}
+
+export interface StudentDocumentRow {
+  id: number
+  student_sid: string
+  student_name: string
+  filename: string
+  kind: string
+  pages: number | null
+  chars: number
+  status: 'processing' | 'done' | 'failed'
+  summary: string
+  chunks: number
+  model: string
+  duration_ms: number
+  error: string | null
+  needs: number
+  strengths: number
+  withheld: number
+  uploaded_at: string | null
+  analysed_at: string | null
+}
+
+export interface StudentDocumentDetail extends StudentDocumentRow {
+  findings: DocFinding[]
+  rejected: WithheldFinding[]
+  notices: string[]
+  text: string
+}

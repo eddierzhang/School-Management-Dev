@@ -79,6 +79,7 @@ def run_agent(db: Session, agent: Agent, task: str, run: AgentRun) -> AgentRun:
             reply = chat(messages, tools=agent.tool_specs())
             entry = {"step": step, "thinking": reply.thinking[:1200], "said": reply.content[:1200],
                      "ms": reply.duration_ms, "recovered_from_text": reply.recovered_from_text,
+                     "prompt_tokens": reply.prompt_tokens, "truncated": reply.truncated,
                      "calls": []}
 
             if not reply.tool_calls:

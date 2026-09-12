@@ -1,7 +1,7 @@
 import type {
   AgentRun, CourseDetail, CourseRow, Fleet, Intervention, InventoryDetail, InventoryPatch,
   InventoryRow, NewIntervention, ProposalRow, Recommendation, Requisition, SkillGap,
-  StockroomSummary, StudentDetail, StudentRow, Summary,
+  StockroomSummary, StudentDetail, StudentDocumentDetail, StudentDocumentRow, StudentRow, Summary,
 } from './types'
 
 const BASE = '/api'
@@ -15,9 +15,10 @@ export class ApiError extends Error {
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response
   try {
+    const isForm = init?.body instanceof FormData
     res = await fetch(BASE + path, {
       ...init,
-      headers: { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+      headers: isForm ? (init?.headers ?? {}) : { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
     })
   } catch {
     throw new ApiError(0, 'Cannot reach the support API. Is the backend running on port 8000?')
@@ -60,6 +61,20 @@ export const api = {
   updateIntervention: (id: number, body: Partial<Pick<Intervention, 'status' | 'outcome' | 'owner'>>) =>
     req<Intervention>(`/interventions/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deleteIntervention: (id: number) => req<void>(`/interventions/${id}`, { method: 'DELETE' }),
+
+  // --- student documents ---
+  documents: (sid: string) =>
+    req<StudentDocumentRow[]>(`/students/${encodeURIComponent(sid)}/documents`),
+  document: (id: number) => req<StudentDocumentDetail>(`/documents/${id}`),
+  uploadDocument: (sid: string, file: File, kind: string) => {
+    const body = new FormData()
+    body.append('file', file)
+    body.append('kind', kind)
+    return req<StudentDocumentRow>(`/students/${encodeURIComponent(sid)}/documents`, { method: 'POST', body })
+  },
+  reanalyseDocument: (id: number) =>
+    req<StudentDocumentRow>(`/documents/${id}/analyze`, { method: 'POST' }),
+  deleteDocument: (id: number) => req<void>(`/documents/${id}`, { method: 'DELETE' }),
 
   // --- stockroom ---
   inventory: (p: { category?: string; needs_attention?: boolean; q?: string } = {}) =>
