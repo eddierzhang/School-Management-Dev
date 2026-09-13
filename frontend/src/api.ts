@@ -1,5 +1,5 @@
 import type {
-  AdminUser, AuditPage, AuthConfig, Me, NewUser, RolesInfo,
+  AdminUser, AuditPage, AuthConfig, Me, NewUser, RolesInfo, OverrideRecord, StudentHistory,
   BudgetMove, FinanceNeeds,
   ClassImprovement, ClassNeedRow, ClassPlan, DraftRun,
   ClassWork, StudentStudy, StudyPlan,
@@ -191,10 +191,18 @@ export const api = {
   runs: (agent?: string) => req<AgentRun[]>('/agents/runs' + qs({ agent })),
   run: (id: number) => req<AgentRun>(`/agents/runs/${id}`),
   proposals: (status?: string) => req<ProposalRow[]>('/agents/proposals' + qs({ status })),
-  approveProposal: (id: number) =>
+  approveProposal: (id: number, note?: string) =>
     req<{ applied: boolean; result: string; proposal: ProposalRow }>(
-      `/agents/proposals/${id}/approve`, { method: 'POST' }),
-  rejectProposal: (id: number, note?: string) =>
+      `/agents/proposals/${id}/approve`, { method: 'POST', body: JSON.stringify({ note: note ?? null }) }),
+  /** A reason is required: rejections are how the agents and the indices get corrected. */
+  rejectProposal: (id: number, note: string) =>
     req<{ rejected: boolean; proposal: ProposalRow }>(
-      `/agents/proposals/${id}/reject`, { method: 'POST', body: JSON.stringify({ note: note ?? null }) }),
+      `/agents/proposals/${id}/reject`, { method: 'POST', body: JSON.stringify({ note }) }),
+
+  // --- history and overrides ---
+  studentHistory: (sid: string) => req<StudentHistory>(`/students/${encodeURIComponent(sid)}/history`),
+  createOverride: (sid: string, body: { kind: 'acknowledge' | 'set-band'; band?: string | null; note: string; expires_on: string }) =>
+    req<OverrideRecord>(`/students/${encodeURIComponent(sid)}/overrides`, { method: 'POST', body: JSON.stringify(body) }),
+  revokeOverride: (sid: string, id: number) =>
+    req<OverrideRecord>(`/students/${encodeURIComponent(sid)}/overrides/${id}`, { method: 'DELETE' }),
 }

@@ -5,7 +5,8 @@ import { useApi } from '../useApi'
 import type { Recommendation } from '../types'
 import { RankedBars } from './charts'
 import { TipRows } from './charts'
-import { BandPill, Delta, ErrorNote, Icon, Loading, Meter, Pill, StandingMeter, gradeStatus, pctText } from './ui'
+import { BAND_LABEL, BandPill, Delta, ErrorNote, Icon, Loading, Meter, Pill, StandingMeter, gradeStatus, pctText } from './ui'
+import { HistoryBlock, OverrideBlock } from './StudentHistory'
 import { PlanDialog } from './PlanDialog'
 import { DocumentsBlock } from './Documents'
 import { StudyPlansBlock } from './StudyPlans'
@@ -18,6 +19,7 @@ export function StudentDrawer({ sid, onClose, onChanged }: {
   const [planSeed, setPlanSeed] = useState<Recommendation | undefined>()
   const [planOpen, setPlanOpen] = useState(false)
   const canPlan = useAuth().can('plans.write')
+  const [tick, setTick] = useState(0)
 
   const openPlan = (seed?: Recommendation) => { setPlanSeed(seed); setPlanOpen(true) }
 
@@ -50,6 +52,8 @@ export function StudentDrawer({ sid, onClose, onChanged }: {
               <div className="block">
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                   <BandPill band={data.band} />
+                  {data.band !== data.computed_band && <span className="sub">index says {BAND_LABEL[data.computed_band]}</span>}
+                  {data.acknowledged && <Pill kind="neutral">in hand</Pill>}
                   <StandingMeter value={data.standing} mixed={data.mixed} />
                   <span className="sub">
                     standing = excelling {data.excel_index} − struggle {data.struggle_index}
@@ -70,6 +74,10 @@ export function StudentDrawer({ sid, onClose, onChanged }: {
                   )}
                 </dl>
               </div>
+
+              <OverrideBlock student={data} onChanged={() => { reload(); setTick((n) => n + 1); onChanged?.() }} />
+
+              <HistoryBlock sid={data.sid} name={data.name} refresh={tick} />
 
               {data.reasons.length > 0 && (
                 <div className="block">

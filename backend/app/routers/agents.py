@@ -24,7 +24,13 @@ class RunRequest(BaseModel):
 
 
 class RejectRequest(BaseModel):
-    note: str | None = None
+    # Required: a rejection without a reason teaches nobody anything. Read together,
+    # the reasons show where the agents or the indices are wrong.
+    note: str = Field(min_length=5, max_length=1000)
+
+
+class ApproveRequest(BaseModel):
+    note: str | None = Field(default=None, max_length=1000)
 
 
 def _reap_stale(db: Session) -> None:
@@ -66,7 +72,7 @@ def _run_out(r: AgentRun, full: bool = False) -> dict:
 def _proposal_out(p: Proposal) -> dict:
     return {"id": p.id, "run_id": p.run_id, "agent": p.agent, "kind": p.kind, "summary": p.summary,
             "reason": p.reason, "payload": p.payload, "evidence": p.evidence, "status": p.status,
-            "result": p.result, "decided_by": p.decided_by,
+            "result": p.result, "decided_by": p.decided_by, "decision_note": p.decision_note,
             "created_at": p.created_at.isoformat() if p.created_at else None,
             "decided_at": p.decided_at.isoformat() if p.decided_at else None}
 
@@ -164,10 +170,12 @@ def list_proposals(status: str | None = "pending", agent: str | None = None,
 
 
 @router.post("/proposals/{pid}/approve")
-def approve(pid: int, db: Session = Depends(get_db), user: Principal = Depends(require("agents.read"))) -> dict:
+def approve(pid: int, body: ApproveRequest | None = None, db: Session = Depends(get_db),
+            user: Principal = Depends(require("agents.read"))) -> dict:
     p = _decidable(db, pid, user)
+    note = (body.note or "").strip() if body else ""
     try:
-        result = apply_proposal(db, p, by_email=user.email, by_name=user.name)
+        result = apply_proposal(db, p, by_email=user.email, by_name=user.name, note=note)
     except ApplyError as e:
         db.rollback()
         p = db.get(Proposal, pid)
@@ -185,7 +193,7 @@ def reject(pid: int, body: RejectRequest, db: Session = Depends(get_db),
            user: Principal = Depends(require("agents.read"))) -> dict:
     p = _decidable(db, pid, user)
     try:
-        reject_proposal(db, p, body.note, by_email=user.email)
+        reject_proposal(db, p, body.note.strip(), by_email=user.email)
     except ApplyError as e:
         raise HTTPException(409, str(e)) from e
     return {"rejected": True, "proposal": _proposal_out(p)}

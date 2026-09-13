@@ -3,7 +3,7 @@ import { api, ApiError } from '../api'
 import { useAuth } from '../auth'
 import { useApi } from '../useApi'
 import type { StudyClassRow, StudyDraft, StudyPlan } from '../types'
-import { Delta, ErrorNote, Icon, Loading, Pill, gradeStatus, pctText } from './ui'
+import { Delta, ErrorNote, Icon, Loading, Pill, RejectButton, gradeStatus, pctText } from './ui'
 
 const day = (iso: string | null) =>
   iso ? new Date(iso + (iso.length === 10 ? 'T00:00:00' : '')).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—'
@@ -157,10 +157,8 @@ function ClassStudy({ sid, row, plan, drafts, busy, canDraft, act }: {
                 onClick={() => act(() => api.approveProposal(draft.id), 'Study plan adopted. Progress is tracked from today’s numbers.')}>
                 Adopt this plan
               </button>
-              <button className="btn sm ghost" disabled={busy}
-                onClick={() => act(() => api.rejectProposal(draft.id, 'Rejected in the student record'), 'Draft rejected. You can ask for another.')}>
-                Reject
-              </button>
+              <RejectButton busy={busy}
+                onReject={(note) => act(() => api.rejectProposal(draft.id, note), 'Draft rejected. You can ask for another.')} />
             </div>
           ) : (
             <div className="sub">Waiting for the support office to adopt or reject it.</div>

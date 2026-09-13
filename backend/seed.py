@@ -40,6 +40,7 @@ from app.config import DEMO_TODAY, get_settings                        # noqa: E
 from app.finance_seed import seed_finance                              # noqa: E402
 from app.db import Base, SessionLocal, engine, migrate                 # noqa: E402
 from app.auth.passwords import hash_password                           # noqa: E402
+from app.history import backfill                                       # noqa: E402
 from app.models import (Assessment, AttendanceDay, Course, Enrollment,  # noqa: E402
                         Intervention, InventoryItem, Score, Student, User)
 
@@ -331,6 +332,10 @@ def build(keep: bool = False) -> None:
         print(f"mean course grade {statistics.fmean(means):.1f}%")
         print("bands             " + "  ".join(f"{k}={v}" for k, v in sorted(bands.items())))
         print(f"accounts          {seed_users(db)}  (sign in as admin@{DEMO_DOMAIN}, password {DEMO_PASSWORD})")
+        # A reading each Friday from week three, read from the gradebook as it stood
+        # then, so the term has a history to chart from the first run.
+        taken = backfill(db, start=TERM_START + timedelta(days=18), end=TODAY)
+        print(f"history           {len(taken)} weekly snapshots, {taken[0]} to {taken[-1]}")
     finally:
         db.close()
 
@@ -434,6 +439,7 @@ def upgrade() -> None:
         db.commit()
         print(f"grades and homerooms updated for {changed} students")
         print(f"demo accounts added: {seed_users(db)}")
+        print(f"weekly snapshots: {len(backfill(db, start=TERM_START + timedelta(days=18), end=TODAY))}")
         print(f"sections added: {len(added)}" + (": " + ", ".join(added) if added else ""))
         if skipped:
             print(f"{skipped} roster entries skipped: the student already has a class that period here;"

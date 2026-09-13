@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, ApiError } from '../api'
 import { useApi } from '../useApi'
 import type { AgentRun, Fleet, ProposalRow, TranscriptStep } from '../types'
-import { ErrorNote, Icon, Loading, Pill } from './ui'
+import { ErrorNote, Icon, Loading, Pill, RejectButton } from './ui'
 
 /* The fleet's state lives here so the home page and the Agents tab share one
    implementation and one poller, rather than two that can disagree. */
@@ -43,7 +43,7 @@ export interface FleetState {
   openRun: AgentRun | null
   setOpenRun: (r: AgentRun | null) => void
   start: (name: string) => Promise<void>
-  decide: (p: ProposalRow, approve: boolean) => Promise<void>
+  decide: (p: ProposalRow, approve: boolean, note?: string) => Promise<void>
   refresh: () => Promise<void>
 }
 
@@ -95,14 +95,14 @@ export function useFleet(onApplied?: () => void): FleetState {
     } finally { setBusy(null) }
   }, [tasks, refresh])
 
-  const decide = useCallback(async (p: ProposalRow, approve: boolean) => {
+  const decide = useCallback(async (p: ProposalRow, approve: boolean, note?: string) => {
     setError(null); setNotice(null)
     try {
       if (approve) {
-        const res = await api.approveProposal(p.id)
+        const res = await api.approveProposal(p.id, note)
         setNotice(res.result)
       } else {
-        await api.rejectProposal(p.id)
+        await api.rejectProposal(p.id, note ?? '')
         setNotice('Proposal rejected. Nothing was changed.')
       }
       await refresh()
@@ -259,8 +259,10 @@ export function ProposalInbox({ f, emptyNote = true }: { f: FleetState; emptyNot
               </details>
             )}
           </div>
-          <button className="btn sm primary" onClick={() => void f.decide(p, true)}>Approve</button>
-          <button className="btn sm ghost" onClick={() => void f.decide(p, false)}>Reject</button>
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: 440 }}>
+            <button className="btn sm primary" onClick={() => void f.decide(p, true)}>Approve</button>
+            <RejectButton onReject={(note) => void f.decide(p, false, note)} />
+          </div>
         </div>
       ))}
     </div>

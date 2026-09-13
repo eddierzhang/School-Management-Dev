@@ -29,7 +29,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .config import get_settings
-from .models import Assessment, AttendanceDay, Course, Enrollment, Intervention, Score, Student
+from .models import Assessment, AttendanceDay, Course, Enrollment, FlagOverride, Intervention, Score, Student
 
 settings = get_settings()
 
@@ -125,6 +125,17 @@ class Recommendation:
 
 
 @dataclass
+class Override:
+    """A person overruling the index for this student (models.FlagOverride)."""
+    id: int
+    kind: str              # acknowledge | set-band
+    band: str | None
+    note: str
+    expires_on: date
+    created_by: str
+
+
+@dataclass
 class StudentSignal:
     sid: str
     name: str
@@ -144,6 +155,15 @@ class StudentSignal:
     strongest_skills: list[SkillMastery] = field(default_factory=list)
     recommendations: list[Recommendation] = field(default_factory=list)
     open_interventions: int = 0
+    # The band the index gave. `band` is the one in effect, which differs only
+    # while an active override sets it.
+    computed_band: str = ""
+    override: Override | None = None
+
+    @property
+    def acknowledged(self) -> bool:
+        """Flagged, but a person has recorded that the concern is known and in hand."""
+        return self.override is not None and self.override.kind == "acknowledge"
 
     @property
     def standing(self) -> int:
@@ -204,6 +224,11 @@ def build_signals(db: Session, today: date | None = None) -> dict[str, StudentSi
     for iv in db.scalars(select(Intervention).where(Intervention.status == "active")).all():
         open_iv[iv.student_id] += 1
 
+    overrides: dict[int, FlagOverride] = {}
+    for o in db.scalars(select(FlagOverride).where(FlagOverride.revoked_at.is_(None), FlagOverride.expires_on >= today)
+                        .order_by(FlagOverride.id)).all():
+        overrides[o.student_id] = o          # the newest active one wins
+
     catalog = _catalog_context(db, courses)
     out: dict[str, StudentSignal] = {}
 
@@ -243,6 +268,12 @@ def build_signals(db: Session, today: date | None = None) -> dict[str, StudentSi
             absence_rate=absence_rate, tardy_rate=tardy_rate,
             courses=course_signals, open_interventions=open_iv.get(st.id, 0),
         )
+        sig.computed_band = sig.band
+        if (o := overrides.get(st.id)) is not None:
+            sig.override = Override(id=o.id, kind=o.kind, band=o.band, note=o.note, expires_on=o.expires_on,
+                                    created_by=o.created_by)
+            if o.kind == "set-band" and o.band:
+                sig.band = o.band
         _attach_skills(sig)
         sig.reasons = _reasons(sig)
         sig.recommendations = _recommend(sig, catalog)

@@ -6,11 +6,12 @@ from sqlalchemy.orm import Session
 
 from ..ai import ollama
 from ..analytics import StudentSignal, skill_gaps
-from ..auth.deps import require
+from ..auth.deps import Principal, require
+from ..auth.scope import visible_courses, visible_students
 from ..config import get_settings
 from ..db import engine, get_db, schema_status
 from ..deps import signals
-from ..models import Assessment, Course, Intervention, Student
+from ..models import Assessment, Course, Intervention
 from ..schemas import BandCount, SkillGapOut, Summary
 
 router = APIRouter(tags=["meta"])
@@ -55,32 +56,40 @@ def ready(response: Response) -> dict:
     return {"status": "ready" if ok else "not ready", "checks": checks}
 
 
-@router.get("/summary", response_model=Summary, dependencies=[Depends(require("students.read"))])
-def summary(db: Session = Depends(get_db), sigs: dict[str, StudentSignal] = Depends(signals)) -> Summary:
+@router.get("/summary", response_model=Summary)
+def summary(db: Session = Depends(get_db), sigs: dict[str, StudentSignal] = Depends(signals),
+            user: Principal = Depends(require("students.read"))) -> Summary:
+    """The headline numbers, over the students and classes this person may see: a
+    teacher's figures are their own sections', so they agree with the lists beside them."""
+    seen, seen_courses = visible_students(db, user), visible_courses(db, user)
+    sigs = {sid: s for sid, s in sigs.items() if seen is None or sid in seen}
     counts: dict[str, int] = {"needs-plan": 0, "watch": 0, "excelling": 0, "steady": 0}
     for s in sigs.values():
         counts[s.band] = counts.get(s.band, 0) + 1
 
-    open_iv = db.scalar(select(func.count()).select_from(Intervention).where(Intervention.status == "active")) or 0
-    with_plan = {
-        iv.student.sid
-        for iv in db.scalars(select(Intervention).where(Intervention.status == "active")).all()
-    }
-    unaddressed = sum(1 for s in sigs.values() if s.band == "needs-plan" and s.sid not in with_plan)
-    graded = db.scalar(
-        select(func.count()).select_from(Assessment).where(Assessment.due_on <= settings.today)
-    ) or 0
+    active = [iv for iv in db.scalars(select(Intervention).where(Intervention.status == "active")).all()
+              if iv.student.sid in sigs]
+    with_plan = {iv.student.sid for iv in active}
+    unaddressed = sum(1 for s in sigs.values()
+                      if s.band == "needs-plan" and s.sid not in with_plan and not s.acknowledged)
+    graded_q = select(func.count()).select_from(Assessment).join(Course, Course.id == Assessment.course_id) \
+        .where(Assessment.due_on <= settings.today)
+    courses_q = select(func.count()).select_from(Course)
+    if seen_courses is not None:
+        graded_q = graded_q.where(Course.code.in_(seen_courses))
+        courses_q = courses_q.where(Course.code.in_(seen_courses))
     rates = [s.absence_rate for s in sigs.values() if s.days_counted]
 
     return Summary(
         school=settings.school_name, term=settings.term, today=settings.today,
-        students=db.scalar(select(func.count()).select_from(Student)) or 0,
-        courses=db.scalar(select(func.count()).select_from(Course)) or 0,
-        graded_assessments=graded,
+        students=len(sigs),
+        courses=db.scalar(courses_q) or 0,
+        graded_assessments=db.scalar(graded_q) or 0,
         bands=[BandCount(band=b, count=c) for b, c in counts.items()],
         needs_plan=counts["needs-plan"], watch=counts["watch"],
         excelling=counts["excelling"], steady=counts["steady"],
-        open_interventions=open_iv, unaddressed=unaddressed,
+        open_interventions=len(active), unaddressed=unaddressed,
         mean_attendance=round(1 - statistics.fmean(rates), 4) if rates else 1.0,
-        top_skill_gaps=[SkillGapOut.model_validate(g) for g in skill_gaps(db)[:6]],
+        top_skill_gaps=[SkillGapOut.model_validate(g) for g in skill_gaps(db)
+                        if seen_courses is None or g.course_code in seen_courses][:6],
     )

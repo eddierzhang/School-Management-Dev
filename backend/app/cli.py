@@ -3,6 +3,7 @@
     python -m app.cli create-user EMAIL "NAME" ROLE [--teacher-name NAME] [--password]
     python -m app.cli set-password EMAIL
     python -m app.cli deactivate EMAIL
+    python -m app.cli snapshot [--date YYYY-MM-DD]
 
 The first administrator of a new deployment is made here; after that, accounts
 are managed from the Admin tab. `--password` prompts for one; without it the
@@ -13,6 +14,7 @@ from __future__ import annotations
 import argparse
 import getpass
 import sys
+from datetime import date
 
 from sqlalchemy import func, select
 
@@ -20,6 +22,7 @@ from .auth.passwords import hash_password, password_problem
 from .auth.permissions import ROLES
 from .auth.sessions import revoke_all
 from .db import SessionLocal
+from .history import take_snapshots
 from .models import User
 
 
@@ -49,9 +52,14 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("email")
     d = sub.add_parser("deactivate")
     d.add_argument("email")
+    s = sub.add_parser("snapshot", help="record every student's indices for a day (the worker does this daily)")
+    s.add_argument("--date", type=date.fromisoformat)
     args = ap.parse_args(argv)
 
     with SessionLocal() as db:
+        if args.cmd == "snapshot":
+            print(f"Recorded {take_snapshots(db, args.date)} students.")
+            return 0
         email = args.email.strip().lower()
         user = db.scalar(select(User).where(func.lower(User.email) == email))
         if args.cmd == "create-user":

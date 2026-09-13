@@ -221,13 +221,15 @@ HANDLERS = {
 }
 
 
-def apply_proposal(db: Session, p: Proposal, by_email: str | None = None, by_name: str | None = None) -> str:
+def apply_proposal(db: Session, p: Proposal, by_email: str | None = None, by_name: str | None = None,
+                   note: str | None = None) -> str:
     if p.status != "pending":
         raise ApplyError(f"This proposal was already {p.status}.")
     handler = HANDLERS.get(p.kind)
     if handler is None:
         raise ApplyError(f"No way to apply a proposal of kind {p.kind!r}.")
     p.decided_by = by_email
+    p.decision_note = note or None
     p._approver_name = by_name
     result = handler(db, p)
     p.status = "approved"
@@ -241,7 +243,8 @@ def reject_proposal(db: Session, p: Proposal, note: str | None = None, by_email:
     if p.status != "pending":
         raise ApplyError(f"This proposal was already {p.status}.")
     p.status = "rejected"
-    p.result = note or "Rejected by a person."
+    p.result = "Rejected. Nothing was changed."
+    p.decision_note = note or None
     p.decided_at = datetime.utcnow()
     p.decided_by = by_email
     db.commit()

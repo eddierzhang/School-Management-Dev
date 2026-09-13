@@ -21,12 +21,15 @@ def _visible(db: Session, user: Principal, sigs: dict[str, StudentSignal]) -> li
 def watchlist(
     limit: int = Query(25, ge=1, le=200),
     include_watch: bool = True,
+    include_acknowledged: bool = False,
     sigs: dict[str, StudentSignal] = Depends(signals),
     db: Session = Depends(get_db),
     user: Principal = Depends(require("students.read")),
 ) -> list[StudentDetail]:
+    """Flagged students, worst first. Students a person has marked as known and in
+    hand are left off unless asked for: this is the list of what still needs doing."""
     bands = {"needs-plan", "watch"} if include_watch else {"needs-plan"}
-    rows = [s for s in _visible(db, user, sigs) if s.band in bands]
+    rows = [s for s in _visible(db, user, sigs) if s.band in bands and (include_acknowledged or not s.acknowledged)]
     rows.sort(key=lambda s: -s.struggle_index)
     return [StudentDetail.model_validate(s) for s in rows[:limit]]
 

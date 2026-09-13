@@ -120,6 +120,124 @@ export function RankedBars({ rows, labelWidth = 190, ariaLabel, maxWidth = 900 }
   )
 }
 
+export interface TrendPoint { on: string; struggle: number; excel: number }
+export interface TrendEvent { on: string; label: string }
+
+const SERIES = [
+  { key: 'struggle' as const, label: 'Struggle', color: 'var(--series-struggle)' },
+  { key: 'excel' as const, label: 'Excelling', color: 'var(--series-excel)' },
+]
+
+const shortDay = (iso: string) =>
+  new Date(iso + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+
+/** Two indices over time on one 0–100 scale, with dated events marked along the bottom.
+    Hover anywhere for a crosshair and the nearest reading. */
+export function TrendLines({ points, events = [], ariaLabel, bands }: {
+  points: TrendPoint[]; events?: TrendEvent[]; ariaLabel: string
+  bands?: { at: number; label: string }[]
+}) {
+  const [hover, setHover] = useState<number | null>(null)
+  const W = 460, H = 200, padL = 30, padR = 74, padT = 12, padB = 40
+  if (points.length < 2) return <p className="sub" style={{ margin: 0 }}>Not enough readings yet to show a trend.</p>
+
+  const t = (iso: string) => new Date(iso + 'T00:00:00').getTime()
+  const first = points[0]!, last = points[points.length - 1]!
+  const t0 = t(first.on), t1 = t(last.on)
+  const x = (iso: string) => padL + ((t(iso) - t0) / Math.max(1, t1 - t0)) * (W - padL - padR)
+  const y = (v: number) => padT + (1 - v / 100) * (H - padT - padB)
+  const shown = events.filter((e) => t(e.on) >= t0 && t(e.on) <= t1)
+  // Direct labels at the line ends, nudged apart when the two values are close.
+  const ends = SERIES.map((s) => ({ ...s, y: y(last[s.key]) }))
+  const [ea, eb] = [ends[0]!, ends[1]!]
+  if (Math.abs(ea.y - eb.y) < 13) {
+    const mid = (ea.y + eb.y) / 2
+    const [hi, lo] = ea.y <= eb.y ? [ea, eb] : [eb, ea]
+    hi.y = mid - 7; lo.y = mid + 7
+  }
+
+  function nearest(clientX: number, svg: SVGSVGElement) {
+    const b = svg.getBoundingClientRect()
+    const px = ((clientX - b.left) / b.width) * W
+    let best = 0
+    points.forEach((p, i) => { if (Math.abs(x(p.on) - px) < Math.abs(x(points[best]!.on) - px)) best = i })
+    setHover(best)
+  }
+  const h = hover !== null ? points[hover] ?? null : null
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <div style={{ display: 'flex', gap: 14, fontSize: 11.5, color: 'var(--ink-2)', marginBottom: 4 }} aria-hidden="true">
+        {SERIES.map((s) => (
+          <span key={s.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <svg width="14" height="4"><rect width="14" height="2" y="1" rx="1" fill={s.color} /></svg>{s.label} index
+          </span>
+        ))}
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: 'block', maxWidth: W }} role="img" aria-label={ariaLabel}
+        onMouseMove={(e) => nearest(e.clientX, e.currentTarget)} onMouseLeave={() => setHover(null)}>
+        {[0, 50, 100].map((v) => (
+          <g key={v}>
+            <line className="gridline" x1={padL} x2={W - padR} y1={y(v)} y2={y(v)} />
+            <text x={padL - 7} y={y(v)} fontSize="10" textAnchor="end" dominantBaseline="middle">{v}</text>
+          </g>
+        ))}
+        {bands?.map((b) => (
+          <g key={b.at}>
+            <line x1={padL} x2={W - padR} y1={y(b.at)} y2={y(b.at)} stroke="var(--axis)" strokeDasharray="3 3" />
+            <text x={padL + 3} y={y(b.at) - 4} fontSize="9.5">{b.label}</text>
+          </g>
+        ))}
+        <line className="axisline" x1={padL} x2={W - padR} y1={y(0)} y2={y(0)} />
+        {SERIES.map((s) => (
+          <g key={s.key}>
+            <polyline fill="none" stroke={s.color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"
+              points={points.map((p) => `${x(p.on)},${y(p[s.key])}`).join(' ')} />
+            <circle cx={x(last.on)} cy={y(last[s.key])} r="4" fill={s.color} stroke="var(--card)" strokeWidth="2" />
+          </g>
+        ))}
+        {ends.map((s) => (
+          <text key={s.key} className="val" x={W - padR + 8} y={s.y} fontSize="11" dominantBaseline="middle">
+            {s.label} {last[s.key]}
+          </text>
+        ))}
+        <text x={padL} y={H - padB + 14} fontSize="10">{shortDay(first.on)}</text>
+        <text x={W - padR} y={H - padB + 14} fontSize="10" textAnchor="end">{shortDay(last.on)}</text>
+        {shown.map((e, i) => (
+          <g key={`${e.on}-${i}`}>
+            <line x1={x(e.on)} x2={x(e.on)} y1={padT} y2={y(0)} stroke="var(--ink-2)" strokeOpacity=".35" strokeDasharray="2 3" />
+            <path d={`M${x(e.on)} ${H - padB + 20}l4.5 7h-9Z`} fill="var(--ink-2)"><title>{`${shortDay(e.on)}: ${e.label}`}</title></path>
+          </g>
+        ))}
+        {h && (
+          <g pointerEvents="none">
+            <line x1={x(h.on)} x2={x(h.on)} y1={padT} y2={y(0)} stroke="var(--ink-2)" strokeWidth="1" />
+            {SERIES.map((s) => <circle key={s.key} cx={x(h.on)} cy={y(h[s.key])} r="4" fill={s.color} stroke="var(--card)" strokeWidth="2" />)}
+          </g>
+        )}
+      </svg>
+      {h && (
+        <div role="status" style={{
+          position: 'absolute', top: 22, left: `${Math.min(62, (x(h.on) / W) * 100)}%`, pointerEvents: 'none',
+          background: 'var(--card)', border: '1px solid var(--rule-strong)', borderRadius: 7, padding: '7px 10px',
+          boxShadow: 'var(--shadow-2)', fontSize: 12, minWidth: 150,
+        }}>
+          <TipRows title={shortDay(h.on)} rows={[
+            ['Struggle index', String(h.struggle)], ['Excelling index', String(h.excel)],
+            ...shown.filter((e) => e.on === h.on).map((e) => ['Event', e.label] as [string, string]),
+          ]} />
+        </div>
+      )}
+      {shown.length > 0 && <div className="sub" style={{ marginTop: 2 }}>▲ marks a plan or override on that date. Hover a marker for what it was.</div>}
+      <table className="tbl visually-hidden">
+        <caption>{ariaLabel}</caption>
+        <thead><tr><th>Date</th><th>Struggle index</th><th>Excelling index</th></tr></thead>
+        <tbody>{points.map((p) => <tr key={p.on}><td>{p.on}</td><td>{p.struggle}</td><td>{p.excel}</td></tr>)}</tbody>
+      </table>
+    </div>
+  )
+}
+
 /** Vertical columns for a distribution. */
 export function Columns({ rows, ariaLabel, highlight }: {
   rows: { label: string; count: number }[]; ariaLabel: string; highlight?: (label: string) => StatusKind

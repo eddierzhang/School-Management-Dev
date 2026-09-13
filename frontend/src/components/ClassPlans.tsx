@@ -3,7 +3,7 @@ import { api, ApiError } from '../api'
 import { useCan } from '../auth'
 import { useApi } from '../useApi'
 import type { ClassImprovement, ClassPlan, ClassStatus, PlanDraft, StatusKind } from '../types'
-import { Delta, ErrorNote, Icon, Loading, Pill } from './ui'
+import { Delta, ErrorNote, Icon, Loading, Pill, RejectButton } from './ui'
 
 const STATUS: Record<ClassStatus, { kind: StatusKind; label: string }> = {
   'needs-plan': { kind: 'critical', label: 'Needs a plan' },
@@ -87,7 +87,7 @@ export function ClassPlans({ code }: { code: string }) {
           {!active && d.drafts.map((draft) => (
             <Draft key={draft.id} draft={draft} busy={busy}
               onAdopt={() => act(() => api.approveProposal(draft.id), 'Plan adopted. Progress is tracked from today’s numbers.')}
-              onReject={() => act(() => api.rejectProposal(draft.id, 'Rejected on the class page'),
+              onReject={(note) => act(() => api.rejectProposal(draft.id, note),
                 'Draft rejected. You can ask for another.')} />
           ))}
 
@@ -190,7 +190,7 @@ function PlanBody({ diagnosis, strands, actions, goal }: {
 }
 
 function Draft({ draft, busy, onAdopt, onReject }: {
-  draft: PlanDraft; busy: boolean; onAdopt: () => void; onReject: () => void
+  draft: PlanDraft; busy: boolean; onAdopt: () => void; onReject: (note: string) => void
 }) {
   const canDecide = useCan('plans.write')
   const p = draft.payload
@@ -208,7 +208,7 @@ function Draft({ draft, busy, onAdopt, onReject }: {
       {canDecide ? (
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn primary" disabled={busy} onClick={onAdopt}>Adopt this plan</button>
-          <button className="btn ghost" disabled={busy} onClick={onReject}>Reject</button>
+          <RejectButton busy={busy} small={false} onReject={onReject} />
         </div>
       ) : (
         <div className="sub">Waiting for the support office to adopt or reject it.</div>
