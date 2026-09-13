@@ -29,7 +29,7 @@ from sqlalchemy.orm import Session
 
 from ..config import get_settings
 from ..models import AgentRun, Proposal
-from .agents import COMMON_RULES, FLEET, Agent, _tool
+from .agents import FLEET, Agent, _tool
 from .toolkit import ToolError
 
 settings = get_settings()

@@ -1,0 +1,14 @@
+[tool.ruff]
+line-length = 120
+extend-exclude = [".venv"]
+
+[tool.ruff.lint]
+# Errors, pyflakes, warnings and likely bugs. Not enforced: long lines and one-line
+# `a, b = x; c = y` statements, which the code uses on purpose; FastAPI's
+# `Depends(...)` defaults (B008); and short names like `l` in comprehensions.
+select = ["E", "F", "W", "B"]
+ignore = ["E501", "E702", "E741", "B008"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore:The anyio.abc.BlockingPortal alias is deprecated:DeprecationWarning"]

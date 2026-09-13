@@ -85,7 +85,7 @@ class ClassPerformance:
 
     def as_dict(self) -> dict:
         d = asdict(self)
-        for s, raw in zip(self.strands, d["strands"]):
+        for s, raw in zip(self.strands, d["strands"], strict=True):
             raw["share_below"] = s.share_below
         return d
 

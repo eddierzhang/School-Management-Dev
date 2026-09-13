@@ -255,7 +255,6 @@ def build(keep: bool = False) -> None:
 
         # --- gradebook ---------------------------------------------------
         days = school_days(TERM_START, TODAY)
-        weeks = [days[i:i + 5] for i in range(0, len(days), 5)]
         n_assess = 0
         n_scores = 0
 
