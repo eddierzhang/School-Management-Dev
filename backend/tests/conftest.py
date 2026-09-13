@@ -15,6 +15,8 @@ TMP_DB = pathlib.Path(tempfile.mkdtemp(prefix="hr-test-")) / "test.db"
 os.environ["HR_DATABASE_URL"] = os.environ.get("HR_TEST_DATABASE_URL") or f"sqlite:///{TMP_DB}"
 os.environ["HR_TODAY"] = "2026-09-12"
 os.environ["HR_APP_ENV"] = "test"
+# Every module on, so the whole codebase is under test; test_modules.py turns them off.
+os.environ["HR_MODULES"] = "all"
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))

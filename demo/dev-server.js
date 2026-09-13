@@ -10,8 +10,8 @@
  * localStorage, and console.html itself, unmodified. console.html stays the one
  * source of truth — nothing here is published.
  *
- *   node dev-server.js          → http://localhost:5173
- *   node dev-server.js 8080     → another port
+ *   node demo/dev-server.js          → http://localhost:5173
+ *   node demo/dev-server.js 8080     → another port
  */
 const http = require('http');
 const fs = require('fs');
@@ -122,7 +122,7 @@ function page() {
   const banner = seed ? '' : `
 <div style="background:#FCF2DC;color:#231a05;padding:10px 16px;font:600 13px system-ui">
   No <code>seed/</code> directory found — the console will open empty.
-  Run <code>node gen_seed.js</code>, then reload.
+  Run <code>node demo/gen_seed.js</code>, then reload.
 </div>`;
   /* The artifact viewer supplies this skeleton at publish time; reproduce it so
      localhost matches what the published page actually renders inside. */
@@ -172,5 +172,5 @@ http.createServer((req, res) => {
   const seeded = loadSeed();
   console.log('Registrar console → http://localhost:' + PORT);
   console.log(seeded ? '  ' + Object.keys(seeded).length + ' seed documents loaded'
-                     : '  no seed/ directory — run `node gen_seed.js` first');
+                     : '  no seed/ directory — run `node demo/gen_seed.js` first');
 });

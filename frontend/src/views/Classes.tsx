@@ -1,4 +1,5 @@
 import { api } from '../api'
+import { useAuth } from '../auth'
 import { useApi } from '../useApi'
 import type { CourseAssessmentRow, CourseDetail } from '../types'
 import { Columns, RankedBars, TipRows, useTooltip } from '../components/charts'
@@ -110,6 +111,7 @@ function ClassBody({ d, onOpenClass, onOpenStudent }: {
   onOpenClass: (code: string) => void
   onOpenStudent: (sid: string) => void
 }) {
+  const { me } = useAuth()
   const c = d.course
   const s = d.stats
   const activePlans = d.plans.filter((p) => p.status === 'active')
@@ -344,7 +346,7 @@ function ClassBody({ d, onOpenClass, onOpenStudent }: {
               )}
             </div>
           </div>
-          <div>
+          {me.modules.includes('stockroom') && <div>
             <div className="sec-head"><h2>Supplies this class uses</h2></div>
             <div className="panelbox panelbox-pad">
               {d.supplies.length === 0 ? <p className="sub" style={{ margin: 0 }}>No stockroom items are linked to this class.</p> : (
@@ -361,7 +363,7 @@ function ClassBody({ d, onOpenClass, onOpenStudent }: {
                 </div>
               )}
             </div>
-          </div>
+          </div>}
         </div>
       </section>
     </>

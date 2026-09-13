@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..analytics import StudentSignal, course_distribution, skill_gaps
-from ..auth.deps import Principal, require
+from ..auth.deps import Principal, module, require
 from ..auth.scope import ensure_course
 from ..config import get_settings
 from ..db import get_db
@@ -22,6 +22,9 @@ from ..timetable import SchedulingError, open_class, open_section, openings
 
 router = APIRouter(prefix="/courses", tags=["courses"])
 settings = get_settings()
+# Class demand and opening classes belong to the registrar module (HR_MODULES).
+REGISTRAR_READ = [Depends(module("registrar")), Depends(require("courses.read"))]
+REGISTRAR_WRITE = [Depends(module("registrar")), Depends(require("courses.write"))]
 
 
 def _course_row(c: Course, enrolled: int, sigs: dict[str, StudentSignal],
@@ -63,7 +66,7 @@ def list_courses(db: Session = Depends(get_db),
     return rows
 
 
-@router.get("/demand", response_model=DemandReport, dependencies=[Depends(require("courses.read"))])
+@router.get("/demand", response_model=DemandReport, dependencies=REGISTRAR_READ)
 def demand(db: Session = Depends(get_db)) -> DemandReport:
     """Every class ranked by the demand index, most wanted first."""
     return DemandReport(
@@ -73,13 +76,13 @@ def demand(db: Session = Depends(get_db)) -> DemandReport:
     )
 
 
-@router.get("/openings", response_model=Openings, dependencies=[Depends(require("courses.read"))])
+@router.get("/openings", response_model=Openings, dependencies=REGISTRAR_READ)
 def free_in_period(period: int, db: Session = Depends(get_db)) -> Openings:
     """Rooms and teachers not already booked in a period."""
     return Openings(**openings(db, period))
 
 
-@router.post("", response_model=OpenedOut, status_code=201, dependencies=[Depends(require("courses.write"))])
+@router.post("", response_model=OpenedOut, status_code=201, dependencies=REGISTRAR_WRITE)
 def create_class(body: ClassCreate, db: Session = Depends(get_db)) -> OpenedOut:
     try:
         c = open_class(db, term=settings.term, **body.model_dump())
@@ -93,7 +96,7 @@ def create_class(body: ClassCreate, db: Session = Depends(get_db)) -> OpenedOut:
 
 
 @router.post("/{code}/sections", response_model=OpenedOut, status_code=201,
-             dependencies=[Depends(require("courses.write"))])
+             dependencies=REGISTRAR_WRITE)
 def create_section(code: str, body: SectionCreate, db: Session = Depends(get_db)) -> OpenedOut:
     if db.scalar(select(Course).where(Course.code == code)) is None:
         raise HTTPException(404, f"No course with code {code}")
@@ -150,7 +153,7 @@ def course_detail(code: str, db: Session = Depends(get_db),
         assessments=assessments,
         teacher=_course_teacher(db, c, sigs),
         plans=_course_plans(db, c),
-        supplies=_course_supplies(db, c),
+        supplies=_course_supplies(db, c) if settings.module_on("stockroom") else [],
     )
 
 

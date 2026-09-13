@@ -6,13 +6,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..ai.manager import MANAGER_NAME, resume_queue
-from ..auth.deps import require
+from ..auth.deps import module, require
 from ..db import get_db
 from ..models import AgentRun, Proposal
 from ..school_briefing import build_briefing
 
 # The briefing spans every domain (students, money, stock), so it is for administrators.
-router = APIRouter(prefix="/manager", tags=["manager"], dependencies=[Depends(require("manager.run"))])
+router = APIRouter(prefix="/manager", tags=["manager"], dependencies=[Depends(module("manager")), Depends(require("manager.run"))])
 
 
 def _run(r: AgentRun) -> dict:
