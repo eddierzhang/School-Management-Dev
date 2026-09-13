@@ -49,10 +49,20 @@ The demo school is the fictional Halverson Ridge High School. Every demo account
 ## Running
 
 ```bash
-./dev.sh
+./dev.sh                                             # macOS, Linux, or Git Bash
+powershell -ExecutionPolicy Bypass -File dev.ps1     # Windows PowerShell
 ```
 
-`dev.sh` starts the API on port 8000, the worker, and the interface on port 5174.
+Both scripts create `backend/.env` and the demo database if they are missing,
+run migrations, and start the API, the worker and the interface (port 5174).
+The API takes the **first free port from 8000 up**, and the interface is pointed
+at it, so another project already on port 8000 doesn't get in the way. The
+scripts print the ports they used. `dev.ps1` opens the API and worker in their
+own windows.
+
+If the AI agents report that the model is missing, set `HR_OLLAMA_MODEL` in
+`backend/.env` to a tool-capable model you have installed (`ollama list`).
+
 To run them separately:
 
 ```bash

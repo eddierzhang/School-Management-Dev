@@ -138,6 +138,17 @@ cp backend/.env.example backend/.env
 ./dev.sh                                                # API, worker and interface
 ```
 
+On Windows, create the environment with `py -3.11 -m venv backend\.venv` and
+install with `backend\.venv\Scripts\pip install -r backend\requirements-dev.txt`,
+then start everything from PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File dev.ps1
+```
+
+Both scripts start the API on the first free port from 8000 up, so another
+project already using port 8000 won't get in the way.
+
 Open **http://localhost:5174** and sign in as `counselor@halverson.example.edu`
 with the demo password `halverson-demo-2026`. Try `admin@`, `r.okonkwo@` (a
 teacher) or `business@` to see how roles change what a person sees. Every demo
