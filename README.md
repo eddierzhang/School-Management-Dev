@@ -97,10 +97,39 @@ node gen_seed.js                                   # the shared roster, once
 
 python3 -m venv backend/.venv
 backend/.venv/bin/pip install -r backend/requirements.txt
-backend/.venv/bin/python backend/seed.py           # builds backend/halverson.db
+cp backend/.env.example backend/.env               # pins the demo clock, among other things
+backend/.venv/bin/python backend/seed.py           # migrates and seeds backend/halverson.db
 
 cd frontend && npm install && cd ..
 ```
+
+The demo term is built around 2026-09-12, so the seed refuses to run unless
+`HR_TODAY=2026-09-12` is set, and the app should run with the same value. A real
+deployment leaves `HR_TODAY` unset and uses the real date.
+
+### Database and migrations
+
+SQLite is the default for development. For Postgres, start it with
+`docker compose up -d db` and set
+`HR_DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/educationhack`.
+
+The schema is owned by Alembic (`backend/alembic/versions/`). The app never
+creates or alters tables itself; it logs an error at startup if the database is
+behind, and `/api/ready` returns 503 until it is migrated.
+
+```bash
+cd backend
+.venv/bin/alembic upgrade head                              # bring a database up to date
+.venv/bin/alembic revision --autogenerate -m "what changed"  # after changing app/models.py
+```
+
+A test fails if the models and the migrations disagree, so a model change
+without a migration cannot be merged. A database created before migrations
+existed can be brought under them with `alembic stamp 0001`, or reseeded.
+
+`GET /api/health` is liveness (the process answers). `GET /api/ready` is
+readiness: the database answers and is at the newest migration. The local model
+is reported there but never makes the app unready.
 
 ### Running it
 
@@ -130,7 +159,9 @@ bookmark a list or mail a colleague a link to one student.
 ### Tests
 
 ```bash
-cd backend && .venv/bin/python -m pytest -q      # 33 tests
+cd backend && .venv/bin/python -m pytest -q      # SQLite
+HR_TEST_DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/educationhack_test \
+  .venv/bin/python -m pytest -q                  # the same suite on Postgres (drops that database's tables)
 cd frontend && npm run typecheck
 ```
 

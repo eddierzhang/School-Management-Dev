@@ -1,12 +1,13 @@
 import statistics
 
-from fastapi import APIRouter, Depends
-from sqlalchemy import func, select
+from fastapi import APIRouter, Depends, Response
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
+from ..ai import ollama
 from ..analytics import StudentSignal, skill_gaps
 from ..config import get_settings
-from ..db import get_db
+from ..db import engine, get_db, schema_status
 from ..deps import signals
 from ..models import Assessment, Course, Intervention, Student
 from ..schemas import BandCount, SkillGapOut, Summary
@@ -17,7 +18,40 @@ settings = get_settings()
 
 @router.get("/health")
 def health() -> dict:
+    """Liveness: the process is up and answering. Touches nothing else."""
     return {"status": "ok", "term": settings.term, "today": settings.today.isoformat()}
+
+
+@router.get("/ready")
+def ready(response: Response) -> dict:
+    """Readiness: the database answers and its schema is the one this code expects.
+
+    The local model is reported but never makes the app unready: everything except
+    the AI features works without it.
+    """
+    checks: dict[str, dict] = {}
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        checks["database"] = {"ok": True}
+    except Exception as e:
+        checks["database"] = {"ok": False, "error": type(e).__name__}
+    if checks["database"]["ok"]:
+        s = schema_status()
+        checks["schema"] = {"ok": s["up_to_date"], "current": s["current"], "head": s["head"]}
+    else:
+        checks["schema"] = {"ok": False, "error": "database unreachable"}
+    try:
+        installed = settings.ollama_model in ollama.installed_models()
+        checks["model"] = {"ok": installed, "required": False, "model": settings.ollama_model,
+                           **({} if installed else {"error": "model not installed"})}
+    except ollama.OllamaError:
+        checks["model"] = {"ok": False, "required": False, "model": settings.ollama_model,
+                           "error": "Ollama unreachable"}
+
+    ok = all(c["ok"] for c in checks.values() if c.get("required", True))
+    response.status_code = 200 if ok else 503
+    return {"status": "ready" if ok else "not ready", "checks": checks}
 
 
 @router.get("/summary", response_model=Summary)

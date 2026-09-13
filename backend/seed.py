@@ -34,14 +34,16 @@ sys.path.insert(0, str(Path(__file__).parent))
 from app.catalog import ADDED_SECTIONS                                  # noqa: E402
 from app.catalog import COHORT_GAP as CATALOG_GAP                       # noqa: E402
 from app.catalog import SKILLS as CATALOG_SKILLS, catalog_fields       # noqa: E402
-from app.config import get_settings                                    # noqa: E402
+from sqlalchemy import text                                            # noqa: E402
+
+from app.config import DEMO_TODAY, get_settings                        # noqa: E402
 from app.finance_seed import seed_finance                              # noqa: E402
-from app.db import Base, SessionLocal, engine                          # noqa: E402
+from app.db import Base, SessionLocal, engine, migrate                 # noqa: E402
 from app.models import (Assessment, AttendanceDay, Course, Enrollment,  # noqa: E402
                         Intervention, InventoryItem, Score, Student)
 
 settings = get_settings()
-TODAY = settings.today
+TODAY = DEMO_TODAY
 TERM_START = date(2026, 8, 10)          # week 1, Monday
 SEED_DIR = Path(os.environ.get("HR_SEED_DIR") or Path(__file__).parent.parent / "seed")
 RNG = random.Random(20260912)
@@ -168,10 +170,28 @@ def archetypes_for(students: list[Student]) -> dict[str, str]:
     return {s.sid: MIX[i % len(MIX)] for i, s in enumerate(order)}
 
 
+def require_demo_clock() -> None:
+    """The demo term is generated around 2026-09-12. Seeded with any other "today",
+    and read by an app with any other "today", its numbers stop making sense."""
+    if settings.pinned_today != DEMO_TODAY:
+        sys.exit(f"The demo data is built for {DEMO_TODAY}. Set HR_TODAY={DEMO_TODAY} "
+                 "(in backend/.env or the environment) for both the seed and the app.")
+
+
+def reset_schema() -> None:
+    """Drop every table, the migration record included, and migrate from nothing."""
+    Base.metadata.drop_all(bind=engine)
+    with engine.begin() as conn:
+        conn.execute(text("DROP TABLE IF EXISTS alembic_version"))
+    migrate()
+
+
 def build(keep: bool = False) -> None:
-    if not keep:
-        Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
+    require_demo_clock()
+    if keep:
+        migrate()
+    else:
+        reset_schema()
     raw_students, raw_courses, raw_inventory = load_console_seed()
     db = SessionLocal()
     try:
@@ -323,6 +343,8 @@ def upgrade() -> None:
     period in this database (an approved new section can have moved them), and the
     seat goes to another student in the same grades who is free that period.
     """
+    require_demo_clock()
+    migrate()
     raw_students, raw_courses, _ = load_console_seed()
     db = SessionLocal()
     try:
