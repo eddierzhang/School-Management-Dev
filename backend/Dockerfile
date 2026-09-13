@@ -1,6 +1,6 @@
 # The API, the worker and the migration step all run from this one image; the
 # command differs (see docker-compose.prod.yml).
-FROM python:3.11-slim AS base
+FROM python:3.14-slim AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
