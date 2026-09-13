@@ -1,5 +1,5 @@
 import type {
-  AdminUser, AuditPage, AuthConfig, Me, NewUser, RolesInfo, OverrideRecord, StudentHistory,
+  AdminUser, AuditPage, AuthConfig, ImportReport, Me, NewUser, RolesInfo, OverrideRecord, StudentHistory,
   BudgetMove, FinanceNeeds,
   ClassImprovement, ClassNeedRow, ClassPlan, DraftRun,
   ClassWork, StudentStudy, StudyPlan,
@@ -78,6 +78,14 @@ export const api = {
     req<AdminUser>(`/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   audit: (p: { actor?: string; action?: string; entity_type?: string; entity_id?: string; before_id?: number } = {}) =>
     req<AuditPage>('/admin/audit' + qs(p)),
+
+  importOneRoster: (file: File, apply: boolean, createTeacherAccounts: boolean) => {
+    const body = new FormData()
+    body.append('file', file)
+    body.append('apply', String(apply))
+    body.append('create_teacher_accounts', String(createTeacherAccounts))
+    return req<ImportReport>('/admin/import/oneroster', { method: 'POST', body })
+  },
 
   runtime: () => req<Pick<Fleet, 'runtime'>>('/agents/runtime'),
   summary: () => req<Summary>('/summary'),

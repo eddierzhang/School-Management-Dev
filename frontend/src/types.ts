@@ -990,3 +990,16 @@ export interface AuditPage {
   events: AuditEvent[]
   next_before_id: number | null
 }
+
+export interface ImportIssue { file: string; line: number | null; message: string }
+
+export interface ImportReport {
+  ok: boolean
+  applied: boolean
+  rows: Record<string, number>
+  created: Record<string, number>
+  updated: Record<string, number>
+  dropped_enrollments: number
+  errors: ImportIssue[]
+  warnings: ImportIssue[]
+}

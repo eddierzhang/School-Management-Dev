@@ -111,6 +111,9 @@ class CourseSignal:
     struggle_index: int
     excel_index: int
     skills: list[SkillMastery] = field(default_factory=list)
+    # False for a course the catalog marks ungraded (P.E.): its scores still show on
+    # its class page, but it does not move a student's indices, reasons or plans.
+    graded: bool = True
 
 
 @dataclass
@@ -254,10 +257,11 @@ def build_signals(db: Session, today: date | None = None) -> dict[str, StudentSi
                 course_signals.append(sig)
 
         course_signals.sort(key=lambda c: c.struggle_index, reverse=True)
+        counted = [c for c in course_signals if c.graded]
 
-        if course_signals:
-            struggle = _rollup([c.struggle_index for c in course_signals], breadth=0.35)
-            excel = _rollup([c.excel_index for c in course_signals], breadth=0.25)
+        if counted:
+            struggle = _rollup([c.struggle_index for c in counted], breadth=0.35)
+            excel = _rollup([c.excel_index for c in counted], breadth=0.25)
         else:
             struggle = excel = 0
 
@@ -314,8 +318,12 @@ def _course_signal(
     skill_missing: dict[str, int] = defaultdict(int)
     missing = 0
 
+    n = 0
     for a in items:
         sc = scores.get((a.id, student_id))
+        if sc is not None and sc.exempt:
+            continue                                   # excused: neither missing nor graded
+        n += 1
         submitted = sc is not None and sc.points is not None
         pts = float(sc.points) if submitted else 0.0   # missing past-due work counts as zero
         if not submitted:
@@ -330,7 +338,6 @@ def _course_signal(
     if pct is None:
         return None
 
-    n = len(items)
     missing_rate = missing / n if n else 0.0
     completion = 1.0 - missing_rate
 
@@ -376,12 +383,12 @@ def _course_signal(
         pct=pct, recent_pct=recent, prior_pct=prior, delta=delta,
         graded_items=n, missing=missing, missing_rate=round(missing_rate, 4),
         completion=round(completion, 4), spread=spread,
-        struggle_index=struggle, excel_index=excel, skills=skills,
+        struggle_index=struggle, excel_index=excel, skills=skills, graded=course.graded is not False,
     )
 
 
 def _attach_skills(sig: StudentSignal) -> None:
-    every = [s for c in sig.courses for s in c.skills if s.graded >= 2]
+    every = [s for c in sig.courses if c.graded for s in c.skills if s.graded >= 2]
     every.sort(key=lambda s: s.pct)
     sig.weakest_skills = every[:4]
     sig.strongest_skills = list(reversed(every[-4:]))
@@ -389,7 +396,8 @@ def _attach_skills(sig: StudentSignal) -> None:
 
 def _reasons(sig: StudentSignal) -> list[Reason]:
     out: list[Reason] = []
-    for c in sig.courses:
+    graded = [c for c in sig.courses if c.graded]
+    for c in graded:
         if c.pct < settings.concern_floor:
             out.append(Reason("low-grade", f"Failing {c.course_code}",
                               f"{c.pct:.0f}% in {c.course_title}, below the {settings.concern_floor:.0f}% floor.",
@@ -421,7 +429,7 @@ def _reasons(sig: StudentSignal) -> list[Reason]:
         out.append(Reason("tardies", "Frequently late",
                           f"Tardy {sig.tardies} of {sig.days_counted} days.", "concern"))
 
-    declining = [c.course_code for c in sig.courses if c.delta <= -8]
+    declining = [c.course_code for c in graded if c.delta <= -8]
     if len(declining) >= 2:
         out.insert(0, Reason("broad-decline", "Slipping in more than one class",
                              "Recent work is down in " + ", ".join(declining)
@@ -445,6 +453,7 @@ def _recommend(sig: StudentSignal, catalog: dict[str, list[Course]]) -> list[Rec
     """Rules, in priority order. Each says what to do and why, not just 'at risk'."""
     recs: list[Recommendation] = []
     enrolled_codes = {c.course_code for c in sig.courses}
+    graded = [c for c in sig.courses if c.graded]
 
     if sig.absence_rate >= 0.12:
         recs.append(Recommendation(
@@ -453,7 +462,7 @@ def _recommend(sig: StudentSignal, catalog: dict[str, list[Course]]) -> list[Rec
             "tutoring on top of missed instruction rarely holds.",
             "attendance-plan", 1, suggested_owner="Attendance office"))
 
-    declining = [c for c in sig.courses if c.delta <= -8]
+    declining = [c for c in graded if c.delta <= -8]
     if len(declining) >= 2:
         recs.append(Recommendation(
             "counselor-check-in", "Counselor check-in this week",
@@ -461,7 +470,7 @@ def _recommend(sig: StudentSignal, catalog: dict[str, list[Course]]) -> list[Rec
             + ". A decline across unrelated subjects usually is not about the subjects.",
             "check-in", 1, suggested_owner="Counseling"))
 
-    for c in sig.courses:
+    for c in graded:
         if c.missing_rate >= 0.25:
             recs.append(Recommendation(
                 "homework-recovery", f"Homework recovery block for {c.course_code}",
@@ -482,7 +491,7 @@ def _recommend(sig: StudentSignal, catalog: dict[str, list[Course]]) -> list[Rec
                 "Worth watching before it needs a plan.",
                 "check-in", 2, c.course_code, c.teacher))
 
-    for c in sig.courses:
+    for c in graded:
         if c.excel_index >= BAND_EXCELLING:
             placements = [x for x in catalog.get(c.dept, []) if x.code not in enrolled_codes]
             if placements:

@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { api, ApiError } from '../api'
 import { useAuth } from '../auth'
 import { useApi } from '../useApi'
-import type { AdminUser, AuditEvent, Role } from '../types'
+import type { AdminUser, AuditEvent, ImportReport, Role } from '../types'
 import { ErrorNote, Loading, Pill } from '../components/ui'
 
 const ROLE_OPTIONS: { role: Role; label: string }[] = [
@@ -17,7 +17,7 @@ const when = (iso: string | null) => (iso ? new Date(iso + 'Z').toLocaleString()
 
 export function Admin() {
   const { can } = useAuth()
-  const [section, setSection] = useState<'users' | 'audit'>(can('users.manage') ? 'users' : 'audit')
+  const [section, setSection] = useState<'users' | 'audit' | 'import'>(can('users.manage') ? 'users' : 'audit')
   return (
     <>
       <div className="groupbar" role="tablist" aria-label="Administration">
@@ -27,9 +27,104 @@ export function Admin() {
         {can('audit.read') && (
           <button className="groupbtn" aria-pressed={section === 'audit'} onClick={() => setSection('audit')}>Audit log</button>
         )}
+        {can('data.import') && (
+          <button className="groupbtn" aria-pressed={section === 'import'} onClick={() => setSection('import')}>Import records</button>
+        )}
       </div>
-      {section === 'users' ? <Users /> : <Audit />}
+      {section === 'users' && <Users />}
+      {section === 'audit' && <Audit />}
+      {section === 'import' && <Import />}
     </>
+  )
+}
+
+function Import() {
+  const [file, setFile] = useState<File | null>(null)
+  const [teachers, setTeachers] = useState(false)
+  const [report, setReport] = useState<ImportReport | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function run(apply: boolean) {
+    if (!file) return
+    setBusy(true); setError(null)
+    try {
+      setReport(await api.importOneRoster(file, apply, teachers))
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'The file could not be checked.')
+    } finally { setBusy(false) }
+  }
+
+  const counts = (c: Record<string, number>) =>
+    Object.entries(c).map(([k, v]) => `${v} ${k}`).join(', ') || 'nothing'
+
+  return (
+    <section className="sec">
+      <div className="sec-head"><h2>Import records</h2></div>
+      <p className="sec-note">
+        Upload a OneRoster 1.1 CSV export from the student information system, as a zip: users, classes and
+        enrollments, plus lineItems, results and attendance if you have them. Checking a file changes nothing.
+        It shows exactly what the import would create, update and drop, and any error refuses the whole import.
+        A student missing from a class’s roster is marked dropped, never deleted.
+      </p>
+      <div className="panelbox panelbox-pad" style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
+        <div className="filters" style={{ marginBottom: 0 }}>
+          <div className="field grow">
+            <label htmlFor="imp-file">OneRoster zip</label>
+            <input id="imp-file" className="inp" type="file" accept=".zip"
+              onChange={(e) => { setFile(e.target.files?.[0] ?? null); setReport(null) }} />
+          </div>
+          <label className="toggle">
+            <input type="checkbox" checked={teachers} onChange={(e) => setTeachers(e.target.checked)} />
+            Create teacher accounts for school sign-in
+          </label>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn" disabled={!file || busy} onClick={() => void run(false)}>
+            {busy ? 'Working…' : 'Check the file'}
+          </button>
+          {report && report.ok && !report.applied && (
+            <button className="btn primary" disabled={busy} onClick={() => void run(true)}>Import these records</button>
+          )}
+        </div>
+      </div>
+      {error && <ErrorNote error={error} />}
+      {report && (
+        <div className="panelbox panelbox-pad" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            {report.applied ? <Pill kind="good">Imported</Pill>
+              : report.ok ? <Pill kind="accent">Ready to import</Pill>
+              : <Pill kind="critical">{report.errors.length} error{report.errors.length === 1 ? '' : 's'} — nothing imported</Pill>}
+            <span className="sub">Rows read: {counts(report.rows)}</span>
+          </div>
+          {report.ok && (
+            <dl className="kv" style={{ maxWidth: 560 }}>
+              <dt>{report.applied ? 'Created' : 'Would create'}</dt><dd>{counts(report.created)}</dd>
+              <dt>{report.applied ? 'Updated' : 'Would update'}</dt><dd>{counts(report.updated)}</dd>
+              <dt>{report.applied ? 'Dropped' : 'Would drop'}</dt><dd>{report.dropped_enrollments} enrollments</dd>
+            </dl>
+          )}
+          {[['Errors', report.errors, 'critical'] as const, ['Warnings', report.warnings, 'warning'] as const]
+            .filter(([, list]) => list.length > 0).map(([label, list, kind]) => (
+              <div key={label}>
+                <div className="eyebrow" style={{ marginBottom: 6 }}>{label}</div>
+                <div className="tblwrap">
+                  <table className="tbl" style={{ minWidth: 0 }}>
+                    <tbody>
+                      {list.map((i, n) => (
+                        <tr key={n}>
+                          <td className="nowrap"><Pill kind={kind}>{i.file}{i.line ? `:${i.line}` : ''}</Pill></td>
+                          <td>{i.message}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+        </div>
+      )}
+    </section>
   )
 }
 

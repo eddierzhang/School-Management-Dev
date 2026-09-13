@@ -4,6 +4,7 @@
     python -m app.cli set-password EMAIL
     python -m app.cli deactivate EMAIL
     python -m app.cli snapshot [--date YYYY-MM-DD]
+    python -m app.cli import-oneroster PATH [--apply] [--create-teacher-accounts]
 
 The first administrator of a new deployment is made here; after that, accounts
 are managed from the Admin tab. `--password` prompts for one; without it the
@@ -15,9 +16,11 @@ import argparse
 import getpass
 import sys
 from datetime import date
+from pathlib import Path
 
 from sqlalchemy import func, select
 
+from . import importer
 from .auth.passwords import hash_password, password_problem
 from .auth.permissions import ROLES
 from .auth.sessions import revoke_all
@@ -38,6 +41,28 @@ def _ask_password() -> str:
         return pw
 
 
+def _import(db, args) -> int:
+    try:
+        files = (importer.read_directory(args.path) if args.path.is_dir()
+                 else importer.read_zip(args.path.read_bytes()))
+    except importer.ImportFileError as e:
+        print(e, file=sys.stderr)
+        return 1
+    r = importer.run_import(db, files, apply=args.apply, create_teacher_accounts=args.create_teacher_accounts)
+    print("rows read:  " + ", ".join(f"{k} {v}" for k, v in r.rows.items()))
+    print("create:     " + (", ".join(f"{v} {k}" for k, v in r.created.items()) or "nothing"))
+    print("update:     " + (", ".join(f"{v} {k}" for k, v in r.updated.items()) or "nothing"))
+    print(f"drop:       {r.dropped_enrollments} enrollments")
+    for label, issues in (("ERROR", r.errors), ("warning", r.warnings)):
+        for i in issues:
+            print(f"{label}: {i.file}{f':{i.line}' if i.line else ''}  {i.message}")
+    if r.errors:
+        print("Nothing was imported: fix the errors above and run it again.")
+        return 1
+    print("Imported." if r.applied else "Checked only; nothing was written. Run again with --apply to import.")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m app.cli", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -54,9 +79,15 @@ def main(argv: list[str] | None = None) -> int:
     d.add_argument("email")
     s = sub.add_parser("snapshot", help="record every student's indices for a day (the worker does this daily)")
     s.add_argument("--date", type=date.fromisoformat)
+    im = sub.add_parser("import-oneroster", help="check, or with --apply import, a OneRoster CSV folder or zip")
+    im.add_argument("path", type=Path)
+    im.add_argument("--apply", action="store_true", help="keep the changes (without it, nothing is written)")
+    im.add_argument("--create-teacher-accounts", action="store_true")
     args = ap.parse_args(argv)
 
     with SessionLocal() as db:
+        if args.cmd == "import-oneroster":
+            return _import(db, args)
         if args.cmd == "snapshot":
             print(f"Recorded {take_snapshots(db, args.date)} students.")
             return 0
