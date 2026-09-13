@@ -20,7 +20,7 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -56,7 +56,7 @@ jobs:
     env:
       HR_TEST_DATABASE_URL: ${{ matrix.database == 'postgres' && 'postgresql+psycopg://postgres:postgres@localhost:5432/educationhack_test' || '' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -99,7 +99,7 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
@@ -128,7 +128,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [backend-tests, frontend]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Production settings for a throwaway stack
         run: |
           cp deploy/.env.example deploy/.env
@@ -167,7 +167,7 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
