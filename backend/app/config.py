@@ -65,6 +65,13 @@ class Settings(BaseSettings):
     oidc_scopes: str = "openid email profile"
     oidc_button_label: str = "Sign in with your school account"
 
+    # Background work and operations.
+    snapshot_hour: int = 17                 # UTC hour after which the day's history snapshot is taken
+    worker_poll_seconds: float = 2.0
+    log_format: str = "text"                # text | json (json for a log collector)
+    log_level: str = "INFO"
+    sentry_dsn: str = ""                    # errors to Sentry when set; never sends request bodies or user data
+
     # Thresholds the support office can tune without touching the engine.
     support_threshold: float = 72.0   # below this, a course grade needs a plan
     concern_floor: float = 65.0       # below this, tutoring rather than monitoring

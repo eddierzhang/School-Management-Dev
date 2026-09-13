@@ -27,7 +27,7 @@ export function ClassPlans({ code }: { code: string }) {
   const [message, setMessage] = useState<string | null>(null)
   const reload = () => setTick((n) => n + 1)
 
-  const running = data.data?.latest_run?.status === 'running'
+  const running = ['queued', 'running'].includes(data.data?.latest_run?.status ?? '')
   // Drafting takes a minute or more on a local model; poll only while it runs.
   useEffect(() => {
     if (!running) return
@@ -95,7 +95,7 @@ export function ClassPlans({ code }: { code: string }) {
             <div className="panelbox panelbox-pad" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {running ? (
                 <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                  <Pill kind="accent">drafting…</Pill>
+                  <Pill kind="accent">{data.data?.latest_run?.status === 'queued' ? 'queued…' : 'drafting…'}</Pill>
                   <span className="sub">
                     The agent is reading {perf.code}. This takes about a minute on the local model and
                     updates by itself.
@@ -106,7 +106,7 @@ export function ClassPlans({ code }: { code: string }) {
                   <b style={{ fontSize: 13.5 }}>
                     {perf.status === 'strong' ? 'No plan needed, but you can ask for one.' : 'No plan yet.'}
                   </b>
-                  {last && last.status !== 'running' && last.proposals === 0 && (
+                  {last && !running && last.proposals === 0 && (
                     <div className="sub">
                       The last attempt ({day(last.started_at?.slice(0, 10) ?? null)}) produced no plan
                       {last.error ? `: ${last.error}` : last.summary ? `. It said: “${last.summary.slice(0, 240)}”` : '.'}

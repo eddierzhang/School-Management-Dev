@@ -63,6 +63,15 @@ def _import(db, args) -> int:
     return 0
 
 
+def _password_from(args) -> str | None:
+    if args.password_stdin:
+        pw = sys.stdin.readline().rstrip("\r\n")
+        if problem := password_problem(pw):
+            raise SystemExit(problem)
+        return hash_password(pw)
+    return hash_password(_ask_password()) if args.password else None
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m app.cli", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -73,6 +82,7 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("role", choices=ROLES)
     c.add_argument("--teacher-name")
     c.add_argument("--password", action="store_true", help="prompt for a password")
+    c.add_argument("--password-stdin", action="store_true", help="read the password from standard input")
     p = sub.add_parser("set-password")
     p.add_argument("email")
     d = sub.add_parser("deactivate")
@@ -102,7 +112,7 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
             db.add(User(email=email, name=args.name, role=args.role, active=True,
                         teacher_name=args.teacher_name if args.role == "teacher" else None,
-                        password_hash=hash_password(_ask_password()) if args.password else None))
+                        password_hash=_password_from(args)))
             db.commit()
             print(f"Created {args.role} account for {email}.")
             return 0

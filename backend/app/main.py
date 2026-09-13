@@ -8,6 +8,7 @@ from .audit import AuditMiddleware
 from .auth.deps import current_user
 from .config import get_settings
 from .db import schema_status
+from .observability import configure
 from .routers import (admin, agents, auth, courses, documents, finance, improvement, interventions, inventory,
                       manager, meta, schedule, scores, students, study_plans, support)
 
@@ -17,6 +18,8 @@ log = logging.getLogger("halverson")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    if settings.app_env != "test":
+        configure("api")
     problems = settings.production_problems()
     if problems:
         raise RuntimeError("Refusing to start in production:\n  - " + "\n  - ".join(problems))

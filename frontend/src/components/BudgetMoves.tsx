@@ -28,7 +28,7 @@ export function BudgetMoves({ lines, onChanged }: { lines: BudgetLine[]; onChang
 
   const refresh = useCallback(() => { setTick((n) => n + 1); onChanged() }, [onChanged])
   const mine = (proposals.data ?? []).filter((p) => p.agent === 'finance' && p.kind in FINANCE_KINDS)
-  const active = (runs.data ?? []).find((r: AgentRun) => r.status === 'running' || (r.status as string) === 'queued')
+  const active = (runs.data ?? []).find((r: AgentRun) => r.status === 'running' || r.status === 'queued')
   const last = (runs.data ?? [])[0]
 
   // Agent runs take a minute or three on the local model; poll only while one is in flight.

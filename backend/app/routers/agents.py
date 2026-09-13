@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -8,11 +8,11 @@ from sqlalchemy.orm import Session
 from ..ai import ollama
 from ..ai.agents import FLEET
 from ..ai.executor import ApplyError, apply_proposal, reject_proposal
-from ..ai.runner import run_in_background
 from ..auth.deps import Principal, require
 from ..auth.permissions import AGENT_PERMISSION, PROPOSAL_PERMISSION
 from ..config import get_settings
 from ..db import get_db
+from ..jobs import enqueue
 from ..models import AgentRun, Proposal
 
 router = APIRouter(prefix="/agents", tags=["agents"])
@@ -109,7 +109,7 @@ def list_fleet(user: Principal = Depends(require("agents.read"))) -> dict:
 
 
 @router.post("/{name}/run", status_code=202)
-def start_run(name: str, body: RunRequest, background: BackgroundTasks,
+def start_run(name: str, body: RunRequest,
               db: Session = Depends(get_db), user: Principal = Depends(require("agents.read"))) -> dict:
     agent = FLEET.get(name)
     if agent is None:
@@ -128,12 +128,14 @@ def start_run(name: str, body: RunRequest, background: BackgroundTasks,
         )
 
     task = (body.task or "").strip() or agent.default_task
-    run = AgentRun(agent=agent.name, model=settings.ollama_model, prompt=task, status="running",
+    # Queued until the worker picks it up; one model-bound job runs at a time.
+    run = AgentRun(agent=agent.name, model=settings.ollama_model, prompt=task, status="queued",
                    transcript=[], started_at=datetime.utcnow())
     db.add(run)
+    db.flush()
+    enqueue(db, "agent_run", {"run_id": run.id, "agent": agent.name, "task": task}, max_attempts=2, commit=False)
     db.commit()
     db.refresh(run)
-    background.add_task(run_in_background, run.id, agent.name, task)
     return _run_out(run)
 
 

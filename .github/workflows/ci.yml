@@ -123,6 +123,43 @@ jobs:
           test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/api/students)" = 401
           test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/docs)" = 404
 
+  stack:
+    name: Production stack (Docker Compose, through Caddy)
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Production settings for a throwaway stack
+        run: |
+          cp deploy/.env.example deploy/.env
+          sed -i "s|^HR_DOMAIN=.*|HR_DOMAIN=localhost|" deploy/.env
+          sed -i "s|^HR_CORS_ORIGINS=.*|HR_CORS_ORIGINS=https://localhost|" deploy/.env
+          sed -i "s|^HR_SECRET_KEY=.*|HR_SECRET_KEY=$(openssl rand -hex 32)|" deploy/.env
+          sed -i "s|^POSTGRES_PASSWORD=.*|POSTGRES_PASSWORD=$(openssl rand -hex 16)|" deploy/.env
+      - name: Compose file is valid
+        run: docker compose -f docker-compose.prod.yml --env-file deploy/.env config --quiet
+      - name: Build and start
+        run: docker compose -f docker-compose.prod.yml --env-file deploy/.env up -d --build db migrate api worker web
+      - name: Ready through Caddy
+        run: |
+          for i in $(seq 1 40); do
+            if curl -fsSk https://localhost/api/ready; then break; fi
+            sleep 3
+          done
+          curl -fsSk https://localhost/api/ready
+      - name: Sign in end to end
+        run: |
+          echo "a-long-ci-only-password" | docker compose -f docker-compose.prod.yml --env-file deploy/.env \
+            exec -T api python -m app.cli create-user ci@example.edu "CI Admin" admin --password-stdin
+          test "$(curl -sk -o /dev/null -w '%{http_code}' https://localhost/api/students)" = 401
+          curl -fsSk -c jar -H 'X-Requested-With: ci' -H 'Content-Type: application/json' \
+            -d '{"email":"ci@example.edu","password":"a-long-ci-only-password"}' https://localhost/api/auth/login
+          curl -fsSk -b jar https://localhost/api/auth/me | grep -q '"role":"admin"'
+          curl -fsSk -o /dev/null https://localhost/
+      - name: Logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.prod.yml --env-file deploy/.env logs --no-color --tail 200
+
   frontend:
     name: Frontend typecheck, build and audit
     runs-on: ubuntu-latest

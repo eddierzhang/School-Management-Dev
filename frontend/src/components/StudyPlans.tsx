@@ -5,6 +5,9 @@ import { useApi } from '../useApi'
 import type { StudyClassRow, StudyDraft, StudyPlan } from '../types'
 import { Delta, ErrorNote, Icon, Loading, Pill, RejectButton, gradeStatus, pctText } from './ui'
 
+/** Waiting in the queue or being drafted: either way, keep polling. */
+const inFlight = (s?: string) => s === 'queued' || s === 'running'
+
 const day = (iso: string | null) =>
   iso ? new Date(iso + (iso.length === 10 ? 'T00:00:00' : '')).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '—'
 
@@ -19,7 +22,7 @@ export function StudyPlansBlock({ sid, onChanged }: { sid: string; onChanged?: (
   const [showAll, setShowAll] = useState(false)
   const reload = () => setTick((n) => n + 1)
 
-  const running = !!data.data?.classes.some((c) => c.latest_run?.status === 'running')
+  const running = !!data.data?.classes.some((c) => inFlight(c.latest_run?.status))
   // A draft takes a minute or more on the local model; poll only while one runs.
   useEffect(() => {
     if (!running) return
@@ -107,7 +110,7 @@ function ClassStudy({ sid, row, plan, drafts, busy, canDraft, act }: {
   const [note, setNote] = useState('')
   const [showWork, setShowWork] = useState(false)
   const last = row.latest_run
-  const running = last?.status === 'running'
+  const running = inFlight(last?.status)
 
   return (
     <div className="panelbox panelbox-pad" style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
@@ -169,7 +172,7 @@ function ClassStudy({ sid, row, plan, drafts, busy, canDraft, act }: {
       {!plan && drafts.length === 0 && (
         running ? (
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <Pill kind="accent">drafting…</Pill>
+            <Pill kind="accent">{last?.status === 'queued' ? 'queued…' : 'drafting…'}</Pill>
             <span className="sub">The agent is reading every assignment. This takes about a minute and updates by itself.</span>
           </div>
         ) : (

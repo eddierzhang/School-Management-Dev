@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..ai.manager import MANAGER_NAME, resume_queue
+from ..ai.manager import MANAGER_NAME
 from ..auth.deps import module, require
 from ..db import get_db
 from ..models import AgentRun, Proposal
@@ -31,7 +31,6 @@ def briefing(db: Session = Depends(get_db)) -> dict:
 @router.get("/runs")
 def manager_runs(limit: int = 10, db: Session = Depends(get_db)) -> list[dict]:
     """Recent manager runs, each with the specialist runs it dispatched."""
-    resume_queue(db)
     runs = db.scalars(select(AgentRun).where(AgentRun.agent == MANAGER_NAME)
                       .order_by(AgentRun.id.desc()).limit(min(limit, 50))).all()
     return [manager_run(r.id, db) for r in runs]

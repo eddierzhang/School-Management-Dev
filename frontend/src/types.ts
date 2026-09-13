@@ -322,7 +322,7 @@ export interface AgentRun {
   agent: string
   model: string
   prompt: string
-  status: 'running' | 'done' | 'failed'
+  status: 'queued' | 'running' | 'done' | 'failed'
   summary: string
   steps_used: number
   tool_errors: number
@@ -788,7 +788,7 @@ export interface PlanDraft {
 
 export interface DraftRun {
   id: number
-  status: 'running' | 'done' | 'failed'
+  status: 'queued' | 'running' | 'done' | 'failed'
   summary: string
   error: string | null
   steps_used: number

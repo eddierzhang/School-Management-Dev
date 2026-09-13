@@ -15,6 +15,7 @@ import pytest
 
 from app.ai import documents as D
 from app.ai import ollama
+from app.jobs import run_pending
 
 SAMPLES = Path(__file__).resolve().parent.parent / "samples"
 sys.path.insert(0, str(SAMPLES))
@@ -292,6 +293,8 @@ def test_upload_reads_and_stores_verified_findings(client, model_up):
     r = _upload(client, "S-1507", SAMPLES / "talia-barnard-teacher-note.pdf")
     assert r.status_code == 202, r.text
     doc_id = r.json()["id"]
+    assert r.json()["status"] == "processing", "the upload returns before the model reads it"
+    run_pending()
     try:
         d = client.get(f"/api/documents/{doc_id}").json()
         assert d["status"] == "done", d.get("error")
@@ -343,6 +346,7 @@ def test_a_failed_read_is_recorded_not_stuck(client, monkeypatch, model_up):
     monkeypatch.setattr(D, "chat", boom)
     r = _upload(client, "S-1507", SAMPLES / "talia-barnard-teacher-note.docx")
     doc_id = r.json()["id"]
+    run_pending()
     try:
         d = client.get(f"/api/documents/{doc_id}").json()
         assert d["status"] == "failed" and "Cannot reach Ollama" in d["error"]

@@ -1,23 +1,22 @@
 """Uploading a document about a student.
 
 Reading takes a minute or two on the local model, so an upload returns straight
-away with the document in `processing` and the analysis runs in the background.
+away with the document in `processing`, and the worker reads it (app/jobs.py).
 """
 from __future__ import annotations
 
-from datetime import datetime, timedelta
-
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..ai import ollama
-from ..ai.documents import (EXTENSIONS, KINDS, MAX_BYTES, DocumentError, analyse_in_background,
+from ..ai.documents import (EXTENSIONS, KINDS, MAX_BYTES, DocumentError,
                             chunk_text, extension_of, extract_text, sha256_of)
 from ..auth.deps import Principal, require
 from ..auth.scope import ensure_student
 from ..config import get_settings
 from ..db import get_db
+from ..jobs import enqueue
 from ..models import Student, StudentDocument
 
 router = APIRouter(tags=["documents"])
@@ -42,18 +41,6 @@ def _out(d: StudentDocument, full: bool = False) -> dict:
     return out
 
 
-def _reap(db: Session) -> None:
-    """A document whose analysis process died would otherwise say "processing" for ever."""
-    cutoff = datetime.utcnow() - timedelta(minutes=20)
-    stale = db.scalars(select(StudentDocument).where(
-        StudentDocument.status == "processing", StudentDocument.uploaded_at < cutoff)).all()
-    for d in stale:
-        d.status = "failed"
-        d.error = "The analysis stopped without finishing — the server restarted mid-read. Run it again."
-    if stale:
-        db.commit()
-
-
 def _require_model() -> None:
     h = ollama.health()
     if not h["reachable"]:
@@ -65,7 +52,6 @@ def _require_model() -> None:
 @router.post("/students/{sid}/documents", status_code=202)
 async def upload(
     sid: str,
-    background: BackgroundTasks,
     file: UploadFile = File(...),
     kind: str = Form("other"),
     db: Session = Depends(get_db),
@@ -103,9 +89,12 @@ async def upload(
         chunks=len(chunk_text(text)), model=settings.ollama_model,
     )
     db.add(doc)
+    db.flush()
+    # Read by the worker. If it dies mid-read the job is retried, and if it keeps
+    # failing the document is marked failed rather than left "processing".
+    enqueue(db, "document_analysis", {"doc_id": doc.id}, commit=False)
     db.commit()
     db.refresh(doc)
-    background.add_task(analyse_in_background, doc.id)
     return _out(doc)
 
 
@@ -116,7 +105,6 @@ def list_documents(sid: str, db: Session = Depends(get_db),
     student = db.scalar(select(Student).where(Student.sid == sid))
     if student is None:
         raise HTTPException(404, f"No student with SID {sid}")
-    _reap(db)
     docs = db.scalars(select(StudentDocument).where(StudentDocument.student_id == student.id)
                       .order_by(StudentDocument.id.desc())).all()
     return [_out(d) for d in docs]
@@ -125,7 +113,6 @@ def list_documents(sid: str, db: Session = Depends(get_db),
 @router.get("/documents/{doc_id}")
 def get_document(doc_id: int, db: Session = Depends(get_db),
                  user: Principal = Depends(require("students.read"))) -> dict:
-    _reap(db)
     d = db.get(StudentDocument, doc_id)
     if d is None:
         raise HTTPException(404, f"No document {doc_id}")
@@ -134,7 +121,7 @@ def get_document(doc_id: int, db: Session = Depends(get_db),
 
 
 @router.post("/documents/{doc_id}/analyze", status_code=202)
-def reanalyse(doc_id: int, background: BackgroundTasks, db: Session = Depends(get_db),
+def reanalyse(doc_id: int, db: Session = Depends(get_db),
               user: Principal = Depends(require("documents.upload"))) -> dict:
     d = db.get(StudentDocument, doc_id)
     if d is None:
@@ -144,9 +131,8 @@ def reanalyse(doc_id: int, background: BackgroundTasks, db: Session = Depends(ge
         raise HTTPException(409, "That document is already being read.")
     _require_model()
     d.status, d.error = "processing", None
-    d.uploaded_at = datetime.utcnow()           # restarts the stale-read clock
+    enqueue(db, "document_analysis", {"doc_id": d.id}, commit=False)
     db.commit()
-    background.add_task(analyse_in_background, d.id)
     return _out(d)
 
 

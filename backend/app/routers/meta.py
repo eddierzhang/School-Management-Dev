@@ -9,7 +9,8 @@ from ..analytics import StudentSignal, skill_gaps
 from ..auth.deps import Principal, require
 from ..auth.scope import visible_courses, visible_students
 from ..config import get_settings
-from ..db import engine, get_db, schema_status
+from ..db import SessionLocal, engine, get_db, schema_status
+from ..jobs import queue_status
 from ..deps import signals
 from ..models import Assessment, Course, Intervention
 from ..schemas import BandCount, SkillGapOut, Summary
@@ -43,6 +44,12 @@ def ready(response: Response) -> dict:
         checks["schema"] = {"ok": s["up_to_date"], "current": s["current"], "head": s["head"]}
     else:
         checks["schema"] = {"ok": False, "error": "database unreachable"}
+    if checks["schema"]["ok"]:
+        # Reported, not required: without a worker the app still serves everything but
+        # agent runs, document reads and history snapshots, which wait in the queue.
+        with SessionLocal() as db:
+            q = queue_status(db)
+        checks["worker"] = {"ok": q["worker_alive"], "required": False, **q}
     try:
         installed = settings.ollama_model in ollama.installed_models()
         checks["model"] = {"ok": installed, "required": False, "model": settings.ollama_model,

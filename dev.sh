@@ -25,6 +25,7 @@ fi
 
 trap 'kill 0' EXIT INT TERM
 (cd backend && .venv/bin/python -m uvicorn app.main:app --reload --port 8000) &
+(cd backend && .venv/bin/python -m app.worker) &      # agent runs, document reads, daily snapshots
 (cd frontend && npm run dev) &
 echo
 echo "  API        http://localhost:8000/api/health"

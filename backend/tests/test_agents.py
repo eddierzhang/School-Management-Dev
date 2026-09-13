@@ -294,15 +294,18 @@ def test_starting_a_run_records_it_without_blocking(client, monkeypatch):
     monkeypatch.setattr(ollama, "health", lambda: {
         "reachable": True, "error": None, "model": "qwen3:4b",
         "models": ["qwen3:4b"], "capabilities": ["tools"], "can_run_agents": True})
-    called: dict = {}
-    monkeypatch.setattr("app.routers.agents.run_in_background",
-                        lambda run_id, agent, task: called.update(
-                            {"run_id": run_id, "agent": agent, "task": task}))
+    from app.db import SessionLocal
+    from app.models import Job
+
     r = client.post("/api/agents/support/run", json={"task": "Look at grade 7 only."})
     assert r.status_code == 202
     body = r.json()
-    assert body["status"] == "running" and body["agent"] == "support"
-    assert called["task"] == "Look at grade 7 only."
+    assert body["status"] == "queued" and body["agent"] == "support"
+    with SessionLocal() as s:
+        job = s.scalar(select(Job).where(Job.kind == "agent_run").order_by(Job.id.desc()).limit(1))
+        assert job.payload == {"run_id": body["id"], "agent": "support", "task": "Look at grade 7 only."}
+        s.delete(job)          # nothing here should reach the model
+        s.commit()
     assert client.get(f"/api/agents/runs/{body['id']}").json()["id"] == body["id"]
 
 
@@ -356,6 +359,13 @@ def test_a_fresh_run_is_not_reaped(client, monkeypatch):
     monkeypatch.setattr(_ollama, "health", lambda: {
         "reachable": True, "error": None, "model": "qwen3:4b",
         "models": ["qwen3:4b"], "capabilities": ["tools"], "can_run_agents": True})
-    monkeypatch.setattr("app.routers.agents.run_in_background", lambda *a, **k: None)
+    from app.db import SessionLocal
+    from app.models import Job
+
     started = client.post("/api/agents/registrar/run", json={}).json()
-    assert client.get(f"/api/agents/runs/{started['id']}").json()["status"] == "running"
+    assert client.get(f"/api/agents/runs/{started['id']}").json()["status"] == "queued"
+    with SessionLocal() as s:
+        for job in s.scalars(select(Job).where(Job.kind == "agent_run", Job.status == "queued")).all():
+            if job.payload.get("run_id") == started["id"]:
+                s.delete(job)
+        s.commit()

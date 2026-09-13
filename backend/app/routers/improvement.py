@@ -6,17 +6,17 @@ transcript kept, and nothing becomes a plan until a person approves it.
 """
 from datetime import datetime
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..ai import ollama
-from ..ai.runner import run_in_background
 from ..auth.deps import Principal, require
 from ..auth.scope import ensure_course, visible_courses
 from ..class_plans import active_plan, all_performance, performance, progress
 from ..config import get_settings
 from ..db import get_db
+from ..jobs import enqueue
 from ..models import AgentRun, ClassPlan, Proposal
 from ..schemas import (ClassImprovementOut, ClassNeedRow, ClassPlanOut, ClassPlanPatch, DraftRequest,
                        DraftRunOut, PlanDraftOut)
@@ -89,7 +89,7 @@ def class_improvement(code: str, db: Session = Depends(get_db),
 
 
 @router.post("/courses/{code}/improvement/draft", response_model=DraftRunOut, status_code=202)
-def draft_plan(code: str, body: DraftRequest, background: BackgroundTasks,
+def draft_plan(code: str, body: DraftRequest,
                db: Session = Depends(get_db),
                user: Principal = Depends(require("drafts.request"))) -> DraftRunOut:
     """Start the class improvement agent on this one class. Runs take a minute or three."""
@@ -101,7 +101,7 @@ def draft_plan(code: str, body: DraftRequest, background: BackgroundTasks,
         raise HTTPException(409, f"{code} has no graded work yet, so there is nothing to plan from.")
     if active_plan(db, code):
         raise HTTPException(409, f"{code} already has an active plan. Complete or retire it first.")
-    if db.scalar(select(AgentRun).where(AgentRun.subject == _subject(code), AgentRun.status == "running")):
+    if db.scalar(select(AgentRun).where(AgentRun.subject == _subject(code), AgentRun.status.in_(["queued", "running"]))):
         raise HTTPException(409, f"A plan for {code} is already being drafted.")
     h = ollama.health()
     if not h["reachable"]:
@@ -113,14 +113,15 @@ def draft_plan(code: str, body: DraftRequest, background: BackgroundTasks,
             f"is above. Find the main cause and call propose_class_plan once for {code}.")
     if body.note and body.note.strip():
         task += f"\nThe person asking adds: {body.note.strip()}"
-    run = AgentRun(agent=AGENT, model=settings.ollama_model, prompt=task, status="running", transcript=[],
+    run = AgentRun(agent=AGENT, model=settings.ollama_model, prompt=task, status="queued", transcript=[],
                    subject=_subject(code), started_at=datetime.utcnow())
     db.add(run)
+    db.flush()
+    enqueue(db, "agent_run", {"run_id": run.id, "agent": AGENT, "task": task,
+                              "opening": ["get_class_performance", {"course_code": code}],
+                              "scope": {"only_course": code}}, max_attempts=2, commit=False)
     db.commit()
     db.refresh(run)
-    background.add_task(run_in_background, run.id, AGENT, task,
-                        opening=("get_class_performance", {"course_code": code}),
-                        scope={"only_course": code})
     return _run_out(run)
 
 
