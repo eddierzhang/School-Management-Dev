@@ -42,6 +42,8 @@ def _user_out(u: User) -> dict:
     return {"id": u.id, "email": u.email, "name": u.name, "role": u.role,
             "role_label": ROLE_LABELS.get(u.role, u.role), "teacher_name": u.teacher_name,
             "active": u.active, "has_password": bool(u.password_hash),
+            "pending": u.pending, "requested_role": u.requested_role, "request_note": u.request_note,
+            "decided_by": u.decided_by,
             "created_at": u.created_at.isoformat() if u.created_at else None,
             "last_login_at": u.last_login_at.isoformat() if u.last_login_at else None}
 
@@ -69,7 +71,45 @@ def roles(_: Principal = Depends(require("users.manage"))) -> dict:
 
 @router.get("/users")
 def list_users(db: Session = Depends(get_db), _: Principal = Depends(require("users.manage"))) -> list[dict]:
-    return [_user_out(u) for u in db.scalars(select(User).order_by(User.active.desc(), User.name)).all()]
+    """Account requests waiting for a decision first, then active accounts, then inactive ones."""
+    return [_user_out(u) for u in db.scalars(
+        select(User).order_by(User.pending.desc(), User.active.desc(), User.name)).all()]
+
+
+class ApproveIn(BaseModel):
+    role: str = Field(pattern=ROLE_PATTERN)
+    teacher_name: str | None = Field(default=None, max_length=120)
+
+
+def _pending_request(db: Session, user_id: int) -> User:
+    u = db.get(User, user_id)
+    if u is None:
+        raise HTTPException(404, f"No account {user_id}")
+    if not u.pending:
+        raise HTTPException(409, "That account request has already been decided.")
+    return u
+
+
+@router.post("/users/{user_id}/approve")
+def approve_request(user_id: int, body: ApproveIn, db: Session = Depends(get_db),
+                    me: Principal = Depends(require("users.manage"))) -> dict:
+    """Grant an account request. The administrator confirms the role, whatever was asked for."""
+    u = _pending_request(db, user_id)
+    u.teacher_name = _check_teacher(db, body.role, body.teacher_name)
+    u.role, u.active, u.pending, u.decided_by = body.role, True, False, me.email
+    db.commit()
+    return _user_out(u)
+
+
+@router.post("/users/{user_id}/decline")
+def decline_request(user_id: int, db: Session = Depends(get_db),
+                    me: Principal = Depends(require("users.manage"))) -> dict:
+    """Turn an account request down. The row is kept, inactive, so the audit log still names it."""
+    u = _pending_request(db, user_id)
+    u.pending, u.active, u.decided_by = False, False, me.email
+    u.password_hash = None
+    db.commit()
+    return _user_out(u)
 
 
 @router.post("/users", status_code=201)
@@ -116,6 +156,8 @@ def update_user(user_id: int, body: UserPatch, db: Session = Depends(get_db),
         revoke_all(db, u.id)
     u.role = role
     if "active" in changes and changes["active"] is not None:
+        if changes["active"] and u.pending:
+            raise HTTPException(409, "Approve or decline this account request instead.")
         u.active = changes["active"]
     db.commit()
     return _user_out(u)

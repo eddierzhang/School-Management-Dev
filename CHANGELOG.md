@@ -4,6 +4,15 @@ All notable changes are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Account requests.** "Create an account" on the sign-in screen. A request
+  cannot sign in until an administrator approves it, confirming the role, on
+  Admin → Accounts; the Admin tab shows how many are waiting. Configurable with
+  `HR_SIGNUP_ENABLED`, `HR_SIGNUP_EMAIL_DOMAINS` and `HR_SIGNUP_MAX_PER_HOUR`.
+
 ## [1.0.0] — 2026-09-13
 
 The first production release: the student support dashboard, packaged to run

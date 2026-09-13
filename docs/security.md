@@ -42,6 +42,18 @@ The full map is `backend/app/auth/permissions.py`. Notes:
 failed attempts for an email lock it for 15 minutes
 (`HR_LOGIN_MAX_FAILURES`, `HR_LOGIN_LOCKOUT_MINUTES`).
 
+**Requesting an account.** "Create an account" on the sign-in screen records a
+request, never a working account. The request holds a name, email, hashed
+password, the role asked for and an optional note. It cannot sign in until an
+administrator approves it on Admin → Accounts, where they confirm the role (and,
+for a teacher, the teacher name on the timetable) or decline it. Declining
+removes the password. The response is the same whether or not the email already
+has an account, so the form cannot be used to discover who has one. Requests
+are limited per IP address (`HR_SIGNUP_MAX_PER_HOUR`), can be restricted to the
+school's email domains (`HR_SIGNUP_EMAIL_DOMAINS`), and nobody can request the
+administrator role. Turn the form off with `HR_SIGNUP_ENABLED=false`. Every
+request, approval and decline is in the audit log.
+
 **Sessions** are server-side rows behind an `HttpOnly`, `SameSite=Lax` cookie,
 marked `Secure` in production. Only a SHA-256 hash of the token is stored.
 Sessions expire after `HR_SESSION_HOURS`. Changing a person's role, deactivating

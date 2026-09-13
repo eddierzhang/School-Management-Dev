@@ -377,6 +377,12 @@ class User(Base):
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # An account someone asked for on the sign-in screen. It stays inactive, with no
+    # access to anything, until an administrator approves it and confirms the role.
+    pending: Mapped[bool] = mapped_column(Boolean, default=False, server_default=sa_false())
+    requested_role: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    request_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    decided_by: Mapped[str | None] = mapped_column(String(160), nullable=True)
 
 
 class UserSession(Base):

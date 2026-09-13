@@ -27,6 +27,9 @@ them from the environment, or from `backend/.env` in development. In production,
 | `HR_PASSWORD_LOGIN` | `true` | Allow email and password sign-in. |
 | `HR_LOGIN_MAX_FAILURES` | `5` | Failed attempts before an email is locked out. |
 | `HR_LOGIN_LOCKOUT_MINUTES` | `15` | How long a lockout lasts. |
+| `HR_SIGNUP_ENABLED` | `true` | Show "Create an account" on the sign-in screen. Requests wait for an administrator. Needs `HR_PASSWORD_LOGIN`. |
+| `HR_SIGNUP_EMAIL_DOMAINS` | *(empty)* | Comma-separated email domains allowed to request an account, e.g. `example.edu`. Empty allows any. |
+| `HR_SIGNUP_MAX_PER_HOUR` | `5` | Account requests accepted from one IP address per hour. |
 | `HR_OIDC_ISSUER` | *(empty)* | The identity provider's issuer URL. Setting it and the client ID enables school sign-in. |
 | `HR_OIDC_CLIENT_ID` | *(empty)* | OAuth client ID. |
 | `HR_OIDC_CLIENT_SECRET` | *(empty)* | OAuth client secret. |

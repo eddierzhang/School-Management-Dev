@@ -62,7 +62,9 @@ hardware, so student records never leave the building.
 
 - **Accounts and roles.** Administrator, counselor, teacher, registrar and
   business office. Teachers see only their own students. School sign-in via
-  Google Workspace, Microsoft Entra or any OpenID Connect provider.
+  Google Workspace, Microsoft Entra or any OpenID Connect provider. New staff
+  can request an account from the sign-in screen, and an administrator approves
+  it.
 - **Audit log.** Every change, including refused attempts, every view of a
   student's record, and every sign-in.
 - **Data import.** OneRoster 1.1 CSV from PowerSchool, Infinite Campus, Aeries,

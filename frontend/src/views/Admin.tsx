@@ -148,6 +148,9 @@ function Users() {
         Changing someone’s role or deactivating them ends their sessions at once. A teacher only sees
         the students in sections taught under their teacher name.
       </p>
+      {users.data && users.data.some((u) => u.pending) && (
+        <Requests requests={users.data.filter((u) => u.pending)} onDecided={users.reload} />
+      )}
       <NewUserForm onCreated={users.reload} />
       {error && <ErrorNote error={error} />}
       {users.loading && <Loading what="accounts" />}
@@ -159,7 +162,7 @@ function Users() {
               <tr><th>Name</th><th>Role</th><th>Teacher name</th><th>Sign-in</th><th>Last signed in</th><th /></tr>
             </thead>
             <tbody>
-              {users.data.map((u) => (
+              {users.data.filter((u) => !u.pending).map((u) => (
                 <tr key={u.id} style={u.active ? undefined : { opacity: 0.6 }}>
                   <td>
                     <div style={{ fontWeight: 600 }}>{u.name}</div>
@@ -192,6 +195,70 @@ function Users() {
         </div>
       )}
     </section>
+  )
+}
+
+/** People who asked for an account on the sign-in screen. Nothing is accessible until one is approved. */
+function Requests({ requests, onDecided }: { requests: AdminUser[]; onDecided: () => void }) {
+  return (
+    <div className="panelbox" style={{ marginBottom: 14, borderColor: 'var(--accent)' }}>
+      <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--rule)' }}>
+        <b>Account requests</b> <Pill kind="accent">{requests.length} waiting</Pill>
+        <div className="sub" style={{ marginTop: 2 }}>
+          Confirm the role before approving: the role decides which students and records the person can see.
+        </div>
+      </div>
+      {requests.map((u) => <RequestRow key={u.id} user={u} onDecided={onDecided} />)}
+    </div>
+  )
+}
+
+function RequestRow({ user: u, onDecided }: { user: AdminUser; onDecided: () => void }) {
+  const [role, setRole] = useState<Role>(u.requested_role ?? 'teacher')
+  const [teacherName, setTeacherName] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function decide(approve: boolean) {
+    setBusy(true); setError(null)
+    try {
+      if (approve) await api.approveUser(u.id, role, role === 'teacher' ? teacherName : null)
+      else await api.declineUser(u.id)
+      onDecided()
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'That decision did not save.')
+    } finally { setBusy(false) }
+  }
+
+  return (
+    <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--rule)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'baseline' }}>
+        <b>{u.name}</b>
+        <span className="sub">{u.email}</span>
+        <span className="sub">· asked to be {ROLE_OPTIONS.find((r) => r.role === u.requested_role)?.label ?? u.requested_role}</span>
+        <span className="sub">· {when(u.created_at)}</span>
+      </div>
+      {u.request_note && <div className="quote" style={{ fontStyle: 'normal' }}>{u.request_note}</div>}
+      {error && <ErrorNote error={error} />}
+      <div className="filters" style={{ marginBottom: 0 }}>
+        <div className="field">
+          <label htmlFor={`rq-role-${u.id}`}>Role to grant</label>
+          <select id={`rq-role-${u.id}`} className="inp" value={role} onChange={(e) => setRole(e.target.value as Role)}>
+            {ROLE_OPTIONS.map((r) => <option key={r.role} value={r.role}>{r.label}</option>)}
+          </select>
+        </div>
+        {role === 'teacher' && (
+          <div className="field grow">
+            <label htmlFor={`rq-teacher-${u.id}`}>Teacher name on the timetable</label>
+            <input id={`rq-teacher-${u.id}`} className="inp" value={teacherName} placeholder="e.g. R. Okonkwo"
+              onChange={(e) => setTeacherName(e.target.value)} />
+          </div>
+        )}
+        <button className="btn primary" disabled={busy || (role === 'teacher' && !teacherName.trim())}
+          onClick={() => void decide(true)}>Approve</button>
+        <button className="btn ghost" disabled={busy} onClick={() => void decide(false)}>Decline</button>
+      </div>
+    </div>
   )
 }
 

@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from .. import audit
 from ..auth import oidc
 from ..auth.deps import Principal, check_csrf, current_user
-from ..auth.passwords import verify_password
+from ..auth.passwords import hash_password, password_problem, verify_password
 from ..auth.permissions import ROLE_LABELS
 from ..auth.sessions import COOKIE, end_session, start_session
 from ..config import get_settings
@@ -40,7 +40,66 @@ def me_out(user: Principal) -> dict:
 def auth_config() -> dict:
     """What the sign-in screen should offer. Public."""
     return {"password_login": settings.password_login, "oidc": settings.oidc_enabled,
-            "oidc_label": settings.oidc_button_label, "school": settings.school_name}
+            "oidc_label": settings.oidc_button_label, "school": settings.school_name,
+            "signup": _signup_open(), "signup_domains": settings.signup_domains,
+            "signup_roles": [{"role": r, "label": ROLE_LABELS[r]} for r in REQUESTABLE_ROLES]}
+
+
+# ---- asking for an account ------------------------------------------------------------
+# Anyone can ask; only an administrator can say yes. Administrator is never requestable.
+REQUESTABLE_ROLES = ("teacher", "counselor", "registrar", "business")
+SIGNUP_RECEIVED = ("Thanks — your request has been sent. An administrator will review it, and you can sign "
+                   "in once it is approved.")
+
+
+def _signup_open() -> bool:
+    # Requests set a password, so they need password sign-in to be on.
+    return settings.signup_enabled and settings.password_login
+
+
+class SignupIn(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    email: str = Field(min_length=3, max_length=160, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    password: str = Field(max_length=1024)
+    requested_role: str = Field(pattern="^(" + "|".join(REQUESTABLE_ROLES) + ")$")
+    note: str | None = Field(default=None, max_length=1000)
+
+
+@router.post("/signup", status_code=202)
+def signup(body: SignupIn, request: Request, db: Session = Depends(get_db)) -> dict:
+    """Ask for an account. It is created inactive and pending an administrator's approval.
+
+    The response is the same whether or not the email already has an account, so the
+    form cannot be used to find out who has one.
+    """
+    check_csrf(request)
+    if not _signup_open():
+        raise HTTPException(404, "Accounts are created by an administrator here.")
+    email = body.email.strip().lower()
+    domains = settings.signup_domains
+    if domains and email.rsplit("@", 1)[-1] not in domains:
+        raise HTTPException(422, f"Use your school email address ({', '.join('@' + d for d in domains)}).")
+    if problem := password_problem(body.password):
+        raise HTTPException(422, problem)
+
+    ip = (request.client.host if request.client else "")[:64]
+    since = datetime.utcnow() - timedelta(hours=1)
+    recent = db.scalar(select(func.count()).select_from(AuditEvent).where(
+        AuditEvent.action == "auth.signup_requested", AuditEvent.ip == ip, AuditEvent.at >= since)) or 0
+    if recent >= settings.signup_max_per_hour:
+        raise HTTPException(429, "Too many account requests from this address. Try again later.")
+
+    if db.scalar(select(User.id).where(func.lower(User.email) == email)) is None:
+        db.add(User(email=email, name=body.name.strip(), role=body.requested_role,
+                    requested_role=body.requested_role, request_note=(body.note or "").strip() or None,
+                    password_hash=hash_password(body.password), active=False, pending=True))
+        db.commit()
+        created = True
+    else:
+        created = False
+    audit.record("auth.signup_requested", request=request, actor_email=email, status=202,
+                 detail={"requested_role": body.requested_role, "new": created})
+    return {"requested": True, "message": SIGNUP_RECEIVED}
 
 
 def _recent_failures(db: Session, email: str) -> int:
@@ -59,7 +118,12 @@ def login(body: LoginIn, request: Request, response: Response, db: Session = Dep
         audit.record("auth.login_locked", request=request, actor_email=email, status=429)
         raise HTTPException(429, f"Too many failed attempts. Try again in {settings.login_lockout_minutes} minutes.")
     user = db.scalar(select(User).where(func.lower(User.email) == email))
-    if user is None or not user.active or not verify_password(body.password, user.password_hash if user else None):
+    password_ok = verify_password(body.password, user.password_hash if user else None)
+    if user is not None and password_ok and user.pending:
+        # Only someone who knows the password learns the request is still waiting.
+        audit.record("auth.login_pending", request=request, actor_email=email, status=403)
+        raise HTTPException(403, "Your account request is waiting for an administrator to approve it.")
+    if user is None or not user.active or not password_ok:
         audit.record("auth.login_failed", request=request, actor_email=email, status=401)
         raise HTTPException(401, "That email and password do not match an active account.")
     start_session(db, user, request, response)

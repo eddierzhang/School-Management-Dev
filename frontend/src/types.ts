@@ -943,6 +943,18 @@ export interface AuthConfig {
   oidc: boolean
   oidc_label: string
   school: string
+  /** Whether the sign-in screen offers to request an account. */
+  signup: boolean
+  signup_domains: string[]
+  signup_roles: { role: Role; label: string }[]
+}
+
+export interface SignupRequest {
+  name: string
+  email: string
+  password: string
+  requested_role: Role
+  note?: string | null
 }
 
 export interface AdminUser {
@@ -956,6 +968,11 @@ export interface AdminUser {
   has_password: boolean
   created_at: string | null
   last_login_at: string | null
+  /** Asked for on the sign-in screen and not yet approved or declined. */
+  pending: boolean
+  requested_role: Role | null
+  request_note: string | null
+  decided_by: string | null
 }
 
 export interface NewUser {

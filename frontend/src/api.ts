@@ -1,5 +1,5 @@
 import type {
-  AdminUser, AuditPage, AuthConfig, ImportReport, Me, NewUser, RolesInfo, OverrideRecord, StudentHistory,
+  AdminUser, AuditPage, AuthConfig, ImportReport, Me, NewUser, Role, RolesInfo, SignupRequest, OverrideRecord, StudentHistory,
   BudgetMove, FinanceNeeds,
   ClassImprovement, ClassNeedRow, ClassPlan, DraftRun,
   ClassWork, StudentStudy, StudyPlan,
@@ -69,6 +69,8 @@ export const api = {
   login: (email: string, password: string) =>
     req<{ signed_in: boolean }>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
   logout: () => req<{ signed_out: boolean }>('/auth/logout', { method: 'POST' }),
+  signup: (body: SignupRequest) =>
+    req<{ requested: boolean; message: string }>('/auth/signup', { method: 'POST', body: JSON.stringify(body) }),
 
   // --- administration ---
   users: () => req<AdminUser[]>('/admin/users'),
@@ -76,6 +78,9 @@ export const api = {
   createUser: (body: NewUser) => req<AdminUser>('/admin/users', { method: 'POST', body: JSON.stringify(body) }),
   updateUser: (id: number, body: Partial<NewUser & { active: boolean }>) =>
     req<AdminUser>(`/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  approveUser: (id: number, role: Role, teacher_name?: string | null) =>
+    req<AdminUser>(`/admin/users/${id}/approve`, { method: 'POST', body: JSON.stringify({ role, teacher_name: teacher_name ?? null }) }),
+  declineUser: (id: number) => req<AdminUser>(`/admin/users/${id}/decline`, { method: 'POST' }),
   audit: (p: { actor?: string; action?: string; entity_type?: string; entity_id?: string; before_id?: number } = {}) =>
     req<AuditPage>('/admin/audit' + qs(p)),
 

@@ -90,6 +90,8 @@ export default function App() {
   const summary = useApi(() => (can('students.read') ? api.summary() : none()), [refresh])
   const stock = useApi(() => (can('inventory.read') ? api.stockroomSummary() : none()), [refresh])
   const money = useApi(() => (can('finance.read') ? api.financeSummary() : none()), [refresh])
+  // Administrators see how many account requests are waiting, on the Admin tab.
+  const people = useApi(() => (can('users.manage') ? api.users() : none()), [refresh])
 
   const bump = useCallback(() => setRefresh((n) => n + 1), [])
 
@@ -112,6 +114,7 @@ export default function App() {
   }, [])
 
   const counts: Partial<Record<Tab, number>> = {
+    ...(people.data ? { admin: people.data.filter((u) => u.pending).length } : {}),
     ...(summary.data
       ? {
           students: summary.data.students,

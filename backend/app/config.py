@@ -55,6 +55,12 @@ class Settings(BaseSettings):
     password_login: bool = True             # set false once everyone signs in through the school's IdP
     login_max_failures: int = 5
     login_lockout_minutes: int = 15
+    # "Create an account" on the sign-in screen records a request an administrator
+    # must approve; nothing is accessible before that. Optionally limited to email
+    # domains (comma-separated, e.g. "school.edu").
+    signup_enabled: bool = True
+    signup_email_domains: str = ""
+    signup_max_per_hour: int = 5            # requests from one address
     # The school's identity provider (Google Workspace, Microsoft Entra, …). Enabled
     # when the issuer and client id are set. Only people who already have an
     # account here can sign in through it; it never creates accounts.
@@ -100,6 +106,10 @@ class Settings(BaseSettings):
     @property
     def secure_cookies(self) -> bool:
         return self.production if self.cookie_secure is None else self.cookie_secure
+
+    @property
+    def signup_domains(self) -> list[str]:
+        return [d.strip().lower().lstrip("@") for d in self.signup_email_domains.split(",") if d.strip()]
 
     @property
     def oidc_enabled(self) -> bool:
