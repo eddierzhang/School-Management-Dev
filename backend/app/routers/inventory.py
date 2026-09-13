@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..auth.deps import require_by_method
 from ..config import get_settings
 from ..db import get_db
 from ..models import Course, InventoryItem
@@ -19,7 +20,8 @@ from ..schemas import (CountIn, InventoryCreate, InventoryDetail, InventoryRow, 
 from ..stock import (add_item, cost_to_par, enrolment_by_course, new_item_problem, short_by, status_of,
                      students_depending_on)
 
-router = APIRouter(prefix="/inventory", tags=["inventory"])
+router = APIRouter(prefix="/inventory", tags=["inventory"],
+                   dependencies=[Depends(require_by_method(read="inventory.read", write="inventory.write"))])
 settings = get_settings()
 
 

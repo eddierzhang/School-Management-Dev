@@ -13,12 +13,14 @@ import { Stockroom } from './views/Stockroom'
 import { Finance } from './views/Finance'
 import { Students, type Group } from './views/Students'
 import { ErrorNote } from './components/ui'
+import { useAuth } from './auth'
+import { Admin } from './views/Admin'
 
 type Tab = 'overview' | 'students' | 'classes' | 'schedule' | 'demand' | 'skills' | 'plans'
-  | 'stockroom' | 'finance' | 'agents'
+  | 'stockroom' | 'finance' | 'agents' | 'admin'
 
 const TAB_IDS: Tab[] = ['overview', 'students', 'classes', 'schedule', 'demand', 'skills', 'plans',
-  'stockroom', 'finance', 'agents']
+  'stockroom', 'finance', 'agents', 'admin']
 
 /* The URL is the view: #/students, #/classes, #/students/S-1507 with a student
    open. A support office bookmarks the list and mails a colleague a link to
@@ -42,17 +44,20 @@ function writeHash(tab: Tab, sid: string | null) {
   if (window.location.hash !== next) window.history.replaceState(null, '', next)
 }
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'students', label: 'Students' },
-  { id: 'classes', label: 'Classes' },
-  { id: 'schedule', label: 'Schedule' },
-  { id: 'demand', label: 'Class demand' },
-  { id: 'skills', label: 'What they struggle on' },
-  { id: 'plans', label: 'Support plans' },
-  { id: 'stockroom', label: 'Stockroom' },
-  { id: 'finance', label: 'Finance' },
-  { id: 'agents', label: 'Agents' },
+/* Each tab names the permission it needs; a tab the signed-in person cannot use
+   is not shown. The API enforces the same rules whatever the interface shows. */
+const TABS: { id: Tab; label: string; needs: string }[] = [
+  { id: 'overview', label: 'Overview', needs: 'students.read' },
+  { id: 'students', label: 'Students', needs: 'students.read' },
+  { id: 'classes', label: 'Classes', needs: 'students.read' },
+  { id: 'schedule', label: 'Schedule', needs: 'schedule.read' },
+  { id: 'demand', label: 'Class demand', needs: 'courses.write' },
+  { id: 'skills', label: 'What they struggle on', needs: 'students.read' },
+  { id: 'plans', label: 'Support plans', needs: 'students.read' },
+  { id: 'stockroom', label: 'Stockroom', needs: 'inventory.read' },
+  { id: 'finance', label: 'Finance', needs: 'finance.read' },
+  { id: 'agents', label: 'Agents', needs: 'agents.read' },
+  { id: 'admin', label: 'Admin', needs: 'audit.read' },
 ]
 
 function Crest() {
@@ -67,17 +72,24 @@ function Crest() {
 }
 
 export default function App() {
+  const { me, can, signOut } = useAuth()
+  const tabs = TABS.filter((t) => can(t.needs))
   const initial = readHash()
-  const [tab, setTab] = useState<Tab>(initial.tab)
+  const allowed = (t: Tab) => tabs.some((x) => x.id === t)
+  const [tab, setTabRaw] = useState<Tab>(allowed(initial.tab) ? initial.tab : tabs[0]?.id ?? 'overview')
+  const setTab = useCallback((t: Tab) => setTabRaw(allowed(t) ? t : tabs[0]?.id ?? 'overview'),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [me.id])
   // On the classes tab the second URL segment is a class code (#/classes/MAT-150);
   // everywhere else it is the open student.
   const [openSid, setOpenSid] = useState<string | null>(initial.tab === 'classes' ? null : initial.sid)
   const [openCode, setOpenCode] = useState<string | null>(initial.tab === 'classes' ? initial.sid : null)
   const [studentGroup, setStudentGroup] = useState<Group>(initial.group ?? 'all')
   const [refresh, setRefresh] = useState(0)
-  const summary = useApi(() => api.summary(), [refresh])
-  const stock = useApi(() => api.stockroomSummary(), [refresh])
-  const money = useApi(() => api.financeSummary(), [refresh])
+  const none = () => Promise.resolve(null)
+  const summary = useApi(() => (can('students.read') ? api.summary() : none()), [refresh])
+  const stock = useApi(() => (can('inventory.read') ? api.stockroomSummary() : none()), [refresh])
+  const money = useApi(() => (can('finance.read') ? api.financeSummary() : none()), [refresh])
 
   const bump = useCallback(() => setRefresh((n) => n + 1), [])
 
@@ -126,13 +138,20 @@ export default function App() {
             <div className="fact"><span className="fact-k">As of</span><span className="fact-v">{summary.data?.today ?? '—'}</span></div>
             <div className="fact"><span className="fact-k">Students</span><span className="fact-v">{summary.data?.students ?? '—'}</span></div>
             <div className="fact"><span className="fact-k">Graded pieces</span><span className="fact-v">{summary.data?.graded_assessments ?? '—'}</span></div>
+            <div className="fact mast-user">
+              <span className="fact-k">{me.role_label}</span>
+              <span className="fact-v">
+                {me.name}{' '}
+                <button className="btn sm ghost" onClick={() => void signOut()}>Sign out</button>
+              </span>
+            </div>
           </div>
         </div>
       </header>
 
       <main className="shell">
         <nav className="tabs" role="tablist" aria-label="Support views">
-          {TABS.map((t) => (
+          {tabs.map((t) => (
             <button
               key={t.id} className="tab" role="tab" aria-selected={tab === t.id}
               onClick={() => { setTab(t.id); if (t.id === 'classes') setOpenCode(null) }}
@@ -165,6 +184,13 @@ export default function App() {
         {tab === 'stockroom' && <Stockroom onChanged={bump} />}
         {tab === 'finance' && <Finance onChanged={bump} />}
         {tab === 'agents' && <Agents onChanged={bump} />}
+        {tab === 'admin' && <Admin />}
+        {tabs.length === 0 && (
+          <div className="empty">
+            <h2>Your account has no access yet</h2>
+            <p>Ask an administrator to give it a role.</p>
+          </div>
+        )}
       </main>
 
       {openSid && (

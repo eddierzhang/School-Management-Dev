@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { api } from '../api'
+import { useAuth } from '../auth'
 import { useApi } from '../useApi'
 import type { Recommendation } from '../types'
 import { RankedBars } from './charts'
@@ -16,6 +17,7 @@ export function StudentDrawer({ sid, onClose, onChanged }: {
   const { data, error, loading, reload } = useApi(() => api.student(sid), [sid])
   const [planSeed, setPlanSeed] = useState<Recommendation | undefined>()
   const [planOpen, setPlanOpen] = useState(false)
+  const canPlan = useAuth().can('plans.write')
 
   const openPlan = (seed?: Recommendation) => { setPlanSeed(seed); setPlanOpen(true) }
 
@@ -98,7 +100,7 @@ export function StudentDrawer({ sid, onClose, onChanged }: {
                           {r.course_code && <> · <span className="code">{r.course_code}</span></>}
                         </div>
                       </div>
-                      <button className="btn sm primary" onClick={() => openPlan(r)}>Open a plan</button>
+                      {canPlan && <button className="btn sm primary" onClick={() => openPlan(r)}>Open a plan</button>}
                     </div>
                   ))}
                 </div>
@@ -185,7 +187,7 @@ export function StudentDrawer({ sid, onClose, onChanged }: {
                         {iv.status}
                       </Pill>
                       <span className="spacer" />
-                      {iv.status === 'active' && (
+                      {iv.status === 'active' && canPlan && (
                         <>
                           <button className="btn sm" onClick={() => setStatus(iv.id, 'completed')}>Mark done</button>
                           <button className="btn sm ghost" onClick={() => setStatus(iv.id, 'declined')}>Declined</button>
@@ -204,7 +206,7 @@ export function StudentDrawer({ sid, onClose, onChanged }: {
           )}
         </div>
 
-        {data && (
+        {data && canPlan && (
           <div className="drawer-foot">
             <button className="btn primary" onClick={() => openPlan(data.recommendations[0])}>
               Open a support plan

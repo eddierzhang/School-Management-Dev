@@ -12,6 +12,8 @@ from sqlalchemy.orm import Session
 
 from ..ai import ollama
 from ..ai.runner import run_in_background
+from ..auth.deps import Principal, require
+from ..auth.scope import ensure_course, visible_courses
 from ..class_plans import active_plan, all_performance, performance, progress
 from ..config import get_settings
 from ..db import get_db
@@ -45,12 +47,16 @@ def _run_out(r: AgentRun | None) -> DraftRunOut | None:
 
 
 @router.get("/improvement", response_model=list[ClassNeedRow])
-def every_class(db: Session = Depends(get_db)) -> list[ClassNeedRow]:
+def every_class(db: Session = Depends(get_db),
+                user: Principal = Depends(require("students.read"))) -> list[ClassNeedRow]:
     """Every class, the ones that most need a plan first, with what they already have."""
     drafts = [p for p in db.scalars(select(Proposal).where(Proposal.kind == "class_plan",
                                                            Proposal.status == "pending")).all()]
     rows = []
+    allowed = visible_courses(db, user)
     for p in all_performance(db):
+        if allowed is not None and p.code not in allowed:
+            continue
         plan = active_plan(db, p.code)
         rows.append(ClassNeedRow(
             code=p.code, title=p.title, teacher=p.teacher, status=p.status, mean=p.mean, issues=p.issues,
@@ -60,7 +66,9 @@ def every_class(db: Session = Depends(get_db)) -> list[ClassNeedRow]:
 
 
 @router.get("/courses/{code}/improvement", response_model=ClassImprovementOut)
-def class_improvement(code: str, db: Session = Depends(get_db)) -> ClassImprovementOut:
+def class_improvement(code: str, db: Session = Depends(get_db),
+                      user: Principal = Depends(require("students.read"))) -> ClassImprovementOut:
+    ensure_course(db, user, code)
     now = performance(db, code)
     if now is None:
         raise HTTPException(404, f"No course with code {code}")
@@ -82,8 +90,10 @@ def class_improvement(code: str, db: Session = Depends(get_db)) -> ClassImprovem
 
 @router.post("/courses/{code}/improvement/draft", response_model=DraftRunOut, status_code=202)
 def draft_plan(code: str, body: DraftRequest, background: BackgroundTasks,
-               db: Session = Depends(get_db)) -> DraftRunOut:
+               db: Session = Depends(get_db),
+               user: Principal = Depends(require("drafts.request"))) -> DraftRunOut:
     """Start the class improvement agent on this one class. Runs take a minute or three."""
+    ensure_course(db, user, code)
     p = performance(db, code)
     if p is None:
         raise HTTPException(404, f"No course with code {code}")
@@ -115,7 +125,8 @@ def draft_plan(code: str, body: DraftRequest, background: BackgroundTasks,
 
 
 @router.patch("/improvement-plans/{plan_id}", response_model=ClassPlanOut)
-def close_plan(plan_id: int, body: ClassPlanPatch, db: Session = Depends(get_db)) -> ClassPlanOut:
+def close_plan(plan_id: int, body: ClassPlanPatch, db: Session = Depends(get_db),
+               _: Principal = Depends(require("plans.write"))) -> ClassPlanOut:
     plan = db.get(ClassPlan, plan_id)
     if plan is None:
         raise HTTPException(404, f"No improvement plan {plan_id}")

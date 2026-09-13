@@ -26,6 +26,11 @@ class ApplyError(RuntimeError):
     """The proposal can no longer be applied. The reason is shown to the user."""
 
 
+def _by(p: Proposal) -> str:
+    """The approver's name, for records that say who owns or authorised a change."""
+    return getattr(p, "_approver_name", None) or p.decided_by or "Staff"
+
+
 def _apply_requisition(db: Session, p: Proposal) -> str:
     skus = p.payload.get("skus") or []
     items = db.scalars(select(InventoryItem).where(InventoryItem.sku.in_(skus))).all()
@@ -106,7 +111,7 @@ def _apply_support_plan(db: Session, p: Proposal) -> str:
         course = db.scalar(select(Course).where(Course.code == p.payload["course_code"]))
     db.add(Intervention(student_id=st.id, course_id=course.id if course else None, kind=kind,
                         title=p.payload["title"], rationale=p.payload.get("rationale", ""),
-                        owner="Support office (agent proposal)", status="active",
+                        owner=f"{_by(p)} (from an agent proposal)", status="active",
                         opened_on=settings.today, review_on=settings.today + timedelta(days=14)))
     return f"Opened a {kind} plan for {st.name}."
 
@@ -121,7 +126,7 @@ def _apply_budget_transfer(db: Session, p: Proposal) -> str:
         raise ApplyError(problem + " The budget changed since this was proposed.")
     lines = {ln.code: ln for ln in db.scalars(select(BudgetLine).where(BudgetLine.code.in_([src, dst]))).all()}
     db.add(BudgetTransfer(from_line_id=lines[src].id, to_line_id=lines[dst].id, amount=amount,
-                          reason=p.reason or "", approved_by="Business office (agent proposal)"))
+                          reason=p.reason or "", approved_by=f"{_by(p)} (agent proposal)"))
     return f"Moved ${amount:,.2f} from {src} to {dst}."
 
 
@@ -157,7 +162,7 @@ def _apply_budget_line(db: Session, p: Proposal) -> str:
     db.flush()
     db.add(BudgetTransfer(from_line_id=src.id, to_line_id=line.id, amount=float(d["amount"]),
                           reason=f"Opening {d['code']}: {p.reason or ''}".strip(),
-                          approved_by="Business office (agent proposal)"))
+                          approved_by=f"{_by(p)} (agent proposal)"))
     return f"Opened {d['code']} ({d['name']}) with ${float(d['amount']):,.2f} from {d['from_line']}."
 
 
@@ -173,7 +178,7 @@ def _apply_budget_revision(db: Session, p: Proposal) -> str:
     for m in moves:
         db.add(BudgetTransfer(from_line_id=ids[m["from_line"]], to_line_id=ids[m["to_line"]],
                               amount=float(m["amount"]), reason=f"Budget revision #{p.id}: {p.reason or ''}".strip(),
-                              approved_by="Business office (agent proposal)"))
+                              approved_by=f"{_by(p)} (agent proposal)"))
     total = sum(float(m["amount"]) for m in moves)
     return f"Budget revised: ${total:,.2f} moved in {len(moves)} transfers."
 
@@ -216,12 +221,14 @@ HANDLERS = {
 }
 
 
-def apply_proposal(db: Session, p: Proposal) -> str:
+def apply_proposal(db: Session, p: Proposal, by_email: str | None = None, by_name: str | None = None) -> str:
     if p.status != "pending":
         raise ApplyError(f"This proposal was already {p.status}.")
     handler = HANDLERS.get(p.kind)
     if handler is None:
         raise ApplyError(f"No way to apply a proposal of kind {p.kind!r}.")
+    p.decided_by = by_email
+    p._approver_name = by_name
     result = handler(db, p)
     p.status = "approved"
     p.result = result
@@ -230,10 +237,11 @@ def apply_proposal(db: Session, p: Proposal) -> str:
     return result
 
 
-def reject_proposal(db: Session, p: Proposal, note: str | None = None) -> None:
+def reject_proposal(db: Session, p: Proposal, note: str | None = None, by_email: str | None = None) -> None:
     if p.status != "pending":
         raise ApplyError(f"This proposal was already {p.status}.")
     p.status = "rejected"
     p.result = note or "Rejected by a person."
     p.decided_at = datetime.utcnow()
+    p.decided_by = by_email
     db.commit()

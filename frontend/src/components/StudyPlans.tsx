@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, ApiError } from '../api'
+import { useAuth } from '../auth'
 import { useApi } from '../useApi'
 import type { StudyClassRow, StudyDraft, StudyPlan } from '../types'
 import { Delta, ErrorNote, Icon, Loading, Pill, gradeStatus, pctText } from './ui'
@@ -11,7 +12,7 @@ const day = (iso: string | null) =>
 export function StudyPlansBlock({ sid, onChanged }: { sid: string; onChanged?: () => void }) {
   const [tick, setTick] = useState(0)
   const data = useApi(() => api.study(sid), [sid, tick])
-  const fleet = useApi(() => api.fleet(), [])
+  const fleet = useApi(() => api.runtime(), [])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -102,6 +103,7 @@ function ClassStudy({ sid, row, plan, drafts, busy, canDraft, act }: {
   sid: string; row: StudyClassRow; plan?: StudyPlan; drafts: StudyDraft[]; busy: boolean; canDraft: boolean
   act: (fn: () => Promise<unknown>, done: string) => void
 }) {
+  const { can } = useAuth()
   const [note, setNote] = useState('')
   const [showWork, setShowWork] = useState(false)
   const last = row.latest_run
@@ -149,16 +151,20 @@ function ClassStudy({ sid, row, plan, drafts, busy, canDraft, act }: {
             Drafted by the study plan agent{draft.run_id !== null && <> · run #{draft.run_id}, <a href="#/agents">transcript</a></>}.
             Every figure and count it cites was checked against this student’s work.
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button className="btn sm primary" disabled={busy}
-              onClick={() => act(() => api.approveProposal(draft.id), 'Study plan adopted. Progress is tracked from today’s numbers.')}>
-              Adopt this plan
-            </button>
-            <button className="btn sm ghost" disabled={busy}
-              onClick={() => act(() => api.rejectProposal(draft.id, 'Rejected in the student record'), 'Draft rejected. You can ask for another.')}>
-              Reject
-            </button>
-          </div>
+          {can('plans.write') ? (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn sm primary" disabled={busy}
+                onClick={() => act(() => api.approveProposal(draft.id), 'Study plan adopted. Progress is tracked from today’s numbers.')}>
+                Adopt this plan
+              </button>
+              <button className="btn sm ghost" disabled={busy}
+                onClick={() => act(() => api.rejectProposal(draft.id, 'Rejected in the student record'), 'Draft rejected. You can ask for another.')}>
+                Reject
+              </button>
+            </div>
+          ) : (
+            <div className="sub">Waiting for the support office to adopt or reject it.</div>
+          )}
         </div>
       ))}
 
@@ -181,7 +187,7 @@ function ClassStudy({ sid, row, plan, drafts, busy, canDraft, act }: {
               placeholder="Anything the agent should know (optional), e.g. has a tutor on Tuesdays"
               onChange={(e) => setNote(e.target.value)} />
             <div>
-              <button className="btn sm primary" disabled={busy || !canDraft}
+              <button className="btn sm primary" disabled={busy || !canDraft || !can('drafts.request')}
                 onClick={() => act(() => api.draftStudyPlan(sid, row.code, note), 'Drafting started.')}>
                 Draft a study plan with the AI agent
               </button>
@@ -275,6 +281,7 @@ function PlanBody({ diagnosis, strands, sessions, goal, catchUp }: {
 function ActivePlan({ plan, busy, onClose }: {
   plan: StudyPlan; busy: boolean; onClose: (status: 'completed' | 'retired', outcome: string) => void
 }) {
+  const canClose = useAuth().can('plans.write')
   const [outcome, setOutcome] = useState('')
   const [closing, setClosing] = useState(false)
   return (
@@ -325,7 +332,7 @@ function ActivePlan({ plan, busy, onClose }: {
             <button className="btn sm ghost" onClick={() => setClosing(false)}>Cancel</button>
           </div>
         </div>
-      ) : (
+      ) : canClose && (
         <div><button className="btn sm" onClick={() => setClosing(true)}>Close this plan…</button></div>
       )}
     </div>

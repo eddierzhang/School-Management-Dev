@@ -878,3 +878,69 @@ export interface BudgetMove {
   to_line: string
   amount: number
 }
+
+// --- accounts and the audit log (backend/app/routers/auth.py, admin.py) ---
+export type Role = 'admin' | 'counselor' | 'teacher' | 'registrar' | 'business'
+
+export interface Me {
+  id: number
+  email: string
+  name: string
+  role: Role
+  role_label: string
+  teacher_name: string | null
+  permissions: string[]
+}
+
+export interface AuthConfig {
+  password_login: boolean
+  oidc: boolean
+  oidc_label: string
+  school: string
+}
+
+export interface AdminUser {
+  id: number
+  email: string
+  name: string
+  role: Role
+  role_label: string
+  teacher_name: string | null
+  active: boolean
+  has_password: boolean
+  created_at: string | null
+  last_login_at: string | null
+}
+
+export interface NewUser {
+  email: string
+  name: string
+  role: Role
+  teacher_name?: string | null
+  password?: string | null
+}
+
+export interface RolesInfo {
+  roles: { role: Role; label: string; permissions: string[] }[]
+  permissions: Record<string, string>
+}
+
+export interface AuditEvent {
+  id: number
+  at: string
+  actor_email: string
+  actor_role: string
+  action: string
+  status: number | null
+  entity_type: string | null
+  entity_id: string | null
+  path: string
+  ip: string
+  request_id: string
+  detail: Record<string, string>
+}
+
+export interface AuditPage {
+  events: AuditEvent[]
+  next_before_id: number | null
+}

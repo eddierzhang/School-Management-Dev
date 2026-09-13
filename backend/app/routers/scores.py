@@ -5,16 +5,18 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..auth.deps import Principal, require
+from ..auth.scope import ensure_course
 from ..config import get_settings
 from ..db import get_db
-from ..models import Assessment, Course, Score, Student
+from ..models import Assessment, Course, Enrollment, Score, Student
 from ..schemas import ScoreIn
 
 router = APIRouter(tags=["scores"])
 settings = get_settings()
 
 
-@router.get("/courses/{code}/assessments")
+@router.get("/courses/{code}/assessments", dependencies=[Depends(require("courses.read"))])
 def course_assessments(code: str, db: Session = Depends(get_db)) -> list[dict]:
     course = db.scalar(select(Course).where(Course.code == code))
     if course is None:
@@ -31,13 +33,18 @@ def course_assessments(code: str, db: Session = Depends(get_db)) -> list[dict]:
 
 
 @router.put("/scores", status_code=200)
-def upsert_score(body: ScoreIn, db: Session = Depends(get_db)) -> dict:
+def upsert_score(body: ScoreIn, db: Session = Depends(get_db),
+                 user: Principal = Depends(require("scores.write"))) -> dict:
     a = db.get(Assessment, body.assessment_id)
     if a is None:
         raise HTTPException(404, f"No assessment {body.assessment_id}")
+    ensure_course(db, user, a.course.code)
     st = db.scalar(select(Student).where(Student.sid == body.student_sid))
     if st is None:
         raise HTTPException(404, f"No student with SID {body.student_sid}")
+    if db.scalar(select(Enrollment.id).where(Enrollment.student_id == st.id, Enrollment.course_id == a.course_id,
+                                            Enrollment.status == "enrolled")) is None:
+        raise HTTPException(422, f"{st.name} is not enrolled in {a.course.code}")
     if body.points is not None and not (0 <= body.points <= a.max_points):
         raise HTTPException(422, f"Points must be between 0 and {a.max_points:g} for this assessment")
 

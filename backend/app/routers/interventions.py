@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..auth.deps import Principal, require
+from ..auth.scope import visible_students
 from ..config import get_settings
 from ..db import get_db
 from ..models import Course, Intervention, Student
@@ -21,14 +23,16 @@ def _out(iv: Intervention) -> InterventionOut:
 
 
 @router.get("", response_model=list[InterventionOut])
-def list_interventions(status: str | None = None, db: Session = Depends(get_db)) -> list[InterventionOut]:
+def list_interventions(status: str | None = None, db: Session = Depends(get_db),
+                       user: Principal = Depends(require("students.read"))) -> list[InterventionOut]:
     stmt = select(Intervention).order_by(Intervention.opened_on.desc(), Intervention.id.desc())
     if status:
         stmt = stmt.where(Intervention.status == status)
-    return [_out(iv) for iv in db.scalars(stmt).all()]
+    allowed = visible_students(db, user)
+    return [_out(iv) for iv in db.scalars(stmt).all() if allowed is None or iv.student.sid in allowed]
 
 
-@router.post("", response_model=InterventionOut, status_code=201)
+@router.post("", response_model=InterventionOut, status_code=201, dependencies=[Depends(require("plans.write"))])
 def create_intervention(body: InterventionCreate, db: Session = Depends(get_db)) -> InterventionOut:
     st = db.scalar(select(Student).where(Student.sid == body.student_sid))
     if st is None:
@@ -59,7 +63,7 @@ def create_intervention(body: InterventionCreate, db: Session = Depends(get_db))
     return _out(iv)
 
 
-@router.patch("/{iv_id}", response_model=InterventionOut)
+@router.patch("/{iv_id}", response_model=InterventionOut, dependencies=[Depends(require("plans.write"))])
 def update_intervention(iv_id: int, body: InterventionUpdate,
                         db: Session = Depends(get_db)) -> InterventionOut:
     iv = db.get(Intervention, iv_id)
@@ -72,7 +76,7 @@ def update_intervention(iv_id: int, body: InterventionUpdate,
     return _out(iv)
 
 
-@router.delete("/{iv_id}", status_code=204)
+@router.delete("/{iv_id}", status_code=204, dependencies=[Depends(require("plans.write"))])
 def delete_intervention(iv_id: int, db: Session = Depends(get_db)) -> None:
     iv = db.get(Intervention, iv_id)
     if iv is None:

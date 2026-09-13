@@ -188,6 +188,64 @@ attendance read as "steady".
 `tests/test_api.py` runs against its own freshly seeded database, never the dev
 one.
 
+### Accounts, roles and the audit log
+
+Everything except `/api/health`, `/api/ready` and sign-in needs a signed-in
+person. The seed creates demo accounts, all with the password
+`halverson-demo-2026`: `admin@`, `counselor@`, `registrar@` and `business@halverson.example.edu`,
+plus one per teacher (`r.okonkwo@halverson.example.edu`, …).
+
+| Role | Sees | Can do |
+|---|---|---|
+| Administrator | everything | everything, plus accounts, the audit log and the general manager |
+| Counselor | every student | open and close plans, upload documents, request AI drafts, approve plan proposals |
+| Teacher | only students in their own sections | record scores and upload documents for them, request drafts; approves nothing |
+| Registrar | students, classes, timetable | open classes and sections; approve those proposals |
+| Business office | stockroom and budget, no student records | change stock and budget; approve those proposals |
+
+The full map is `backend/app/auth/permissions.py`. Every route checks its
+permission on the server; the interface only hides what the API would refuse.
+Approving an agent's proposal needs the same permission as making that change
+by hand. Agent runs and transcripts are only visible to roles that may use that
+agent, because a transcript quotes the records it read.
+
+**Signing in.** Passwords are hashed with scrypt. Sessions are server-side rows
+behind an HttpOnly, SameSite=Lax cookie (Secure in production). Changes also need
+an `X-Requested-With` header, which a page on another site cannot send. Five
+failed attempts lock an email for 15 minutes. Changing a role, deactivating an
+account or resetting its password ends that person's sessions.
+
+**The school's identity provider.** Set `HR_OIDC_ISSUER`, `HR_OIDC_CLIENT_ID`,
+`HR_OIDC_CLIENT_SECRET` and `HR_OIDC_REDIRECT_URI` (Google Workspace, Microsoft
+Entra, or any OpenID Connect provider) and the sign-in screen offers it. The
+backend runs the authorization-code flow with PKCE and verifies the ID token's
+signature, issuer, audience, expiry and nonce. The email must already have an
+active account: signing in never creates one. Set `HR_PASSWORD_LOGIN=false` once
+everyone uses it.
+
+**The first administrator** of a new deployment is created on the server:
+
+```bash
+python -m app.cli create-user head@school.edu "Head of School" admin --password
+```
+
+After that, accounts are managed on the Admin tab. A teacher account needs the
+teacher's name exactly as it appears on their sections.
+
+**The audit log** (Admin tab, `GET /api/admin/audit`) records:
+
+- every change made through the API, including refused attempts
+- every time someone opens a student's record, documents, study plans, class
+  work or timetable
+- every sign-in, sign-out and failed sign-in
+
+Rows are only ever inserted. Request bodies are never logged. Every response
+carries an `X-Request-ID` that matches its audit entry.
+
+**Production refuses to start** (`HR_APP_ENV=production`) with the development
+secret key, a SQLite database, a pinned clock, or insecure cookies. It also
+serves no `/docs`, and every API response is `Cache-Control: no-store`.
+
 ### Layout
 
 ```
@@ -725,9 +783,9 @@ stand-in for that store, and `console.html` unmodified. Run
   applied by deterministic code after a person approves it, and a small local
   model will sometimes propose something silly — which is why the transcript and
   the evidence sit next to every proposal.
-- **No authentication anywhere.** Both halves assume office staff on a trusted
-  network. The support side handles real student records; putting it in front of
-  anyone would need accounts, roles and an audit trail first.
+- **The registrar console has no accounts.** The support app requires sign-in,
+  roles and an audit log (see *Accounts, roles and the audit log*). The Artifact
+  console does not, and is a demo.
 - **The indices are heuristics, not assessments.** They rank attention; they do
   not diagnose. Every number is reported with the reasons behind it precisely so
   a person can overrule it.

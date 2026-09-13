@@ -14,6 +14,8 @@ from sqlalchemy.orm import Session
 from ..ai import ollama
 from ..ai.documents import (EXTENSIONS, KINDS, MAX_BYTES, DocumentError, analyse_in_background,
                             chunk_text, extension_of, extract_text, sha256_of)
+from ..auth.deps import Principal, require
+from ..auth.scope import ensure_student
 from ..config import get_settings
 from ..db import get_db
 from ..models import Student, StudentDocument
@@ -67,7 +69,9 @@ async def upload(
     file: UploadFile = File(...),
     kind: str = Form("other"),
     db: Session = Depends(get_db),
+    user: Principal = Depends(require("documents.upload")),
 ) -> dict:
+    ensure_student(db, user, sid)
     student = db.scalar(select(Student).where(Student.sid == sid))
     if student is None:
         raise HTTPException(404, f"No student with SID {sid}")
@@ -106,7 +110,9 @@ async def upload(
 
 
 @router.get("/students/{sid}/documents")
-def list_documents(sid: str, db: Session = Depends(get_db)) -> list[dict]:
+def list_documents(sid: str, db: Session = Depends(get_db),
+                   user: Principal = Depends(require("students.read"))) -> list[dict]:
+    ensure_student(db, user, sid)
     student = db.scalar(select(Student).where(Student.sid == sid))
     if student is None:
         raise HTTPException(404, f"No student with SID {sid}")
@@ -117,19 +123,23 @@ def list_documents(sid: str, db: Session = Depends(get_db)) -> list[dict]:
 
 
 @router.get("/documents/{doc_id}")
-def get_document(doc_id: int, db: Session = Depends(get_db)) -> dict:
+def get_document(doc_id: int, db: Session = Depends(get_db),
+                 user: Principal = Depends(require("students.read"))) -> dict:
     _reap(db)
     d = db.get(StudentDocument, doc_id)
     if d is None:
         raise HTTPException(404, f"No document {doc_id}")
+    ensure_student(db, user, d.student.sid)
     return _out(d, full=True)
 
 
 @router.post("/documents/{doc_id}/analyze", status_code=202)
-def reanalyse(doc_id: int, background: BackgroundTasks, db: Session = Depends(get_db)) -> dict:
+def reanalyse(doc_id: int, background: BackgroundTasks, db: Session = Depends(get_db),
+              user: Principal = Depends(require("documents.upload"))) -> dict:
     d = db.get(StudentDocument, doc_id)
     if d is None:
         raise HTTPException(404, f"No document {doc_id}")
+    ensure_student(db, user, d.student.sid)
     if d.status == "processing":
         raise HTTPException(409, "That document is already being read.")
     _require_model()
@@ -140,7 +150,7 @@ def reanalyse(doc_id: int, background: BackgroundTasks, db: Session = Depends(ge
     return _out(d)
 
 
-@router.delete("/documents/{doc_id}", status_code=204)
+@router.delete("/documents/{doc_id}", status_code=204, dependencies=[Depends(require("plans.write"))])
 def delete_document(doc_id: int, db: Session = Depends(get_db)):  # no return annotation: 204 carries no body
     d = db.get(StudentDocument, doc_id)
     if d is None:

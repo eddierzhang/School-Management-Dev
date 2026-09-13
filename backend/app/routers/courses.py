@@ -5,6 +5,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..analytics import StudentSignal, course_distribution, skill_gaps
+from ..auth.deps import Principal, require
+from ..auth.scope import ensure_course
 from ..config import get_settings
 from ..db import get_db
 from ..demand import BANDS, FORMULA, class_demand
@@ -50,7 +52,7 @@ def _counts(db: Session, status: str) -> dict[int, int]:
     return counts
 
 
-@router.get("", response_model=list[CourseRow])
+@router.get("", response_model=list[CourseRow], dependencies=[Depends(require("courses.read"))])
 def list_courses(db: Session = Depends(get_db),
                  sigs: dict[str, StudentSignal] = Depends(signals)) -> list[CourseRow]:
     gaps = skill_gaps(db)
@@ -61,7 +63,7 @@ def list_courses(db: Session = Depends(get_db),
     return rows
 
 
-@router.get("/demand", response_model=DemandReport)
+@router.get("/demand", response_model=DemandReport, dependencies=[Depends(require("courses.read"))])
 def demand(db: Session = Depends(get_db)) -> DemandReport:
     """Every class ranked by the demand index, most wanted first."""
     return DemandReport(
@@ -71,13 +73,13 @@ def demand(db: Session = Depends(get_db)) -> DemandReport:
     )
 
 
-@router.get("/openings", response_model=Openings)
+@router.get("/openings", response_model=Openings, dependencies=[Depends(require("courses.read"))])
 def free_in_period(period: int, db: Session = Depends(get_db)) -> Openings:
     """Rooms and teachers not already booked in a period."""
     return Openings(**openings(db, period))
 
 
-@router.post("", response_model=OpenedOut, status_code=201)
+@router.post("", response_model=OpenedOut, status_code=201, dependencies=[Depends(require("courses.write"))])
 def create_class(body: ClassCreate, db: Session = Depends(get_db)) -> OpenedOut:
     try:
         c = open_class(db, term=settings.term, **body.model_dump())
@@ -90,7 +92,8 @@ def create_class(body: ClassCreate, db: Session = Depends(get_db)) -> OpenedOut:
                              f"{f', period {c.period}' if c.period else ''} with {c.capacity} seats.")
 
 
-@router.post("/{code}/sections", response_model=OpenedOut, status_code=201)
+@router.post("/{code}/sections", response_model=OpenedOut, status_code=201,
+             dependencies=[Depends(require("courses.write"))])
 def create_section(code: str, body: SectionCreate, db: Session = Depends(get_db)) -> OpenedOut:
     if db.scalar(select(Course).where(Course.code == code)) is None:
         raise HTTPException(404, f"No course with code {code}")
@@ -108,7 +111,9 @@ def create_section(code: str, body: SectionCreate, db: Session = Depends(get_db)
 
 @router.get("/{code}", response_model=CourseDetail)
 def course_detail(code: str, db: Session = Depends(get_db),
-                  sigs: dict[str, StudentSignal] = Depends(signals)) -> CourseDetail:
+                  sigs: dict[str, StudentSignal] = Depends(signals),
+                  user: Principal = Depends(require("students.read"))) -> CourseDetail:
+    ensure_course(db, user, code)
     c = db.scalar(select(Course).where(Course.code == code))
     if c is None:
         raise HTTPException(404, f"No course with code {code}")
