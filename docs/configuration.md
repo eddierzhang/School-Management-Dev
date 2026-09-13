@@ -12,7 +12,7 @@ them from the environment, or from `backend/.env` in development. In production,
 | `HR_APP_ENV` | `development` | `development`, `test` or `production`. Production enables the [startup safeguards](security.md#production-safeguards). |
 | `HR_DATABASE_URL` | `sqlite:///./halverson.db` | SQLAlchemy URL. Production requires PostgreSQL: `postgresql+psycopg://user:pass@host:5432/db`. |
 | `HR_CORS_ORIGINS` | `http://localhost:5174,…` | Comma-separated origins allowed to call the API from a browser. |
-| `HR_SCHOOL_NAME` | `Halverson Ridge High School` | Shown in the interface. |
+| `HR_SCHOOL_NAME` | `Halverson Ridge High School` | Your school's name, shown in the interface. The default is the fictional demo school. |
 | `HR_TERM` | `Fall 2026` | The current term's name. |
 | `HR_TODAY` | *(unset)* | Pins "today" for the demo data. Leave unset in production. |
 | `HR_MODULES` | *(empty)* | Optional modules: `registrar`, `stockroom`, `finance`, `manager`, comma-separated, or `all`. |

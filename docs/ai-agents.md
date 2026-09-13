@@ -1,6 +1,6 @@
 # AI agents
 
-Halverson Ridge uses small language models running locally through
+The platform uses small language models running locally through
 [Ollama](https://ollama.com). Local inference is a design requirement, not a cost
 saving: **student records never leave the school's hardware**, so the question of
 sending a child's grades to a third-party API does not arise.

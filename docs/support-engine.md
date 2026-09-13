@@ -1,6 +1,6 @@
 # The support engine
 
-How Halverson Ridge decides who needs attention, on what, and what to do about
+How the platform decides who needs attention, on what, and what to do about
 it. Every figure described here is computed from the gradebook when a page
 loads. Nothing is cached, so a grade entered through the API moves the rankings
 on the next request.

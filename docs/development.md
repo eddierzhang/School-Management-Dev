@@ -36,7 +36,7 @@ without touching plans, proposals or documents.
 
 ## Demo accounts
 
-Every demo account uses the password `halverson-demo-2026`.
+The demo school is the fictional Halverson Ridge High School. Every demo account uses the password `halverson-demo-2026`.
 
 | Account | Role |
 |---|---|

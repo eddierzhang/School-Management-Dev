@@ -1,6 +1,6 @@
 # Security policy
 
-Halverson Ridge Student Support is built to hold student records, so security
+The Student Support Platform is built to hold student records, so security
 reports are taken seriously.
 
 ## Reporting a vulnerability

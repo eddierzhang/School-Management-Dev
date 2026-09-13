@@ -36,7 +36,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     lifespan=lifespan,
-    title="Halverson Ridge Student Support API",
+    title="Student Support Platform API",
     version=__version__,
     description=(
         "Who is struggling, who is excelling, and on what. Every index is computed "

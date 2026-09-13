@@ -1,6 +1,6 @@
 <div align="center">
 
-# Halverson Ridge Student Support
+# Student Support Platform
 
 **A student support and intervention platform for a school's support office.**
 It shows who is struggling, on what, and what to do about it, and it keeps every
@@ -22,7 +22,7 @@ decision accountable.
 ## Why it exists
 
 A grade average says a student is behind. It does not say *on what*, *why*, or
-*whether anyone is already helping*. Halverson Ridge answers those three
+*whether anyone is already helping*. The platform answers those three
 questions from the gradebook, attendance and the school's own records, then
 turns the answer into a plan that a named person owns and that someone can check
 later to see whether it worked.
@@ -143,8 +143,10 @@ with the demo password `halverson-demo-2026`. Try `admin@`, `r.okonkwo@` (a
 teacher) or `business@` to see how roles change what a person sees. Every demo
 account is listed in [docs/development.md](docs/development.md#demo-accounts).
 
-> The demo school, its students and staff are fictional. The demo is built
-> around **12 September 2026**; `backend/.env.example` pins the clock to that date.
+> The demo runs a fictional school, **Halverson Ridge High School**; its students
+> and staff are invented. Your own deployment shows your school's name
+> (`HR_SCHOOL_NAME`) and records. The demo is built around **12 September 2026**, and
+> `backend/.env.example` pins the clock to that date.
 
 ## Deploying
 

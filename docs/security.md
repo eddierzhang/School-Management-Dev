@@ -1,6 +1,6 @@
 # Security and privacy
 
-Halverson Ridge holds student records. This page describes how access is
+The platform holds student records. This page describes how access is
 controlled, what is recorded, and what the deployment does to keep data where it
 belongs. To report a vulnerability, see [SECURITY.md](../SECURITY.md).
 

@@ -1,6 +1,6 @@
 # Contributing
 
-Thank you for helping improve Halverson Ridge Student Support.
+Thank you for helping improve the Student Support Platform.
 
 ## Getting started
 
