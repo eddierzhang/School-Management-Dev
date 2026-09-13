@@ -13,7 +13,7 @@ export HR_MODULES="${HR_MODULES:-all}"      # the demo shows every module
 
 # The fleet needs Ollama with a tool-capable model. Not fatal: everything except
 # the Agents tab works without it, and that tab explains itself when it is missing.
-if curl -s --max-time 2 http://localhost:11434/api/tags >/dev/null 2>&1; then
+if curl -s --max-time 2 http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
   MODEL="${HR_OLLAMA_MODEL:-qwen3:4b}"
   if ! ollama list 2>/dev/null | grep -q "^${MODEL%%:*}"; then
     echo "  note: Ollama is up but $MODEL is not installed — run: ollama pull $MODEL"

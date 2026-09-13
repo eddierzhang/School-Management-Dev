@@ -126,7 +126,7 @@ export function ClassPlans({ code }: { code: string }) {
                     </button>
                     {rt && !canDraft && (
                       <span className="sub">
-                        {rt.reachable ? `${rt.model} cannot call tools, so it cannot draft.` : 'Ollama is not running, so nothing can be drafted.'}
+                        {!rt.reachable ? 'Ollama is not running, so nothing can be drafted.' : rt.model_installed === false ? `${rt.model} is not installed in Ollama, so it cannot draft.` : `${rt.model} cannot call tools, so it cannot draft.`}
                       </span>
                     )}
                   </div>
