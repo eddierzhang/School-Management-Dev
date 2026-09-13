@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { api, ApiError } from '../api'
 import { useApi } from '../useApi'
 import type { AgentRun, BudgetLine, BudgetMove, ProposalRow } from '../types'
-import { ErrorNote, Icon, Pill } from './ui'
+import { ErrorNote, Icon, Pill, RejectButton } from './ui'
 
 const money = (n: number) => (n < 0 ? '-$' : '$') + Math.abs(Math.round(n)).toLocaleString('en-US')
 
@@ -142,10 +142,12 @@ export function BudgetMoves({ lines, onChanged }: { lines: BudgetLine[]; onChang
                   {FINANCE_KINDS[p.kind]} · proposed by the finance agent{p.run_id !== null && <> · run #{p.run_id}</>}
                 </div>
               </div>
-              <button className="btn sm primary" disabled={busy}
-                onClick={() => act(async () => (await api.approveProposal(p.id)).result, 'Approved.')}>Approve</button>
-              <button className="btn sm ghost" disabled={busy}
-                onClick={() => act(() => api.rejectProposal(p.id), 'Rejected. Nothing moved.')}>Reject</button>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: 440 }}>
+                <button className="btn sm primary" disabled={busy}
+                  onClick={() => act(async () => (await api.approveProposal(p.id)).result, 'Approved.')}>Approve</button>
+                <RejectButton busy={busy}
+                  onReject={(note) => act(() => api.rejectProposal(p.id, note), 'Rejected. Nothing moved.')} />
+              </div>
             </div>
           ))}
         </div>

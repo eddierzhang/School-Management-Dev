@@ -57,6 +57,15 @@ class RecommendationOut(Base):
     suggested_owner: str
 
 
+class OverrideOut(Base):
+    id: int
+    kind: str
+    band: str | None = None
+    note: str
+    expires_on: date
+    created_by: str
+
+
 class StudentRow(Base):
     """List view: enough to rank and scan, not the whole record."""
     sid: str
@@ -68,6 +77,8 @@ class StudentRow(Base):
     standing: int
     mixed: bool
     band: str
+    computed_band: str = ""
+    acknowledged: bool = False
     absence_rate: float
     open_interventions: int
     top_reason: str | None = None
@@ -90,6 +101,9 @@ class StudentDetail(Base):
     standing: int
     mixed: bool
     band: str
+    computed_band: str = ""
+    acknowledged: bool = False
+    override: OverrideOut | None = None
     days_counted: int
     absences: int
     tardies: int

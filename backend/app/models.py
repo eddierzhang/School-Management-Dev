@@ -144,6 +144,53 @@ class Intervention(Base):
     student: Mapped[Student] = relationship(back_populates="interventions")
     course: Mapped[Course | None] = relationship()
 
+class StudentSnapshot(Base):
+    """A student's indices on one day, kept so a plan's effect can be seen over time.
+
+    The indices themselves are always recomputed from the gradebook; this is a
+    record of what they read on `taken_on`, written once a day by the worker (and
+    backfilled weekly for the demo term). Re-taking a day replaces that day.
+    """
+
+    __tablename__ = "student_snapshots"
+    __table_args__ = (UniqueConstraint("student_id", "taken_on", name="uq_student_snapshot_day"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    student_id: Mapped[int] = mapped_column(ForeignKey("students.id", ondelete="CASCADE"), index=True)
+    taken_on: Mapped[date] = mapped_column(Date, index=True)
+    struggle_index: Mapped[int] = mapped_column(Integer)
+    excel_index: Mapped[int] = mapped_column(Integer)
+    band: Mapped[str] = mapped_column(String(16))            # the computed band, before any override
+    absence_rate: Mapped[float] = mapped_column(Float, default=0.0)
+    open_interventions: Mapped[int] = mapped_column(Integer, default=0)
+    courses: Mapped[list] = mapped_column(JSON, default=list)   # [{code, pct, struggle, excel}]
+    reasons: Mapped[list] = mapped_column(JSON, default=list)   # concern and strength labels
+
+
+class FlagOverride(Base):
+    """A person overruling the index for one student, with a reason and an end date.
+
+    `acknowledge` keeps the band but records that the concern is known and in hand,
+    so the student stops counting as "needs a plan and has none". `set-band`
+    replaces the band the index gave. Either way the computed band is still shown
+    beside it, and the override lapses on `expires_on` so it is looked at again.
+    """
+
+    __tablename__ = "flag_overrides"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    student_id: Mapped[int] = mapped_column(ForeignKey("students.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(16))             # acknowledge | set-band
+    band: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    computed_band: Mapped[str] = mapped_column(String(16))   # what the index said when it was made
+    note: Mapped[str] = mapped_column(Text)
+    expires_on: Mapped[date] = mapped_column(Date)
+    created_by: Mapped[str] = mapped_column(String(160))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    revoked_by: Mapped[str | None] = mapped_column(String(160), nullable=True)
+
+
 class InventoryItem(Base):
     """The stockroom. Mirrors the registrar console's inventory so the fleet has
     one substrate to act on rather than two disagreeing copies."""
@@ -220,8 +267,11 @@ class Proposal(Base):
     result: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     decided_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    # Who approved or rejected it: the signed-in person's email.
+    # Who approved or rejected it: the signed-in person's email, and why. A rejection
+    # always carries a reason; read together, they show where the agents or the
+    # indices are wrong.
     decided_by: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    decision_note: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     run: Mapped[AgentRun | None] = relationship(back_populates="proposals")
 

@@ -197,6 +197,37 @@ attendance read as "steady".
 `tests/test_api.py` runs against its own freshly seeded database, never the dev
 one.
 
+### History, overrides and rejection reasons
+
+**A student's history.** The indices are recomputed on every read, which keeps
+them honest but forgets yesterday. Snapshots record each student's struggle and
+excelling index, band, attendance and open plans once a day (the worker does
+this; `python -m app.cli snapshot` does it by hand). The student record charts
+them over the term, with plans and overrides marked on the date they happened,
+so you can see whether a plan moved anything. The seed backfills a reading each
+Friday from week three, read from the gradebook as it stood then.
+`GET /api/students/{sid}/history`.
+
+**Overruling the index.** A counselor can record one of two things about a
+student, always with a reason and an end date no more than 90 days out:
+
+- *The concern is known and in hand.* The band stays, but the student stops
+  counting as "needs a plan and has none". They leave the watchlist (unless
+  `include_acknowledged=true`) and the support agent's sweep.
+- *The index is wrong about this student.* The band is replaced everywhere:
+  lists, counts, filters and agents.
+
+The computed band is always shown beside the override. Overrides lapse on their
+end date so they get looked at again, a new one replaces the old, and every
+change is in the audit log. Snapshots record the computed band, not the
+override. `POST /api/students/{sid}/overrides`,
+`DELETE /api/students/{sid}/overrides/{id}`.
+
+**Every rejection has a reason.** Rejecting an agent's proposal requires a note
+(at least five characters). It is stored with the decider's email as
+`decision_note`, and `GET /api/agents/proposals?status=rejected` lists them.
+Read together, they show where the agents or the indices go wrong.
+
 ### Accounts, roles and the audit log
 
 Everything except `/api/health`, `/api/ready` and sign-in needs a signed-in

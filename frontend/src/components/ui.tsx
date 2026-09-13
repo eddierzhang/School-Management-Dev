@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { Band, StatusKind } from '../types'
 
 /* --- status vocabulary ---------------------------------------------------
@@ -160,6 +160,26 @@ export function ErrorNote({ error, onRetry }: { error: string; onRetry?: () => v
         </button>
       )}
     </div>
+  )
+}
+
+/** A Reject button that asks why before it does anything. The API requires the reason:
+    read together, rejections show where the agents and the indices go wrong. */
+export function RejectButton({ onReject, busy, small = true, label = 'Reject' }: {
+  onReject: (note: string) => void; busy?: boolean; small?: boolean; label?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const [note, setNote] = useState('')
+  const sz = small ? ' sm' : ''
+  if (!open) return <button className={`btn ghost${sz}`} disabled={busy} onClick={() => setOpen(true)}>{label}</button>
+  const ok = note.trim().length >= 5
+  return (
+    <form className="reject-form" onSubmit={(e) => { e.preventDefault(); if (ok) { onReject(note.trim()); setOpen(false); setNote('') } }}>
+      <input className="inp" autoFocus value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000}
+        aria-label="Why reject it" placeholder="Why? e.g. already has a tutor on Tuesdays" />
+      <button className={`btn${sz}`} type="submit" disabled={busy || !ok}>Reject with this reason</button>
+      <button className={`btn ghost${sz}`} type="button" onClick={() => setOpen(false)}>Cancel</button>
+    </form>
   )
 }
 

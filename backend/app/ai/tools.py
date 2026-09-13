@@ -246,7 +246,8 @@ def list_flagged_students(db: Session, ctx: dict, band: str | None = None) -> di
     wanted = {"needs-plan", "watch"} if band in (None, "", "all") else {band}
     rows = []
     for s in sorted(sigs.values(), key=lambda s: -s.struggle_index):
-        if s.band not in wanted:
+        # A student a person has marked as known and in hand is not the agent's to re-raise.
+        if s.band not in wanted or s.acknowledged:
             continue
         worst = s.courses[0] if s.courses else None
         rows.append({"sid": s.sid, "grade": s.grade, "band": s.band,
@@ -277,6 +278,9 @@ def get_student(db: Session, ctx: dict, sid: str) -> dict:
         "reasons": [r.label for r in s.reasons[:5]],
         "suggested": [{"title": r.title, "kind": r.kind, "class": r.course_code}
                       for r in s.recommendations[:3]],
+        **({"staff_override": {"kind": s.override.kind, "note": s.override.note,
+                               "until": s.override.expires_on.isoformat(),
+                               "index_band": s.computed_band}} if s.override else {}),
     }
 
 

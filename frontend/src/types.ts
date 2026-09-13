@@ -74,6 +74,9 @@ export interface StudentRow {
   /** a real concern and a real strength at once, which the standing score nets away */
   mixed: boolean
   band: Band
+  /** What the index said; differs from `band` only while an override sets it. */
+  computed_band: Band
+  acknowledged: boolean
   absence_rate: number
   open_interventions: number
   top_reason: string | null
@@ -96,6 +99,9 @@ export interface StudentDetail {
   standing: number
   mixed: boolean
   band: Band
+  computed_band: Band
+  acknowledged: boolean
+  override: ActiveOverride | null
   days_counted: number
   absences: number
   tardies: number
@@ -341,6 +347,44 @@ export interface ProposalRow {
   result: string | null
   created_at: string | null
   decided_at: string | null
+  decided_by: string | null
+  /** Why it was rejected (always present on a rejection) or a note on approval. */
+  decision_note: string | null
+}
+
+/* ---- history and overrides (backend/app/history.py) ---- */
+export interface ActiveOverride {
+  id: number
+  kind: 'acknowledge' | 'set-band'
+  band: Band | null
+  note: string
+  expires_on: string
+  created_by: string
+}
+
+export interface OverrideRecord extends ActiveOverride {
+  computed_band: Band
+  created_at: string | null
+  revoked_at: string | null
+  revoked_by: string | null
+  active: boolean
+  label: string
+}
+
+export interface StudentSnapshot {
+  on: string
+  struggle_index: number
+  excel_index: number
+  band: Band
+  absence_rate: number
+  open_interventions: number
+}
+
+export interface StudentHistory {
+  sid: string
+  snapshots: StudentSnapshot[]
+  events: { on: string; kind: string; label: string; detail: string }[]
+  overrides: OverrideRecord[]
 }
 
 

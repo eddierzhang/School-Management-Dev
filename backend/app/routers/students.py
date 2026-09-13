@@ -1,16 +1,22 @@
+from datetime import date, datetime, timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..analytics import StudentSignal
 from ..auth.deps import Principal, require
 from ..auth.scope import ensure_student, visible_students
+from ..config import get_settings
 from ..db import get_db
 from ..deps import signals
-from ..models import Intervention, Student
+from ..history import override_out, student_history
+from ..models import FlagOverride, Intervention, Student
 from ..schemas import InterventionOut, StudentDetail, StudentRow
 
 router = APIRouter(prefix="/students", tags=["students"])
+settings = get_settings()
 
 SORTS = {"struggle": lambda s: -s.struggle_index, "excel": lambda s: -s.excel_index,
          "standing": lambda s: s.standing,
@@ -54,6 +60,7 @@ def list_students(
             sid=s.sid, name=s.name, grade=s.grade, homeroom=s.homeroom,
             struggle_index=s.struggle_index, excel_index=s.excel_index,
             standing=s.standing, mixed=s.mixed, band=s.band,
+            computed_band=s.computed_band, acknowledged=s.acknowledged,
             absence_rate=s.absence_rate, open_interventions=s.open_interventions,
             top_reason=head.label if head else None,
             course_count=len(s.courses),
@@ -90,3 +97,74 @@ def student_detail(
         ) for iv in ivs
     ]
     return detail
+
+
+# ---- history and overrides ----------------------------------------------------------
+class OverrideIn(BaseModel):
+    kind: str = Field(pattern="^(acknowledge|set-band)$")
+    band: str | None = Field(default=None, pattern="^(needs-plan|watch|excelling|steady)$")
+    note: str = Field(min_length=10, max_length=2000)
+    expires_on: date
+
+
+MAX_OVERRIDE_DAYS = 90
+
+
+@router.get("/{sid}/history")
+def history(sid: str, db: Session = Depends(get_db), user: Principal = Depends(require("students.read"))) -> dict:
+    """The student's indices over the term, with plans and overrides marked on the same dates."""
+    ensure_student(db, user, sid)
+    out = student_history(db, sid)
+    if out is None:
+        raise HTTPException(404, f"No student with SID {sid}")
+    return out
+
+
+@router.post("/{sid}/overrides", status_code=201)
+def create_override(sid: str, body: OverrideIn, db: Session = Depends(get_db),
+                    sigs: dict[str, StudentSignal] = Depends(signals),
+                    user: Principal = Depends(require("plans.write"))) -> dict:
+    """Overrule the index for one student, with a reason and an end date.
+
+    A new override replaces the student's current one. It never changes the
+    computed indices, which stay visible beside it.
+    """
+    ensure_student(db, user, sid)
+    st = db.scalar(select(Student).where(Student.sid == sid))
+    sig = sigs.get(sid)
+    if st is None or sig is None:
+        raise HTTPException(404, f"No student with SID {sid}")
+    today = settings.today
+    if not today < body.expires_on <= today + timedelta(days=MAX_OVERRIDE_DAYS):
+        raise HTTPException(422, f"An override must end within {MAX_OVERRIDE_DAYS} days, so it gets looked at again.")
+    if body.kind == "set-band":
+        if not body.band:
+            raise HTTPException(422, "Say which band to set.")
+        if body.band == sig.computed_band:
+            raise HTTPException(422, f"The index already reads {body.band}.")
+    if body.kind == "acknowledge" and sig.computed_band not in ("needs-plan", "watch"):
+        raise HTTPException(422, "Only a flagged student (needs a plan, or watch) can be marked as known and in hand.")
+
+    now = datetime.utcnow()
+    for old in db.scalars(select(FlagOverride).where(FlagOverride.student_id == st.id,
+                                                     FlagOverride.revoked_at.is_(None))).all():
+        old.revoked_at, old.revoked_by = now, user.email
+    o = FlagOverride(student_id=st.id, kind=body.kind, band=body.band if body.kind == "set-band" else None,
+                     computed_band=sig.computed_band, note=body.note.strip(), expires_on=body.expires_on,
+                     created_by=user.email, created_at=now)
+    db.add(o)
+    db.commit()
+    return override_out(o)
+
+
+@router.delete("/{sid}/overrides/{override_id}")
+def revoke_override(sid: str, override_id: int, db: Session = Depends(get_db),
+                    user: Principal = Depends(require("plans.write"))) -> dict:
+    ensure_student(db, user, sid)
+    o = db.get(FlagOverride, override_id)
+    if o is None or o.student_id != db.scalar(select(Student.id).where(Student.sid == sid)):
+        raise HTTPException(404, f"No override {override_id} for {sid}")
+    if o.revoked_at is None:
+        o.revoked_at, o.revoked_by = datetime.utcnow(), user.email
+        db.commit()
+    return override_out(o)

@@ -31,7 +31,8 @@ def _students(db: Session) -> dict:
     for s in sigs.values():
         bands[s.band] = bands.get(s.band, 0) + 1
     planned = {iv.student.sid for iv in db.scalars(select(Intervention).where(Intervention.status == "active")).all()}
-    unaddressed = sorted((s for s in sigs.values() if s.band == "needs-plan" and s.sid not in planned),
+    unaddressed = sorted((s for s in sigs.values()
+                          if s.band == "needs-plan" and s.sid not in planned and not s.acknowledged),
                          key=lambda s: -s.struggle_index)
     rates = [s.absence_rate for s in sigs.values() if s.days_counted]
     attention = []

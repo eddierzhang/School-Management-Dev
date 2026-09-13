@@ -110,7 +110,7 @@ def test_proposals_are_decided_only_by_the_matching_role(login, db):
     counselor, business = login("counselor"), login("business")
     # The counselor cannot even see the finance agent's proposals.
     assert all(p["agent"] != "finance" for p in counselor.get("/api/agents/proposals").json())
-    assert counselor.post(f"/api/agents/proposals/{budget.id}/reject", json={"note": "no"}).status_code == 404
+    assert counselor.post(f"/api/agents/proposals/{budget.id}/reject", json={"note": "Not mine to decide."}).status_code == 404
     r = business.post(f"/api/agents/proposals/{budget.id}/reject", json={"note": "Checked; the charge is fine."})
     assert r.status_code == 200
     db.refresh(budget)
@@ -135,6 +135,8 @@ def test_teacher_sees_only_students_in_their_sections(login, db):
     assert c.get(f"/api/courses/{code}").status_code == 200
     assert all(s["sid"] in taught for s in c.get("/api/watchlist?limit=200").json())
     assert all(cl["sid"] in taught for cl in c.get("/api/schedule").json()["student_clashes"])
+    summary = c.get("/api/summary").json()
+    assert summary["students"] == len(listed) and sum(b["count"] for b in summary["bands"]) == len(listed)
 
 
 def test_teacher_records_scores_only_in_their_own_sections(login, db):
