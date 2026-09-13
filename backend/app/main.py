@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from . import __version__
 from .audit import AuditMiddleware
 from .auth.deps import current_user
 from .config import get_settings
@@ -35,8 +36,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     lifespan=lifespan,
-    title="Halverson Ridge — Academic Support API",
-    version="0.2.0",
+    title="Halverson Ridge Student Support API",
+    version=__version__,
     description=(
         "Who is struggling, who is excelling, and on what. Every index is computed "
         "from the gradebook on read and reported with the named reasons behind it."

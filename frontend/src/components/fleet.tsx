@@ -134,6 +134,18 @@ export function RuntimeNotice({ f }: { f: FleetState }) {
       </div>
     )
   }
+  if (rt.model_installed === false) {
+    return (
+      <div className="banner critical">
+        <Icon name="critical" />
+        <span style={{ flex: 1, minWidth: 240 }}>
+          <b>{rt.model} is not installed</b> in Ollama, so the agents cannot run. Install it with{' '}
+          <span className="code">ollama pull {rt.model}</span>, or set <span className="code">HR_OLLAMA_MODEL</span> to
+          a tool-capable model you have.
+        </span>
+      </div>
+    )
+  }
   if (!rt.can_run_agents) {
     return (
       <div className="banner critical">

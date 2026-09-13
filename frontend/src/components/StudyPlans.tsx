@@ -70,7 +70,7 @@ export function StudyPlansBlock({ sid, onChanged }: { sid: string; onChanged?: (
       )}
       {rt && !canDraft && (
         <div className="sub">
-          {rt.reachable ? `${rt.model} cannot call tools, so plans cannot be drafted.` : 'Ollama is not running, so plans cannot be drafted.'}
+          {!rt.reachable ? 'Ollama is not running, so plans cannot be drafted.' : rt.model_installed === false ? `${rt.model} is not installed in Ollama, so plans cannot be drafted.` : `${rt.model} cannot call tools, so plans cannot be drafted.`}
         </div>
       )}
 

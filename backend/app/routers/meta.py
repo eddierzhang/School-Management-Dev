@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Response
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
+from .. import __version__
 from ..ai import ollama
 from ..analytics import StudentSignal, skill_gaps
 from ..auth.deps import Principal, require
@@ -22,7 +23,7 @@ settings = get_settings()
 @router.get("/health")
 def health() -> dict:
     """Liveness: the process is up and answering. Touches nothing else."""
-    return {"status": "ok", "term": settings.term, "today": settings.today.isoformat()}
+    return {"status": "ok", "version": __version__, "term": settings.term, "today": settings.today.isoformat()}
 
 
 @router.get("/ready")

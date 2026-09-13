@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     modules: str = ""
 
     # Local inference. Nothing leaves the machine.
-    ollama_url: str = "http://localhost:11434"
+    ollama_url: str = "http://127.0.0.1:11434"
     ollama_model: str = "qwen3:4b"
     ollama_timeout: float = 300.0
     ollama_temperature: float = 0.1
