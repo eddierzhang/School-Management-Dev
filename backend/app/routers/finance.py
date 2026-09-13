@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from ..auth.deps import Principal, current_user, require_by_method
+from ..auth.deps import Principal, current_user, module, require_by_method
 from ..config import get_settings
 from ..db import get_db
 from ..finance import (FISCAL_YEAR, FY_START, anomalies, elapsed_fraction, max_giveable, needs,
@@ -21,7 +21,8 @@ from ..finance import (FISCAL_YEAR, FY_START, anomalies, elapsed_fraction, max_g
 from ..models import BudgetLine, BudgetTransfer, Transaction
 
 router = APIRouter(prefix="/finance", tags=["finance"],
-                   dependencies=[Depends(require_by_method(read="finance.read", write="finance.write"))])
+                   dependencies=[Depends(module("finance")),
+                                 Depends(require_by_method(read="finance.read", write="finance.write"))])
 settings = get_settings()
 
 

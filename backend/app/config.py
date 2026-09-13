@@ -14,6 +14,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEMO_TODAY = date(2026, 9, 12)
 DEV_SECRET = "development-only-secret-do-not-use-in-production"
+OPTIONAL_MODULES = frozenset({"registrar", "stockroom", "finance", "manager"})
 
 
 class Settings(BaseSettings):
@@ -30,6 +31,9 @@ class Settings(BaseSettings):
     pinned_today: date | None = Field(default=None, validation_alias="HR_TODAY")
     term: str = "Fall 2026"
     school_name: str = "Halverson Ridge High School"
+    # The product is student support. These modules sit beside it and are off unless
+    # listed here (comma-separated, or "all"): registrar, stockroom, finance, manager.
+    modules: str = ""
 
     # Local inference. Nothing leaves the machine.
     ollama_url: str = "http://localhost:11434"
@@ -77,6 +81,14 @@ class Settings(BaseSettings):
     @property
     def origins(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def enabled_modules(self) -> frozenset[str]:
+        wanted = {m.strip().lower() for m in self.modules.split(",") if m.strip()}
+        return OPTIONAL_MODULES if "all" in wanted else frozenset(wanted & OPTIONAL_MODULES)
+
+    def module_on(self, name: str) -> bool:
+        return name in self.enabled_modules
 
     @property
     def secure_cookies(self) -> bool:

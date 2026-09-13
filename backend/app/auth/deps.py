@@ -74,6 +74,17 @@ def require(permission: str):
     return check
 
 
+def module(name: str):
+    """Close a route whose module is turned off (HR_MODULES), as if it did not exist."""
+    def check() -> None:
+        from ..config import get_settings
+
+        if not get_settings().module_on(name):
+            raise HTTPException(404, f"The {name} module is not turned on (HR_MODULES).")
+    check.__name__ = f"module_{name}"
+    return check
+
+
 def require_by_method(read: str, write: str):
     """One permission to look and another to change, for routers that are all one domain."""
     def check(request: Request, user: Principal = Depends(current_user)) -> Principal:

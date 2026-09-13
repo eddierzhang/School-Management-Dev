@@ -1,17 +1,31 @@
-# Halverson Ridge — school management
+# Halverson Ridge — student support
 
-Software for running a school term, in two halves that share one fictional
-school, one roster, and one visual identity.
+A student support and intervention dashboard for a school's support office. It
+shows who is struggling, who is excelling, on which topics, and what to do about
+it. Plans are opened, approved, tracked and closed, and local AI agents draft
+plans for a person to adopt. It is a FastAPI backend with a React frontend, and
+the AI runs on the school's own machine through Ollama.
 
-| | What it does | How it runs |
-|---|---|---|
-| **Registrar console** | Stockroom inventory, class registration with waitlists, and the demand signals behind what gets promoted | A published Claude Artifact — no server |
-| **Student support** | Who is struggling, who is excelling, on which topics, and what to do about it | FastAPI backend + React frontend |
-| **Agent fleet** | Three local AI agents — registrar, stockroom, student support — that review their domain and propose changes for approval | Ollama, on this machine |
+**The product is the support workflow:** a student is flagged, you see why, a plan
+is proposed, approved, tracked, then completed or retired. Everything else is an
+optional module, off unless `HR_MODULES` lists it:
 
-Both describe the same term at Halverson Ridge High School: the same 60
-students in grades 9–12, the same 26 classes, generated once by `gen_seed.js`
-and loaded into both halves.
+| Module | What it adds |
+|---|---|
+| `registrar` | Class demand, opening classes and sections, the registrar agent |
+| `stockroom` | Inventory, requisitions, the stockroom agent, supplies on the class page |
+| `finance` | The budget, transfers and revisions, the finance agent |
+| `manager` | The general manager agent, which briefs on and dispatches the others |
+
+A module that is off has no screens, no routes (404), no agents and no
+proposals. Its permissions are removed from every role. `HR_MODULES=all` turns
+them all on, which is how the demo and the tests run.
+
+**`demo/`** holds what exists only for the demo: `gen_seed.js`, which generates
+the fictional term (60 students in grades 9–12, 26 classes), and the registrar
+console published as a Claude Artifact (`console.html`, with `dev-server.js` to
+run it locally). The console keeps its own records in the Artifact store; the
+backend is the source of truth for everything in the support app.
 
 ---
 
@@ -46,11 +60,6 @@ tutoring on a named strand when it is comprehension, a counselor check-in when a
 student is sliding across unrelated subjects, an attendance plan when grades are
 following absence, and an enrichment placement when there is something to build
 on. Opening a plan turns a computed recommendation into something a person owns.
-
-**What the stockroom holds** — 24 items with counts, reorder points and par
-levels, each tied to the classes that consume it. A class filling up shows here
-before it runs short, and the number of students depending on an item is what
-ranks a shortage against the others.
 
 **What a document says** — upload a teacher note, report card or piece of work
 and the local model finds specific needs and strengths in it, each backed by a
@@ -93,7 +102,7 @@ responses.
 ### First run
 
 ```bash
-node gen_seed.js                                   # the shared roster, once
+node demo/gen_seed.js                              # the demo roster, once
 
 python3 -m venv backend/.venv
 backend/.venv/bin/pip install -r backend/requirements.txt
@@ -356,7 +365,7 @@ knife) no longer belong to any class and are unlinked.
 Twelve more sections come straight from the same document, filling departments
 the first fourteen missed: English 1 and English 3, World History 1, United
 States History, Algebra 2 & Trigonometry, AP Calculus AB, Physics, Chemistry,
-Programming, French 1, Economics and Psychology. `gen_seed.js` builds their
+Programming, French 1, Economics and Psychology. `demo/gen_seed.js` builds their
 rosters period by period, so a student is only enrolled where they have no class
 that period and only in the grades a course is meant for (English 1 and Physics
 for grade 9, U.S. History for grade 11, AP Calculus for 11–12). No teacher or room
@@ -365,7 +374,7 @@ a separate random stream, so the original fourteen sections' scores, attendance
 and plans are exactly what they were.
 
 To bring an existing database up to date without losing plans, proposals or
-documents, run `node gen_seed.js` and then `python seed.py --upgrade` in
+documents, run `node demo/gen_seed.js` and then `python seed.py --upgrade` in
 `backend/`: it adds any section missing from the database with its roster and
 gradebook, and takes each student's grade and homeroom from the seed.
 
@@ -422,7 +431,7 @@ Conflicts are shown, never quietly resolved (`app/schedule.py`):
 - **Student clashes** — a student enrolled in two classes in the same period.
 
 The seeded term has no timetable clashes but **41 of 60 students have a student
-clash**: `gen_seed.js` fills rosters by balancing class load and never looks at
+clash**: `demo/gen_seed.js` fills rosters by balancing class load and never looks at
 periods. The screen lists every one, so the registrar can see the scale of it.
 
 ```
@@ -745,7 +754,7 @@ classes and budget lines behind it.
 
 **Live page:** https://claude.ai/code/artifact/a9dc09a4-bc24-446a-bc7b-0206130573b5
 
-`console.html` is a complete application published as a Claude Artifact. Records
+`demo/console.html` is a complete application published as a Claude Artifact. Records
 live in the artifact's shared document store, so everyone with the link sees the
 same numbers and each other's edits as they happen.
 
@@ -765,8 +774,8 @@ from proposed to piloting to a real course code.
 ### Running the console on localhost
 
 ```bash
-node gen_seed.js
-node dev-server.js     # → http://localhost:5173
+node demo/gen_seed.js
+node demo/dev-server.js     # → http://localhost:5173
 ```
 
 A plain static server would render the layout with no data: the page reaches its
@@ -790,7 +799,7 @@ stand-in for that store, and `console.html` unmodified. Run
   not diagnose. Every number is reported with the reasons behind it precisely so
   a person can overrule it.
 - **The data is invented.** Halverson Ridge, its students and its staff are
-  fictional, generated deterministically by `gen_seed.js` and `backend/seed.py`.
+  fictional, generated deterministically by `demo/gen_seed.js` and `backend/seed.py`.
 - **The clock is pinned** to 2026-09-12 (`HR_TODAY`) so "missing work", trends and
   attendance rates stay stable whenever the app is run.
 - An artifact that declares a shared store is organization-internal and cannot be

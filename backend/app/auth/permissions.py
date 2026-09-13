@@ -84,5 +84,22 @@ PROPOSAL_PERMISSION = {
 }
 
 
+# Permissions that only exist while their module is on (HR_MODULES). Turning a
+# module off removes them from every role, so its screens, routes, agents and
+# proposals all close together rather than one at a time.
+PERMISSION_MODULE = {
+    "courses.write": "registrar",
+    "inventory.read": "stockroom",
+    "inventory.write": "stockroom",
+    "finance.read": "finance",
+    "finance.write": "finance",
+    "manager.run": "manager",
+}
+
+
 def permissions_for(role: str) -> frozenset[str]:
-    return ROLE_PERMISSIONS.get(role, frozenset())
+    from ..config import get_settings
+
+    modules = get_settings().enabled_modules
+    return frozenset(p for p in ROLE_PERMISSIONS.get(role, frozenset())
+                     if PERMISSION_MODULE.get(p) is None or PERMISSION_MODULE[p] in modules)

@@ -33,7 +33,7 @@ class LoginIn(BaseModel):
 def me_out(user: Principal) -> dict:
     return {"id": user.id, "email": user.email, "name": user.name, "role": user.role,
             "role_label": ROLE_LABELS.get(user.role, user.role), "teacher_name": user.teacher_name,
-            "permissions": sorted(user.permissions)}
+            "permissions": sorted(user.permissions), "modules": sorted(settings.enabled_modules)}
 
 
 @router.get("/config")

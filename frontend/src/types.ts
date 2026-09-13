@@ -890,6 +890,8 @@ export interface Me {
   role_label: string
   teacher_name: string | null
   permissions: string[]
+  /** Optional modules turned on for this deployment (HR_MODULES). */
+  modules: string[]
 }
 
 export interface AuthConfig {

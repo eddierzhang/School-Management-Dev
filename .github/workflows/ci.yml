@@ -66,7 +66,7 @@ jobs:
           cache: pip
           cache-dependency-path: backend/requirements*.txt
       - name: Generate the demo roster
-        run: node gen_seed.js
+        run: node demo/gen_seed.js
       - run: pip install -r requirements-dev.txt
         working-directory: backend
       - name: Tests

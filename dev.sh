@@ -7,6 +7,7 @@ cd "$(dirname "$0")"
 [ -d frontend/node_modules ] || { echo "No frontend/node_modules — run: cd frontend && npm install"; exit 1; }
 # The demo data is built for this date; backend/.env or the environment can override it.
 export HR_TODAY="${HR_TODAY:-2026-09-12}"
+export HR_MODULES="${HR_MODULES:-all}"      # the demo shows every module
 [ -f backend/halverson.db ] || { echo "No database yet — seeding."; (cd backend && .venv/bin/python seed.py); }
 (cd backend && .venv/bin/alembic upgrade head)
 
