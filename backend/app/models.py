@@ -316,6 +316,45 @@ class StudentDocument(Base):
     student: Mapped[Student] = relationship(back_populates="documents")
 
 
+# ---- background work ----------------------------------------------------------
+class Job(Base):
+    """A unit of background work, claimed and run by the worker process (app/worker.py).
+
+    Jobs live in the database, not in a web process's memory, so a deploy or a
+    crash loses nothing: a job whose worker stopped heartbeating is put back on the
+    queue, and given up (with its run or document marked failed) only after
+    `max_attempts`.
+    """
+
+    __tablename__ = "jobs"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    kind: Mapped[str] = mapped_column(String(40), index=True)     # agent_run | document_analysis | snapshot
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    status: Mapped[str] = mapped_column(String(16), default="queued", index=True)  # queued | running | done | failed
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    max_attempts: Mapped[int] = mapped_column(Integer, default=3)
+    run_after: Mapped[datetime] = mapped_column(DateTime, index=True)
+    # Set for work that must happen once, e.g. "snapshot:2026-09-12".
+    unique_key: Mapped[str | None] = mapped_column(String(120), nullable=True, unique=True)
+    locked_by: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class WorkerBeat(Base):
+    """The last time each worker process checked in, for the readiness report."""
+
+    __tablename__ = "worker_beats"
+
+    worker_id: Mapped[str] = mapped_column(String(80), primary_key=True)
+    seen_at: Mapped[datetime] = mapped_column(DateTime)
+    current_job_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
 # ---- people who use the system ---------------------------------------------
 class User(Base):
     """A member of staff who can sign in. Never deleted, only deactivated, so the

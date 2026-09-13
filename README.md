@@ -143,15 +143,19 @@ is reported there but never makes the app unready.
 ### Running it
 
 ```bash
-./dev.sh            # both, together
+./dev.sh            # API, worker and interface together
 ```
 
 or separately:
 
 ```bash
 cd backend  && .venv/bin/python -m uvicorn app.main:app --reload --port 8000
-cd frontend && npm run dev
+cd backend  && .venv/bin/python -m app.worker      # runs agent runs, document reads, daily snapshots
+cd frontend && npm run dev                          # HR_API_URL=http://localhost:8010 for another API port
 ```
+
+Without the worker everything works except agent runs, document reads and
+history snapshots, which wait in the queue until one starts.
 
 - Interface — http://localhost:5174
 - API — http://localhost:8000/api/health
@@ -869,6 +873,74 @@ stand-in for that store, and `console.html` unmodified. Run
 
 ---
 
+## Background work
+
+Agent runs, document reads and the daily history snapshot are **jobs** in the
+database (`backend/app/jobs.py`), run by a separate worker (`python -m app.worker`).
+A request records the job and returns, so the web process never holds minutes
+of model work and a deploy loses nothing.
+
+- **One model job at a time.** Agent runs and document reads are claimed only
+  while no other is running, so Ollama serves one. Run one worker per model host.
+- **A dead worker's job goes back on the queue.** The worker heartbeats every 30
+  seconds. A running job silent for two minutes is requeued. After its last
+  attempt it is marked failed, and so is the agent run or document it was for, so
+  nothing sits at "running" for ever.
+- **Retries back off**, and a job with a unique key (the day's snapshot) is
+  enqueued once however many workers ask.
+- `/api/ready` reports queue depth and whether a worker has checked in recently,
+  but never fails on it. `python -m app.worker --drain` runs what is queued and
+  exits.
+
+## Deploying
+
+`docker-compose.prod.yml` runs the whole service on one host:
+
+| Service | What it is |
+|---|---|
+| `db` | Postgres 16, on a named volume |
+| `migrate` | `alembic upgrade head`, then exits; the API and worker wait for it to succeed |
+| `api` | uvicorn with two workers, behind Caddy only |
+| `worker` | the job worker; given 10 minutes to finish a job on shutdown |
+| `web` | Caddy: HTTPS with automatic certificates, the built interface, `/api` proxied, security headers and CSP |
+| `backup` | a nightly `pg_dump`, verified, kept for `HR_BACKUP_KEEP_DAYS` |
+| `ollama` | optional (`--profile ollama`); most schools point `HR_OLLAMA_URL` at a GPU machine instead |
+
+```bash
+cp deploy/.env.example deploy/.env        # domain, secrets, identity provider, model host
+docker compose -f docker-compose.prod.yml --env-file deploy/.env up -d --build
+docker compose -f docker-compose.prod.yml --env-file deploy/.env exec api \
+  python -m app.cli create-user head@school.edu "Head of School" admin --password
+```
+
+Then sign in, add staff on the Admin tab (or import them with
+`--create-teacher-accounts`), and import the roster.
+
+**Upgrading** is `git pull` and the same `up -d --build`. `migrate` runs before
+the new API starts, so a new version never serves an old schema.
+
+**Backups.** Dumps land in `HR_BACKUP_DIR` (default `./backups`). Copy them off
+the host: a backup on the same disk as the database does not survive that disk.
+Restore with `deploy/restore.sh backups/halverson-YYYYmmdd-HHMM.dump`, which
+stops the app, restores, migrates and restarts. Rehearse a restore before you
+need one.
+
+**Operations.**
+
+- Logs are JSON on stdout (`HR_LOG_FORMAT=json`). They name routes by template
+  (`/api/students/{sid}`), and Caddy's access log drops URIs, so student IDs stay
+  in the audit log, not the log system.
+- `HR_SENTRY_DSN` reports errors to Sentry, with personal data and request
+  bodies off.
+- Liveness: `/api/health`. Readiness: `/api/ready`, which covers the database,
+  the schema version, the worker and the model.
+- The interface loads its fonts from Google Fonts. A school that wants no
+  third-party requests should self-host them and tighten the CSP in
+  `frontend/Caddyfile`.
+
+CI builds both images and brings the production stack up on every pull request.
+It checks readiness through Caddy and signs in end to end.
+
 ## Limits worth knowing
 
 - **The agents are advisory.** They cannot change a record. Every proposal is
@@ -883,7 +955,8 @@ stand-in for that store, and `console.html` unmodified. Run
   a person can overrule it.
 - **The data is invented.** Halverson Ridge, its students and its staff are
   fictional, generated deterministically by `demo/gen_seed.js` and `backend/seed.py`.
-- **The clock is pinned** to 2026-09-12 (`HR_TODAY`) so "missing work", trends and
-  attendance rates stay stable whenever the app is run.
+- **The demo clock is pinned** to 2026-09-12 (`HR_TODAY`) so "missing work",
+  trends and attendance rates stay stable whenever the demo runs. Production
+  refuses a pinned clock.
 - An artifact that declares a shared store is organization-internal and cannot be
   shared by public link.

@@ -76,7 +76,7 @@ export function useFleet(onApplied?: () => void): FleetState {
 
   // Runs take minutes locally, so poll only while something is in flight.
   useEffect(() => {
-    if (!runs.some((r) => r.status === 'running')) {
+    if (!runs.some((r) => r.status === 'running' || r.status === 'queued')) {
       if (timer.current) { window.clearInterval(timer.current); timer.current = null }
       return
     }
@@ -173,7 +173,7 @@ export function FleetCards({ f }: { f: FleetState }) {
     <div className="cards">
       {/* The general manager has its own panel at the top of the page. */}
       {f.fleet.agents.filter((a) => a.name !== 'manager').map((a) => {
-        const running = f.runs.find((r) => r.agent === a.name && r.status === 'running')
+        const running = f.runs.find((r) => r.agent === a.name && (r.status === 'running' || r.status === 'queued'))
         return (
           <article className="icard" key={a.name}>
             <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
@@ -326,7 +326,7 @@ export function RunHistory({ f, limit }: { f: FleetState; limit?: number }) {
               <td><span className="code">#{r.id}</span><div className="sub" style={{ maxWidth: 280 }}>{r.prompt.slice(0, 80)}</div></td>
               <td className="nowrap sub">{r.agent}</td>
               <td>
-                {r.status === 'running' ? <Pill kind="accent">running</Pill>
+                {r.status === 'running' || r.status === 'queued' ? <Pill kind="accent">{r.status}</Pill>
                   : r.status === 'done' ? <Pill kind="good">done</Pill>
                   : <Pill kind="critical">failed</Pill>}
               </td>

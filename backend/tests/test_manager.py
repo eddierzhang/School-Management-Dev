@@ -16,7 +16,7 @@ from app.models import AgentRun, Proposal
 @pytest.fixture
 def no_worker(monkeypatch):
     queued = []
-    monkeypatch.setattr(M, "enqueue", lambda run_id: queued.append(run_id))
+    monkeypatch.setattr(M, "enqueue", lambda db, run: queued.append(run.id))
     return queued
 
 
@@ -123,21 +123,14 @@ def test_dispatch_is_capped_per_run(db, no_worker, cleanup):
         M.dispatch_agent(db, ctx, "finance", "Review the budget lines at risk and propose transfers.", "x")
 
 
-def test_queued_runs_survive_a_restart(db, no_worker, cleanup):
-    """A reload empties the in-memory queue; the rows are put back, in order."""
-    from datetime import datetime, timedelta
+def test_dispatch_puts_a_job_on_the_queue(db, cleanup):
+    """Dispatched runs are database jobs, so a restart cannot lose them (tests/test_jobs.py)."""
+    from app.models import Job
 
-    a = AgentRun(agent="finance", model="test", prompt="first", status="queued", transcript=[],
-                 started_at=datetime.utcnow())
-    b = AgentRun(agent="stockroom", model="test", prompt="second", status="queued", transcript=[],
-                 started_at=datetime.utcnow())
-    stale = AgentRun(agent="support", model="test", prompt="ancient", status="queued", transcript=[],
-                     started_at=datetime.utcnow() - timedelta(hours=M.QUEUED_TOO_LONG_HOURS + 1))
-    db.add_all([a, b, stale]); db.commit()
-    M.resume_queue(db)
-    assert no_worker == [a.id, b.id], "resumed in dispatch order"
-    db.refresh(stale)
-    assert stale.status == "failed" and "Dispatch it again" in stale.error
+    out = M.dispatch_agent(db, {"proposals": []}, "support", "Review the flagged students and propose plans.", "x")
+    job = db.scalar(select(Job).where(Job.kind == "agent_run").order_by(Job.id.desc()).limit(1))
+    assert job.payload["run_id"] == out["run_id"] and job.status == "queued"
+    db.delete(job); db.commit()
 
 
 def test_manager_run_endpoint_shows_dispatched_runs_and_their_proposals(client, db, no_worker, cleanup):

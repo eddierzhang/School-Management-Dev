@@ -1,0 +1,120 @@
+# The whole service on one host:
+#
+#   cp deploy/.env.example deploy/.env      # then fill it in
+#   docker compose -f docker-compose.prod.yml --env-file deploy/.env up -d --build
+#   docker compose -f docker-compose.prod.yml --env-file deploy/.env exec api \
+#       python -m app.cli create-user head@school.edu "Head of School" admin --password
+#
+# `migrate` runs `alembic upgrade head` and exits; the API and worker start only
+# after it succeeds, so a new version never serves an old schema.
+#
+# Ollama is optional here (profile "ollama"). Most schools run it on a separate
+# GPU machine and point HR_OLLAMA_URL at it instead.
+
+name: halverson
+
+x-app: &app
+  build: ./backend
+  image: halverson-api:${HR_VERSION:-latest}
+  env_file: deploy/.env
+  environment:
+    HR_APP_ENV: production
+    HR_DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    HR_LOG_FORMAT: json
+  restart: unless-stopped
+  networks: [internal]
+
+services:
+  db:
+    image: postgres:16-alpine
+    env_file: deploy/.env
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    networks: [internal]
+
+  migrate:
+    <<: *app
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    <<: *app
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    <<: *app
+    command: ["python", "-m", "app.worker"]
+    healthcheck:
+      disable: true
+    stop_grace_period: 10m          # let an agent run finish rather than kill it mid-inference
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    build: ./frontend
+    image: halverson-web:${HR_VERSION:-latest}
+    environment:
+      HR_DOMAIN: ${HR_DOMAIN:-localhost}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks: [internal]
+
+  backup:
+    image: postgres:16-alpine
+    env_file: deploy/.env
+    environment:
+      PGHOST: db
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+    volumes:
+      - ./deploy/backup.sh:/backup.sh:ro
+      - ${HR_BACKUP_DIR:-./backups}:/backups
+    entrypoint: ["/bin/sh", "/backup.sh"]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks: [internal]
+
+  ollama:
+    image: ollama/ollama:latest
+    profiles: ["ollama"]
+    volumes:
+      - ollama:/root/.ollama
+    # Uncomment on a host with an NVIDIA GPU and the container toolkit installed.
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices: [{ driver: nvidia, count: all, capabilities: [gpu] }]
+    restart: unless-stopped
+    networks: [internal]
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
+  ollama:
+
+networks:
+  internal:

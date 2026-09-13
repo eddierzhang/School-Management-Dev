@@ -13,16 +13,14 @@ specialist can itself only *propose* — nothing a dispatched run does reaches t
 records until a person approves it. The manager changes what gets looked at,
 never what gets done.
 
-Dispatched runs wait in a queue and start one at a time, after whatever is
-running finishes. The queue is rebuilt from `queued` rows after a restart. Ollama serves one model; three agents started at once would
+Dispatched runs are jobs (app/jobs.py): they wait in the database queue and the
+worker starts them one at a time, after whatever is running finishes, and they
+survive restarts. Ollama serves one model; three agents started at once would
 each take three times as long and all risk the wall-clock cap.
 """
 from __future__ import annotations
 
-import queue
-import threading
-import time
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -38,77 +36,12 @@ MANAGER_NAME = "manager"
 SECTIONS = ["overview", "students", "classes", "stockroom", "finance", "fleet"]
 
 
-# ---- the queue ---------------------------------------------------------------
-_queue: "queue.Queue[int]" = queue.Queue()
-_worker: threading.Thread | None = None
-_lock = threading.Lock()
-_queued_ids: set[int] = set()
+def enqueue(db: Session, run: AgentRun) -> None:
+    """Put a dispatched run on the job queue, in the caller's transaction."""
+    from ..jobs import enqueue as enqueue_job
 
-
-def _anything_running(db: Session) -> bool:
-    return db.scalar(select(AgentRun.id).where(AgentRun.status == "running").limit(1)) is not None
-
-
-def _work() -> None:
-    from ..db import SessionLocal
-    from .runner import run_in_background
-
-    while True:
-        run_id = _queue.get()
-        try:
-            waited = 0.0
-            while waited < settings.agent_max_seconds * 3:
-                with SessionLocal() as db:
-                    if not _anything_running(db):
-                        break
-                time.sleep(3)
-                waited += 3
-            with SessionLocal() as db:
-                run = db.get(AgentRun, run_id)
-                if run is None or run.status != "queued":
-                    continue
-                run.status, run.started_at = "running", datetime.utcnow()
-                agent, task = run.agent, run.prompt
-                db.commit()
-            run_in_background(run_id, agent, task)
-        finally:
-            with _lock:
-                _queued_ids.discard(run_id)
-            _queue.task_done()
-
-
-def enqueue(run_id: int) -> None:
-    global _worker
-    with _lock:
-        _queued_ids.add(run_id)
-        if _worker is None or not _worker.is_alive():
-            _worker = threading.Thread(target=_work, name="fleet-dispatch", daemon=True)
-            _worker.start()
-    _queue.put(run_id)
-
-
-QUEUED_TOO_LONG_HOURS = 6
-
-
-def resume_queue(db: Session) -> None:
-    """Pick up queued runs the in-memory queue lost.
-
-    The dev server reloads whenever a file changes, and a reload empties the queue.
-    The runs are still `queued` in the table, so they are put back in order rather
-    than dropped. Only a run left waiting for hours is given up on.
-    """
-    with _lock:
-        live = set(_queued_ids)
-    cutoff = datetime.utcnow() - timedelta(hours=QUEUED_TOO_LONG_HOURS)
-    for r in db.scalars(select(AgentRun).where(AgentRun.status == "queued").order_by(AgentRun.id)).all():
-        if r.id in live:
-            continue
-        if r.started_at and r.started_at < cutoff:
-            r.status, r.finished_at = "failed", datetime.utcnow()
-            r.error = f"Waited over {QUEUED_TOO_LONG_HOURS} hours without starting. Dispatch it again."
-        else:
-            enqueue(r.id)
-    db.commit()
+    enqueue_job(db, "agent_run", {"run_id": run.id, "agent": run.agent, "task": run.prompt},
+                max_attempts=2, commit=False)
 
 
 # ---- tools ---------------------------------------------------------------------
@@ -200,9 +133,10 @@ def dispatch_agent(db: Session, ctx: dict, agent: str, task: str, reason: str) -
     run = AgentRun(agent=name, model=settings.ollama_model, prompt=task, status="queued",
                    transcript=[], started_at=datetime.utcnow(), parent_run_id=parent)
     db.add(run)
+    db.flush()
+    enqueue(db, run)
     db.commit()
     db.refresh(run)
-    enqueue(run.id)
     sent.append({"agent": name, "run_id": run.id, "task": task, "reason": str(reason)[:300]})
     return {"dispatched": True, "agent": name, "run_id": run.id,
             "note": "Queued. It runs after current work finishes and will only PROPOSE changes for a person "

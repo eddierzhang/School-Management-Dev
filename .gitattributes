@@ -1,0 +1,6 @@
+# Scripts and config that run inside Linux containers must keep LF endings,
+# whatever the checkout's platform.
+*.sh text eol=lf
+Caddyfile text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf

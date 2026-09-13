@@ -16,6 +16,7 @@ the response still goes out; the change it describes has already been committed.
 from __future__ import annotations
 
 import logging
+import time
 import uuid
 from datetime import datetime
 
@@ -27,6 +28,7 @@ from .db import SessionLocal
 from .models import AuditEvent
 
 log = logging.getLogger("halverson.audit")
+access = logging.getLogger("halverson.access")
 
 # GET routes whose response is one person's record. Route templates, as FastAPI
 # matched them, so a change to a path here is a change to what is logged.
@@ -69,15 +71,23 @@ def record(action: str, *, request: Request | None = None, actor=None, status: i
 class AuditMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         request.state.request_id = request.headers.get("x-request-id", "")[:36] or str(uuid.uuid4())
+        started = time.perf_counter()
         response = await call_next(request)
         response.headers["X-Request-ID"] = request.state.request_id
 
         path = request.url.path
-        if not path.startswith("/api/") or path.startswith("/api/auth/"):
-            return response
         # FastAPI reports the route's own path, without the /api prefix it is mounted under.
         route_path = getattr(request.scope.get("route"), "path", None)
         template = ("/api" + route_path if route_path and not route_path.startswith("/api/") else route_path) or path
+        if path.startswith("/api/"):
+            # The template, not the path: an access log is no place for a student's ID.
+            access.info("%s %s %s", request.method, template, response.status_code, extra={
+                "method": request.method, "route": template, "status": response.status_code,
+                "ms": round((time.perf_counter() - started) * 1000, 1), "request_id": request.state.request_id,
+                "user": getattr(getattr(request.state, "user", None), "email", None)})
+
+        if not path.startswith("/api/") or path.startswith("/api/auth/"):
+            return response
         if response.status_code == 401:
             # Nobody signed in: nothing was done and nothing was seen, and logging
             # anonymous requests would let anyone fill the table.
