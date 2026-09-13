@@ -1,6 +1,6 @@
 # Build the interface, then serve it with Caddy, which also terminates TLS and
 # proxies /api to the API container.
-FROM node:22-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /src
 COPY package.json package-lock.json ./
 RUN npm ci
