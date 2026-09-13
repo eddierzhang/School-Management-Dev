@@ -13,6 +13,7 @@ from datetime import date, datetime
 
 from sqlalchemy import (JSON, Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text,
                         UniqueConstraint, func)
+from sqlalchemy import false as sa_false
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -91,6 +92,9 @@ class Assessment(Base):
     weight: Mapped[float] = mapped_column(Float, default=1.0)
     assigned_on: Mapped[date] = mapped_column(Date)
     due_on: Mapped[date] = mapped_column(Date, index=True)
+    # The student information system's id (OneRoster lineItem sourcedId), so a
+    # re-import updates this assessment rather than adding a second one.
+    source_id: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
 
     course: Mapped[Course] = relationship(back_populates="assessments")
     scores: Mapped[list[Score]] = relationship(back_populates="assessment", cascade="all, delete-orphan")
@@ -105,6 +109,8 @@ class Score(Base):
     student_id: Mapped[int] = mapped_column(ForeignKey("students.id", ondelete="CASCADE"), index=True)
     points: Mapped[float | None] = mapped_column(Float, nullable=True)  # None = not submitted
     late: Mapped[bool] = mapped_column(default=False)
+    # Excused from this piece: it counts neither as missing nor toward mastery.
+    exempt: Mapped[bool] = mapped_column(Boolean, default=False, server_default=sa_false())
     recorded_on: Mapped[date | None] = mapped_column(Date, nullable=True)
 
     assessment: Mapped[Assessment] = relationship(back_populates="scores")

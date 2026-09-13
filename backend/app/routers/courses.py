@@ -186,7 +186,7 @@ def _course_assessments(db: Session, c: Course) -> list[CourseAssessmentRow]:
     for a in db.scalars(select(Assessment).where(Assessment.course_id == c.id, Assessment.due_on <= settings.today)
                         .order_by(Assessment.due_on, Assessment.id)).all():
         scores = [s for s in db.scalars(select(Score).where(Score.assessment_id == a.id)).all()
-                  if s.student_id in enrolled_ids]
+                  if s.student_id in enrolled_ids and not s.exempt]
         handed = [s for s in scores if s.points is not None]
         mean = (statistics.fmean(s.points / a.max_points * 100 for s in handed)
                 if handed and a.max_points else None)

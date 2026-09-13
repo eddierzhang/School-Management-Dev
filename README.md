@@ -197,6 +197,57 @@ attendance read as "steady".
 `tests/test_api.py` runs against its own freshly seeded database, never the dev
 one.
 
+### Importing the school's records
+
+The demo seed is fictional. A real school's records come from its student
+information system as a **OneRoster 1.1 CSV** export (PowerSchool, Infinite
+Campus, Aeries, Skyward and Clever all produce one):
+
+| File | Needed | Becomes |
+|---|---|---|
+| `users.csv` | yes | students (ID from `identifier`), their first guardian, teachers |
+| `classes.csv` | yes | sections: `classCode`, first of `periods`, `location` as the room |
+| `enrollments.csv` | yes | rosters; the `primary` teacher names the section's teacher |
+| `courses.csv`, `academicSessions.csv` | no | course titles and subjects, term names |
+| `categories.csv`, `lineItems.csv` | no | assessments; the kind comes from the title, then the category |
+| `results.csv` | no | scores; `not submitted` is missing work, `exempt` counts as neither |
+| `attendance.csv` | no | not OneRoster: `userSourcedId,date,status` |
+
+OneRoster has no skill tag on an assessment, and "what are they struggling on"
+needs one. Add a `skill` column to `lineItems.csv`. Without it the import warns
+and groups those pieces under `general`.
+
+```bash
+python -m app.cli import-oneroster export.zip             # check only: reports, then rolls back
+python -m app.cli import-oneroster export.zip --apply     # import
+python -m app.cli import-oneroster export/ --apply --create-teacher-accounts
+```
+
+Administrators can do the same on the Admin tab (**Import records**). The flow
+is always check first, then import.
+
+- **Nothing is written until everything checks out.** Every file is read and
+  every reference resolved first. A missing column, an unknown student, a score
+  above the maximum or an unreadable date refuses the whole import and names
+  the file and line.
+- **A check is the real import, rolled back.** It reports exactly what would be
+  created, updated and dropped, and runs the timetable checks on the result:
+  rooms or teachers double-booked, students in two classes in one period,
+  classes with no teacher or no assessments.
+- **Re-importing is safe.** Students match on their ID, classes on their code,
+  assessments on their OneRoster `sourcedId`. The same export twice changes
+  nothing.
+- **Each class in the file is a full roster.** A student no longer listed is
+  marked dropped, never deleted. Students and classes absent from the file, and
+  every plan, document and override, are left alone.
+- **Teacher accounts** (`--create-teacher-accounts`) are created from each
+  teacher's email, with no password, for sign-in through the school's identity
+  provider, and linked to their sections by name.
+
+Courses the catalog marks ungraded (P.E. in the demo) still show their scores on
+the class page, but no longer move a student's indices, reasons or recommended
+plans.
+
 ### History, overrides and rejection reasons
 
 **A student's history.** The indices are recomputed on every read, which keeps
@@ -409,9 +460,10 @@ documents, run `node demo/gen_seed.js` and then `python seed.py --upgrade` in
 `backend/`: it adds any section missing from the database with its roster and
 gradebook, and takes each student's grade and homeroom from the seed.
 
-The school is a high school, grades 9–12, fifteen students per grade. Known
-mismatch: the catalog says P.E. is ungraded, while the gradebook still scores
-Personal Fitness.
+The school is a high school, grades 9–12, fifteen students per grade. The
+catalog says P.E. is ungraded. The gradebook still scores Personal Fitness, and
+those scores show on its class page, but they do not count toward any student's
+indices.
 
 ---
 

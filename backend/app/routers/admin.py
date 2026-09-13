@@ -3,11 +3,13 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 
+from .. import audit, importer
 from ..auth.deps import Principal, require
 from ..auth.passwords import hash_password, password_problem
 from ..auth.permissions import PERMISSIONS, ROLE_LABELS, ROLE_PERMISSIONS, ROLES
@@ -117,6 +119,40 @@ def update_user(user_id: int, body: UserPatch, db: Session = Depends(get_db),
         u.active = changes["active"]
     db.commit()
     return _user_out(u)
+
+
+MAX_IMPORT_UPLOAD = 50 * 1024 * 1024
+
+
+@router.post("/import/oneroster")
+async def import_oneroster(
+    request: Request,
+    file: UploadFile = File(...),
+    apply: bool = Form(False),
+    create_teacher_accounts: bool = Form(False),
+    db: Session = Depends(get_db),
+    user: Principal = Depends(require("data.import")),
+) -> dict:
+    """Check (and with apply=true, import) a OneRoster CSV zip from the student information system.
+
+    Without `apply` nothing is kept: the import runs in a transaction, reports what
+    it would do, and rolls back. Any error refuses the whole import.
+    """
+    data = await file.read(MAX_IMPORT_UPLOAD + 1)
+    if len(data) > MAX_IMPORT_UPLOAD:
+        raise HTTPException(413, "That file is over the 50 MB limit. Import one school at a time.")
+    try:
+        files = importer.read_zip(data)
+    except importer.ImportFileError as e:
+        raise HTTPException(422, str(e)) from e
+    report = await run_in_threadpool(importer.run_import, db, files, apply=apply,
+                                     create_teacher_accounts=create_teacher_accounts)
+    out = report.as_dict()
+    if report.applied:
+        audit.record("import.oneroster", request=request, actor=user, status=200,
+                     detail={"file": (file.filename or "")[:120], "created": out["created"], "updated": out["updated"],
+                             "dropped_enrollments": out["dropped_enrollments"]})
+    return out
 
 
 @router.get("/audit")

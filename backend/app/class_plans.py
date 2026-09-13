@@ -104,8 +104,10 @@ def _kinds(db: Session, course: Course) -> list[KindReading]:
         select(Score).where(Score.assessment_id.in_([a.id for a in items]))).all()} if items else {}
     for a in items:
         for sid in enrolled:
-            due[a.kind] += 1
             sc = scores.get((a.id, sid))
+            if sc is not None and sc.exempt:
+                continue
+            due[a.kind] += 1
             if sc is not None and sc.points is not None and a.max_points:
                 handed[a.kind] += 1
                 pcts[a.kind].append(100.0 * sc.points / a.max_points)

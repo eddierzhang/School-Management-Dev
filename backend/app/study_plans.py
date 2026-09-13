@@ -144,6 +144,8 @@ def class_work(db: Session, sid: str, code: str, sigs=None) -> ClassWork | None:
     rows: list[AssignmentRow] = []
     for a in items:
         sc = mine.get(a.id)
+        if sc is not None and sc.exempt:
+            continue                       # excused from it: not due, not missing
         pct = round(100.0 * sc.points / a.max_points, 1) if sc and sc.points is not None and a.max_points else None
         rows.append(AssignmentRow(id=a.id, title=a.title, kind=a.kind, strand=a.skill,
                                   due_on=a.due_on.isoformat(), pct=pct,
