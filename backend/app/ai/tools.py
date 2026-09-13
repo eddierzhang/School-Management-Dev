@@ -25,7 +25,7 @@ from ..config import get_settings
 from ..models import Course, Enrollment, InventoryItem, Intervention, Proposal, Student
 from ..stock import cost_to_par, new_item_problem, short_by, status_of
 from ..timetable import clashes
-from .toolkit import Tool, ToolError
+from .toolkit import ToolError
 
 settings = get_settings()
 LIST_CAP = 12

@@ -7,7 +7,7 @@ item is counted. A proposal that has gone stale is refused, not forced through.
 """
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session

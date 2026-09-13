@@ -162,8 +162,21 @@ bookmark a list or mail a colleague a link to one student.
 cd backend && .venv/bin/python -m pytest -q      # SQLite
 HR_TEST_DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/educationhack_test \
   .venv/bin/python -m pytest -q                  # the same suite on Postgres (drops that database's tables)
+cd backend && .venv/bin/ruff check . && .venv/bin/pip-audit -r requirements.txt
 cd frontend && npm run typecheck
 ```
+
+Install the test tools with `pip install -r requirements-dev.txt`.
+`requirements.txt` is what production installs.
+
+CI (`.github/workflows/ci.yml`) runs on every pull request and on `main`:
+
+- ruff and pip-audit on the backend
+- the full test suite on both SQLite and Postgres 16
+- a startup smoke test: migrate an empty Postgres, start uvicorn, wait for `/api/ready`
+- the frontend typecheck, a production build, and `npm audit`
+
+Dependabot opens weekly grouped updates for pip and npm.
 
 `tests/test_analytics.py` builds a purpose-made record per test, so a failure
 names a rule rather than a dataset. Two of those tests are regressions for real
