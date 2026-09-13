@@ -1,4 +1,5 @@
 import type {
+  AdminUser, AuditPage, AuthConfig, Me, NewUser, RolesInfo,
   BudgetMove, FinanceNeeds,
   ClassImprovement, ClassNeedRow, ClassPlan, DraftRun,
   ClassWork, StudentStudy, StudyPlan,
@@ -18,16 +19,28 @@ export class ApiError extends Error {
   }
 }
 
+/** Fired when the session has ended, so the app can show the sign-in screen. */
+export const SIGNED_OUT_EVENT = 'hr:signed-out'
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response
   try {
     const isForm = init?.body instanceof FormData
+    // The API refuses changes without this header: a page on another site cannot
+    // set it, so it proves the request came from this interface.
+    const base = { 'X-Requested-With': 'halverson' }
     res = await fetch(BASE + path, {
       ...init,
-      headers: isForm ? (init?.headers ?? {}) : { 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
+      credentials: 'same-origin',
+      headers: isForm
+        ? { ...base, ...(init?.headers ?? {}) }
+        : { ...base, 'Content-Type': 'application/json', ...(init?.headers ?? {}) },
     })
   } catch {
     throw new ApiError(0, 'Cannot reach the support API. Is the backend running on port 8000?')
+  }
+  if (res.status === 401 && !path.startsWith('/auth/')) {
+    window.dispatchEvent(new Event(SIGNED_OUT_EVENT))
   }
   if (!res.ok) {
     let detail = res.statusText
@@ -50,6 +63,23 @@ const qs = (params: Record<string, string | number | boolean | undefined>) => {
 }
 
 export const api = {
+  // --- signing in ---
+  authConfig: () => req<AuthConfig>('/auth/config'),
+  me: () => req<Me>('/auth/me'),
+  login: (email: string, password: string) =>
+    req<{ signed_in: boolean }>('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+  logout: () => req<{ signed_out: boolean }>('/auth/logout', { method: 'POST' }),
+
+  // --- administration ---
+  users: () => req<AdminUser[]>('/admin/users'),
+  roles: () => req<RolesInfo>('/admin/roles'),
+  createUser: (body: NewUser) => req<AdminUser>('/admin/users', { method: 'POST', body: JSON.stringify(body) }),
+  updateUser: (id: number, body: Partial<NewUser & { active: boolean }>) =>
+    req<AdminUser>(`/admin/users/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  audit: (p: { actor?: string; action?: string; entity_type?: string; entity_id?: string; before_id?: number } = {}) =>
+    req<AuditPage>('/admin/audit' + qs(p)),
+
+  runtime: () => req<Pick<Fleet, 'runtime'>>('/agents/runtime'),
   summary: () => req<Summary>('/summary'),
   students: (p: { band?: string; grade?: number; course?: string; q?: string; sort?: string } = {}) =>
     req<StudentRow[]>('/students' + qs(p)),

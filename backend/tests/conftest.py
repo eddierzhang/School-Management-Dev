@@ -37,9 +37,43 @@ def seeded():
     yield
 
 
+CSRF = {"X-Requested-With": "tests"}
+
+
+def signed_in_client(email: str) -> TestClient:
+    """A client with its own cookie jar, signed in as a demo account."""
+    c = TestClient(app, headers=CSRF)
+    c.__enter__()
+    r = c.post("/api/auth/login", json={"email": email, "password": seed.DEMO_PASSWORD})
+    assert r.status_code == 200, r.text
+    return c
+
+
 @pytest.fixture(scope="session")
 def client(seeded):
-    with TestClient(app) as c:
+    """Signed in as the demo administrator, who may do everything."""
+    c = signed_in_client(f"admin@{seed.DEMO_DOMAIN}")
+    yield c
+    c.__exit__(None, None, None)
+
+
+@pytest.fixture(scope="session")
+def login(seeded):
+    """login("counselor") or login("r.okonkwo"): a client signed in as that demo account."""
+    made: list[TestClient] = []
+
+    def _login(local: str) -> TestClient:
+        c = signed_in_client(f"{local}@{seed.DEMO_DOMAIN}")
+        made.append(c)
+        return c
+    yield _login
+    for c in made:
+        c.__exit__(None, None, None)
+
+
+@pytest.fixture
+def anon(seeded):
+    with TestClient(app, headers=CSRF) as c:
         yield c
 
 

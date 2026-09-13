@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from ..ai import ollama
 from ..analytics import StudentSignal, skill_gaps
+from ..auth.deps import require
 from ..config import get_settings
 from ..db import engine, get_db, schema_status
 from ..deps import signals
@@ -54,7 +55,7 @@ def ready(response: Response) -> dict:
     return {"status": "ready" if ok else "not ready", "checks": checks}
 
 
-@router.get("/summary", response_model=Summary)
+@router.get("/summary", response_model=Summary, dependencies=[Depends(require("students.read"))])
 def summary(db: Session = Depends(get_db), sigs: dict[str, StudentSignal] = Depends(signals)) -> Summary:
     counts: dict[str, int] = {"needs-plan": 0, "watch": 0, "excelling": 0, "steady": 0}
     for s in sigs.values():

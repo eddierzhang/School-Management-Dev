@@ -39,8 +39,9 @@ from sqlalchemy import text                                            # noqa: E
 from app.config import DEMO_TODAY, get_settings                        # noqa: E402
 from app.finance_seed import seed_finance                              # noqa: E402
 from app.db import Base, SessionLocal, engine, migrate                 # noqa: E402
+from app.auth.passwords import hash_password                           # noqa: E402
 from app.models import (Assessment, AttendanceDay, Course, Enrollment,  # noqa: E402
-                        Intervention, InventoryItem, Score, Student)
+                        Intervention, InventoryItem, Score, Student, User)
 
 settings = get_settings()
 TODAY = DEMO_TODAY
@@ -329,8 +330,37 @@ def build(keep: bool = False) -> None:
         print(f"support plans     {opened} already open")
         print(f"mean course grade {statistics.fmean(means):.1f}%")
         print("bands             " + "  ".join(f"{k}={v}" for k, v in sorted(bands.items())))
+        print(f"accounts          {seed_users(db)}  (sign in as admin@{DEMO_DOMAIN}, password {DEMO_PASSWORD})")
     finally:
         db.close()
+
+
+DEMO_PASSWORD = "halverson-demo-2026"
+DEMO_DOMAIN = "halverson.example.edu"
+DEMO_STAFF = [("admin", "Dana Reyes", "admin"), ("counselor", "Priya Raman", "counselor"),
+              ("registrar", "Marcus Bell", "registrar"), ("business", "Joan Ortiz", "business")]
+
+
+def teacher_email(name: str) -> str:
+    return name.lower().replace(". ", ".").replace(" ", "-") + "@" + DEMO_DOMAIN
+
+
+def seed_users(db) -> int:
+    """One demo account per role, and one per teacher on the timetable, all with the
+    same password. Demo data only: a real deployment creates its first administrator
+    with `python -m app.cli create-user` and nobody shares a password."""
+    hashed = hash_password(DEMO_PASSWORD)
+    have = {e for (e,) in db.query(User.email).all()}
+    made = 0
+    people = [(f"{local}@{DEMO_DOMAIN}", name, role, None) for local, name, role in DEMO_STAFF]
+    people += [(teacher_email(t), t, "teacher", t)
+               for t in sorted({c.teacher for c in db.query(Course).all()})]
+    for email, name, role, teacher in people:
+        if email not in have:
+            db.add(User(email=email, name=name, role=role, teacher_name=teacher, password_hash=hashed, active=True))
+            made += 1
+    db.commit()
+    return made
 
 
 def upgrade() -> None:
@@ -403,6 +433,7 @@ def upgrade() -> None:
             added.append(f"{c.code} ({len(roster)} enrolled)")
         db.commit()
         print(f"grades and homerooms updated for {changed} students")
+        print(f"demo accounts added: {seed_users(db)}")
         print(f"sections added: {len(added)}" + (": " + ", ".join(added) if added else ""))
         if skipped:
             print(f"{skipped} roster entries skipped: the student already has a class that period here;"

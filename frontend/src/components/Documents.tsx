@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, ApiError } from '../api'
+import { useAuth, useCan } from '../auth'
 import type {
   Corroboration, DocFinding, Recommendation, StatusKind, StudentDocumentDetail, StudentDocumentRow,
 } from '../types'
@@ -50,6 +51,7 @@ function seedFrom(doc: StudentDocumentRow, f: DocFinding): Recommendation {
 function Finding({ doc, f, onOpenPlan }: {
   doc: StudentDocumentRow; f: DocFinding; onOpenPlan: (seed: Recommendation) => void
 }) {
+  const canPlan = useCan('plans.write')
   const [kind, label] = VERDICT[f.gradebook.verdict]
   return (
     <div className={`finding ${f.type}`}>
@@ -70,11 +72,13 @@ function Finding({ doc, f, onOpenPlan }: {
           </span>
         )}
       </div>
-      <div>
-        <button className="btn sm" onClick={() => onOpenPlan(seedFrom(doc, f))}>
-          {f.type === 'strength' ? 'Open an enrichment plan' : 'Open a support plan'}
-        </button>
-      </div>
+      {canPlan && (
+        <div>
+          <button className="btn sm" onClick={() => onOpenPlan(seedFrom(doc, f))}>
+            {f.type === 'strength' ? 'Open an enrichment plan' : 'Open a support plan'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -170,6 +174,8 @@ export function DocumentsBlock({ sid, name, onOpenPlan }: {
   const [open, setOpen] = useState<number | null>(null)
   const [over, setOver] = useState(false)
   const input = useRef<HTMLInputElement | null>(null)
+  const { can } = useAuth()
+  const canUpload = can('documents.upload')
 
   const load = useCallback(async () => {
     try { setDocs(await api.documents(sid)) } catch { /* shown on upload instead */ }
@@ -205,7 +211,7 @@ export function DocumentsBlock({ sid, name, onOpenPlan }: {
   return (
     <div className="block">
       <h3>Documents</h3>
-      <div
+      {canUpload && <div
         className={`dropzone${over ? ' over' : ''}`}
         onDragOver={(e) => { e.preventDefault(); setOver(true) }}
         onDragLeave={() => setOver(false)}
@@ -239,7 +245,8 @@ export function DocumentsBlock({ sid, name, onOpenPlan }: {
           PDF, Word or text, up to 10 MB. Scans and photos can't be read — there's no vision model
           installed. Only the extracted text is kept, never the file, and it stays on this machine.
         </div>
-      </div>
+      </div>}
+      {!canUpload && docs.length === 0 && <p className="sub" style={{ margin: 0 }}>No documents have been uploaded.</p>}
       {error && <ErrorNote error={error} />}
 
       {docs.length > 0 && (
@@ -269,10 +276,14 @@ export function DocumentsBlock({ sid, name, onOpenPlan }: {
                 <div style={{ marginTop: 10 }}>
                   <DocumentView id={d.id} onOpenPlan={onOpenPlan} onChanged={() => void load()} />
                   <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
-                    <button className="btn sm ghost" disabled={d.status === 'processing'} onClick={() => void reread(d.id)}>
-                      Read again
-                    </button>
-                    <button className="btn sm ghost" onClick={() => void remove(d.id)}>Delete document</button>
+                    {canUpload && (
+                      <button className="btn sm ghost" disabled={d.status === 'processing'} onClick={() => void reread(d.id)}>
+                        Read again
+                      </button>
+                    )}
+                    {can('plans.write') && (
+                      <button className="btn sm ghost" onClick={() => void remove(d.id)}>Delete document</button>
+                    )}
                   </div>
                 </div>
               )}

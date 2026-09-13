@@ -3,6 +3,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..analytics import StudentSignal
+from ..auth.deps import Principal, require
+from ..auth.scope import ensure_student, visible_students
 from ..db import get_db
 from ..deps import signals
 from ..models import Intervention, Student
@@ -24,8 +26,11 @@ def list_students(
     sort: str = Query("struggle", pattern="^(struggle|excel|standing|name|grade)$"),
     limit: int = Query(500, ge=1, le=500),
     sigs: dict[str, StudentSignal] = Depends(signals),
+    db: Session = Depends(get_db),
+    user: Principal = Depends(require("students.read")),
 ) -> list[StudentRow]:
-    rows = list(sigs.values())
+    allowed = visible_students(db, user)
+    rows = [s for s in sigs.values() if allowed is None or s.sid in allowed]
     if band:
         rows = [s for s in rows if s.band == band]
     if grade:
@@ -63,7 +68,9 @@ def list_students(
 @router.get("/{sid}", response_model=StudentDetail)
 def student_detail(
     sid: str, db: Session = Depends(get_db), sigs: dict[str, StudentSignal] = Depends(signals),
+    user: Principal = Depends(require("students.read")),
 ) -> StudentDetail:
+    ensure_student(db, user, sid)
     sig = sigs.get(sid)
     if sig is None:
         raise HTTPException(404, f"No student with SID {sid}")

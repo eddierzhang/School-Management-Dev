@@ -19,7 +19,7 @@ export function BudgetMoves({ lines, onChanged }: { lines: BudgetLine[]; onChang
   const needs = useApi(() => api.financeNeeds(), [tick])
   const proposals = useApi(() => api.proposals('pending'), [tick])
   const runs = useApi(() => api.runs('finance'), [tick])
-  const fleet = useApi(() => api.fleet(), [])
+  const fleet = useApi(() => api.runtime(), [])
   const [task, setTask] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)

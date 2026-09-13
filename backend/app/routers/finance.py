@@ -13,13 +13,15 @@ from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
+from ..auth.deps import Principal, current_user, require_by_method
 from ..config import get_settings
 from ..db import get_db
 from ..finance import (FISCAL_YEAR, FY_START, anomalies, elapsed_fraction, max_giveable, needs,
                        new_line_problem, positions, revision_problem, transfer_problem)
 from ..models import BudgetLine, BudgetTransfer, Transaction
 
-router = APIRouter(prefix="/finance", tags=["finance"])
+router = APIRouter(prefix="/finance", tags=["finance"],
+                   dependencies=[Depends(require_by_method(read="finance.read", write="finance.write"))])
 settings = get_settings()
 
 
@@ -180,13 +182,13 @@ def list_transfers(db: Session = Depends(get_db)) -> list[dict]:
 
 
 @router.post("/transfers", status_code=201)
-def make_transfer(body: TransferIn, db: Session = Depends(get_db)) -> dict:
+def make_transfer(body: TransferIn, db: Session = Depends(get_db), user: Principal = Depends(current_user)) -> dict:
     src, dst = body.from_line.strip().upper(), body.to_line.strip().upper()
     problem = transfer_problem(db, src, dst, round(body.amount, 2))
     if problem:
         raise HTTPException(409 if "available" in problem or "at risk" in problem else 422, problem)
     tr = BudgetTransfer(from_line_id=_line(db, src).id, to_line_id=_line(db, dst).id,
-                        amount=round(body.amount, 2), reason=body.reason.strip())
+                        amount=round(body.amount, 2), reason=body.reason.strip(), approved_by=user.name)
     db.add(tr)
     db.commit()
     db.refresh(tr)
@@ -204,7 +206,7 @@ def where_money_is_needed(db: Session = Depends(get_db)) -> dict:
 
 
 @router.post("/lines", status_code=201)
-def open_line(body: NewLineIn, db: Session = Depends(get_db)) -> dict:
+def open_line(body: NewLineIn, db: Session = Depends(get_db), user: Principal = Depends(current_user)) -> dict:
     """Open a line at zero and fund it with a transfer, so no approved allocation is edited."""
     code, src = body.code.strip().upper(), body.from_line.strip().upper()
     amount = round(body.amount, 2)
@@ -218,13 +220,13 @@ def open_line(body: NewLineIn, db: Session = Depends(get_db)) -> dict:
     db.add(line)
     db.flush()
     db.add(BudgetTransfer(from_line_id=_line(db, src).id, to_line_id=line.id, amount=amount,
-                          reason=f"Opening {code}: {body.reason.strip()}"))
+                          reason=f"Opening {code}: {body.reason.strip()}", approved_by=user.name))
     db.commit()
     return next(asdict(p) for p in positions(db) if p.code == code)
 
 
 @router.post("/revisions", status_code=201)
-def revise(body: RevisionIn, db: Session = Depends(get_db)) -> dict:
+def revise(body: RevisionIn, db: Session = Depends(get_db), user: Principal = Depends(current_user)) -> dict:
     """Several transfers approved together, judged on their combined effect."""
     moves = [{"from_line": m.from_line.strip().upper(), "to_line": m.to_line.strip().upper(),
               "amount": round(m.amount, 2)} for m in body.moves]
@@ -234,7 +236,7 @@ def revise(body: RevisionIn, db: Session = Depends(get_db)) -> dict:
     made = []
     for m in moves:
         tr = BudgetTransfer(from_line_id=_line(db, m["from_line"]).id, to_line_id=_line(db, m["to_line"]).id,
-                            amount=m["amount"], reason=f"Budget revision: {body.reason.strip()}")
+                            amount=m["amount"], reason=f"Budget revision: {body.reason.strip()}", approved_by=user.name)
         db.add(tr)
         made.append(tr)
     db.commit()

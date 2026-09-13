@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, ApiError } from '../api'
+import { useCan } from '../auth'
 import { useApi } from '../useApi'
 import type { ClassImprovement, ClassPlan, ClassStatus, PlanDraft, StatusKind } from '../types'
 import { Delta, ErrorNote, Icon, Loading, Pill } from './ui'
@@ -18,7 +19,8 @@ const day = (iso: string | null) =>
 export function ClassPlans({ code }: { code: string }) {
   const [tick, setTick] = useState(0)
   const data = useApi(() => api.improvement(code), [code, tick])
-  const fleet = useApi(() => api.fleet(), [])
+  const fleet = useApi(() => api.runtime(), [])
+  const canRequest = useCan('drafts.request')
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -118,7 +120,7 @@ export function ClassPlans({ code }: { code: string }) {
                       onChange={(e) => setNote(e.target.value)} />
                   </div>
                   <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                    <button className="btn primary" disabled={busy || !canDraft || perf.status === 'no-data'}
+                    <button className="btn primary" disabled={busy || !canDraft || !canRequest || perf.status === 'no-data'}
                       onClick={() => act(() => api.draftClassPlan(code, note), 'Drafting started.')}>
                       Draft a plan with the AI agent
                     </button>
@@ -190,6 +192,7 @@ function PlanBody({ diagnosis, strands, actions, goal }: {
 function Draft({ draft, busy, onAdopt, onReject }: {
   draft: PlanDraft; busy: boolean; onAdopt: () => void; onReject: () => void
 }) {
+  const canDecide = useCan('plans.write')
   const p = draft.payload
   return (
     <div className="panelbox panelbox-pad" style={{ display: 'flex', flexDirection: 'column', gap: 10, borderColor: 'var(--accent)' }}>
@@ -202,10 +205,14 @@ function Draft({ draft, busy, onAdopt, onReject }: {
         Drafted by the class improvement agent{draft.run_id !== null && <> · run #{draft.run_id}, <a href="#/agents">transcript</a></>}.
         Every figure it cites was checked against the class data.
       </div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button className="btn primary" disabled={busy} onClick={onAdopt}>Adopt this plan</button>
-        <button className="btn ghost" disabled={busy} onClick={onReject}>Reject</button>
-      </div>
+      {canDecide ? (
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn primary" disabled={busy} onClick={onAdopt}>Adopt this plan</button>
+          <button className="btn ghost" disabled={busy} onClick={onReject}>Reject</button>
+        </div>
+      ) : (
+        <div className="sub">Waiting for the support office to adopt or reject it.</div>
+      )}
     </div>
   )
 }
@@ -213,6 +220,7 @@ function Draft({ draft, busy, onAdopt, onReject }: {
 function ActivePlan({ plan, busy, onClose }: {
   plan: ClassPlan; busy: boolean; onClose: (status: 'completed' | 'retired', outcome: string) => void
 }) {
+  const canClose = useCan('plans.write')
   const [outcome, setOutcome] = useState('')
   const [closing, setClosing] = useState(false)
   return (
@@ -262,7 +270,7 @@ function ActivePlan({ plan, busy, onClose }: {
             <button className="btn ghost" onClick={() => setClosing(false)}>Cancel</button>
           </div>
         </div>
-      ) : (
+      ) : canClose && (
         <div><button className="btn sm" onClick={() => setClosing(true)}>Close this plan…</button></div>
       )}
     </div>

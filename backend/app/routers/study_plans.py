@@ -13,6 +13,8 @@ from sqlalchemy.orm import Session
 from ..ai import ollama
 from ..ai.runner import run_in_background
 from ..analytics import build_signals
+from ..auth.deps import Principal, require
+from ..auth.scope import ensure_course, ensure_student
 from ..config import get_settings
 from ..db import get_db
 from ..models import AgentRun, Proposal, Student, StudyPlan
@@ -53,8 +55,10 @@ def _pending(db: Session, sid: str) -> list[Proposal]:
 
 
 @router.get("/students/{sid}/study", response_model=StudentStudyOut)
-def student_study(sid: str, db: Session = Depends(get_db)) -> StudentStudyOut:
+def student_study(sid: str, db: Session = Depends(get_db),
+                  user: Principal = Depends(require("students.read"))) -> StudentStudyOut:
     """Every class the student takes with what its work shows, plus their plans and drafts."""
+    ensure_student(db, user, sid)
     sigs = build_signals(db)
     sig = sigs.get(sid)
     if sig is None:
@@ -83,8 +87,10 @@ def student_study(sid: str, db: Session = Depends(get_db)) -> StudentStudyOut:
 
 
 @router.get("/students/{sid}/classes/{code}/work")
-def student_class_work(sid: str, code: str, db: Session = Depends(get_db)) -> dict:
+def student_class_work(sid: str, code: str, db: Session = Depends(get_db),
+                       user: Principal = Depends(require("students.read"))) -> dict:
     """The full reading the agent plans from: every assignment, strand, kind of work and finding."""
+    ensure_student(db, user, sid)
     w = class_work(db, sid, code)
     if w is None:
         raise HTTPException(404, f"{sid} has no graded work in {code}")
@@ -93,8 +99,14 @@ def student_class_work(sid: str, code: str, db: Session = Depends(get_db)) -> di
 
 @router.post("/students/{sid}/classes/{code}/study-plan/draft", response_model=DraftRunOut, status_code=202)
 def draft_study_plan(sid: str, code: str, body: DraftRequest, background: BackgroundTasks,
-                     db: Session = Depends(get_db)) -> DraftRunOut:
-    """Start the study plan agent on one student in one class. Runs take a minute or three."""
+                     db: Session = Depends(get_db),
+                     user: Principal = Depends(require("drafts.request"))) -> DraftRunOut:
+    """Start the study plan agent on one student in one class. Runs take a minute or three.
+
+    A teacher may ask for a draft only in their own class; approving it still needs plans.write.
+    """
+    ensure_student(db, user, sid)
+    ensure_course(db, user, code)
     st = db.scalar(select(Student).where(Student.sid == sid))
     w = class_work(db, sid, code) if st else None
     if w is None:
@@ -128,7 +140,8 @@ def draft_study_plan(sid: str, code: str, body: DraftRequest, background: Backgr
 
 
 @router.patch("/study-plans/{plan_id}", response_model=StudyPlanOut)
-def close_study_plan(plan_id: int, body: ClassPlanPatch, db: Session = Depends(get_db)) -> StudyPlanOut:
+def close_study_plan(plan_id: int, body: ClassPlanPatch, db: Session = Depends(get_db),
+                     _: Principal = Depends(require("plans.write"))) -> StudyPlanOut:
     plan = db.get(StudyPlan, plan_id)
     if plan is None:
         raise HTTPException(404, f"No study plan {plan_id}")

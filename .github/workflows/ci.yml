@@ -94,6 +94,7 @@ jobs:
     env:
       HR_DATABASE_URL: postgresql+psycopg://postgres:postgres@localhost:5432/educationhack
       HR_APP_ENV: production
+      HR_SECRET_KEY: ci-only-secret-key-that-is-long-enough-to-pass
     defaults:
       run:
         working-directory: backend
@@ -116,8 +117,11 @@ jobs:
           done
           cat uvicorn.log
           exit 1
-      - name: Liveness
-        run: curl -fsS http://localhost:8000/api/health
+      - name: Liveness, and everything else closed without a session
+        run: |
+          curl -fsS http://localhost:8000/api/health
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/api/students)" = 401
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/docs)" = 404
 
   frontend:
     name: Frontend typecheck, build and audit

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { api } from '../api'
+import { useCan } from '../auth'
 import { useApi } from '../useApi'
 import { ErrorNote, Loading, Pill } from '../components/ui'
 
@@ -7,6 +8,7 @@ export function Plans({ onOpenStudent, onChanged }: {
   onOpenStudent: (sid: string) => void
   onChanged?: () => void
 }) {
+  const canPlan = useCan('plans.write')
   const [status, setStatus] = useState('active')
   const { data, error, loading, reload } = useApi(() => api.interventions(status || undefined), [status])
 
@@ -88,7 +90,7 @@ export function Plans({ onOpenStudent, onChanged }: {
                     </Pill>
                   </td>
                   <td className="nowrap">
-                    {iv.status === 'active' ? (
+                    {!canPlan ? null : iv.status === 'active' ? (
                       <>
                         <button className="btn sm" onClick={() => set(iv.id, 'completed')}>Done</button>{' '}
                         <button className="btn sm ghost" onClick={() => set(iv.id, 'declined')}>Declined</button>

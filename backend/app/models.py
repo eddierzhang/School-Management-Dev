@@ -220,6 +220,8 @@ class Proposal(Base):
     result: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     decided_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Who approved or rejected it: the signed-in person's email.
+    decided_by: Mapped[str | None] = mapped_column(String(160), nullable=True)
 
     run: Mapped[AgentRun | None] = relationship(back_populates="proposals")
 
@@ -256,6 +258,76 @@ class StudentDocument(Base):
     analysed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     student: Mapped[Student] = relationship(back_populates="documents")
+
+
+# ---- people who use the system ---------------------------------------------
+class User(Base):
+    """A member of staff who can sign in. Never deleted, only deactivated, so the
+    audit log always names a real account.
+
+    `teacher_name` links a teacher to their sections: it must match
+    `Course.teacher` exactly, and it is what limits a teacher to their own
+    students (app/auth/scope.py).
+    """
+
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(160), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    role: Mapped[str] = mapped_column(String(24))          # admin | counselor | teacher | registrar | business
+    teacher_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    # None for accounts that only sign in through the school's identity provider.
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class UserSession(Base):
+    """A signed-in browser. Only a hash of the cookie's token is stored, so the
+    table leaking does not hand anyone a session."""
+
+    __tablename__ = "user_sessions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime)
+    ip: Mapped[str] = mapped_column(String(64), default="")
+    user_agent: Mapped[str] = mapped_column(String(255), default="")
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    user: Mapped[User] = relationship()
+
+
+class AuditEvent(Base):
+    """Who did what, to which record, and when — including looking at a student.
+
+    Written for every change made through the API (successful or refused), every
+    read of an individual student's record or documents, and every sign-in
+    attempt. Rows are only ever inserted. The actor is copied rather than joined,
+    so the log reads the same after an account is renamed or deactivated.
+    """
+
+    __tablename__ = "audit_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    actor_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    actor_email: Mapped[str] = mapped_column(String(160), default="")
+    actor_role: Mapped[str] = mapped_column(String(24), default="")
+    action: Mapped[str] = mapped_column(String(80), index=True)
+    method: Mapped[str] = mapped_column(String(8), default="")
+    path: Mapped[str] = mapped_column(String(300), default="")
+    status: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    entity_type: Mapped[str | None] = mapped_column(String(40), nullable=True, index=True)
+    entity_id: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
+    detail: Mapped[dict] = mapped_column(JSON, default=dict)
+    ip: Mapped[str] = mapped_column(String(64), default="")
+    request_id: Mapped[str] = mapped_column(String(36), default="")
 
 
 # ---- finance ---------------------------------------------------------------
