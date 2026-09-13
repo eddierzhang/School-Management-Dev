@@ -5,6 +5,7 @@ batch.json
 # backend
 backend/.venv/
 backend/*.db
+.env
 __pycache__/
 *.py[cod]
 .pytest_cache/

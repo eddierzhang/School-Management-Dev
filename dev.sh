@@ -5,7 +5,10 @@ cd "$(dirname "$0")"
 
 [ -d backend/.venv ] || { echo "No backend/.venv — see README, 'First run'."; exit 1; }
 [ -d frontend/node_modules ] || { echo "No frontend/node_modules — run: cd frontend && npm install"; exit 1; }
+# The demo data is built for this date; backend/.env or the environment can override it.
+export HR_TODAY="${HR_TODAY:-2026-09-12}"
 [ -f backend/halverson.db ] || { echo "No database yet — seeding."; (cd backend && .venv/bin/python seed.py); }
+(cd backend && .venv/bin/alembic upgrade head)
 
 # The fleet needs Ollama with a tool-capable model. Not fatal: everything except
 # the Agents tab works without it, and that tab explains itself when it is missing.

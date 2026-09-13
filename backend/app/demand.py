@@ -22,9 +22,7 @@ section still looking over-subscribed and the new one looking empty.
 """
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -158,20 +156,6 @@ def section_counts(db: Session) -> list[SectionCounts]:
                           capacity=c.capacity, enrolled=enrolled.get(c.id, 0),
                           waitlist=waiting.get(c.id, 0), signups=[int(n or 0) for n in (c.signups or [])])
             for c in db.scalars(select(Course).order_by(Course.code)).all()]
-
-
-def backfill_signups(db: Session) -> int:
-    """Give sections from a database built before signups were stored the weekly
-    counts the seed has for them. Sections opened since start with none."""
-    seed_dir = Path(__file__).resolve().parents[2] / "seed"
-    filled = 0
-    for c in db.scalars(select(Course).where(Course.signups.is_(None))).all():
-        src = seed_dir / f"courses__{c.code}.json"
-        c.signups = [int(n or 0) for n in json.loads(src.read_text()).get("signups") or []] if src.exists() else []
-        filled += 1
-    if filled:
-        db.commit()
-    return filled
 
 
 def class_demand(db: Session) -> list[ClassDemand]:

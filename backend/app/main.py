@@ -1,23 +1,27 @@
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
-from .db import Base, SessionLocal, add_missing_columns, engine
-from .demand import backfill_signups
+from .db import schema_status
 from .routers import (agents, courses, documents, finance, improvement, interventions, inventory, manager,
                       meta, schedule, scores, students, study_plans, support)
 
 settings = get_settings()
+log = logging.getLogger("halverson")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    Base.metadata.create_all(bind=engine)
-    add_missing_columns()
-    with SessionLocal() as db:
-        backfill_signups(db)
+    # The schema is Alembic's job, run before the app starts. Starting against a
+    # database that is behind would fail on the first query that touches a new
+    # column, so say so plainly at startup; /api/ready reports it too.
+    status = schema_status()
+    if not status["up_to_date"]:
+        log.error("Database schema is at %s but the code expects %s. Run `alembic upgrade head`.",
+                  status["current"] or "nothing", status["head"])
     yield
 
 
