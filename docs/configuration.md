@@ -21,6 +21,7 @@ them from the environment, or from `backend/.env` in development. In production,
 
 | Setting | Default | Description |
 |---|---|---|
+| `HR_STATIC_DIR` | *(empty)* | The built interface (`frontend/dist`). When set, the API serves it as well; the one-container demo uses this. |
 | `HR_SECRET_KEY` | development value | Signs the OIDC state cookie. At least 32 random characters in production. |
 | `HR_SESSION_HOURS` | `12` | How long a session lasts. |
 | `HR_COOKIE_SECURE` | *(production)* | Force the `Secure` cookie flag on or off. Defaults to on in production. |

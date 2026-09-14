@@ -25,7 +25,10 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    app_env: str = "development"          # development | test | production
+    app_env: str = "development"          # development | test | demo | production
+    # The built interface (frontend/dist). When set, the API serves it too, so the
+    # public demo runs as one container; the production stack serves it with Caddy.
+    static_dir: str = ""
     database_url: str = "sqlite:///./halverson.db"
     cors_origins: str = "http://localhost:5174,http://127.0.0.1:5174"
     pinned_today: date | None = Field(default=None, validation_alias="HR_TODAY")
@@ -92,6 +95,11 @@ class Settings(BaseSettings):
         return self.app_env == "production"
 
     @property
+    def public(self) -> bool:
+        """Reachable from the internet: production, or the public demo of the fictional school."""
+        return self.app_env in ("production", "demo")
+
+    @property
     def origins(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
@@ -105,7 +113,7 @@ class Settings(BaseSettings):
 
     @property
     def secure_cookies(self) -> bool:
-        return self.production if self.cookie_secure is None else self.cookie_secure
+        return self.public if self.cookie_secure is None else self.cookie_secure
 
     @property
     def signup_domains(self) -> list[str]:
@@ -117,6 +125,12 @@ class Settings(BaseSettings):
 
     def production_problems(self) -> list[str]:
         """Settings that are fine on a laptop and unsafe in front of real records."""
+        if self.app_env == "demo":
+            # Fictional records on SQLite with a pinned clock are the point of the
+            # demo, but sessions are still real and must not be forgeable.
+            if self.secret_key == DEV_SECRET or len(self.secret_key) < 32:
+                return ["HR_SECRET_KEY must be set to a random value of at least 32 characters."]
+            return []
         if not self.production:
             return []
         problems = []

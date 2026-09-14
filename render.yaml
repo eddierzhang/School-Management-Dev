@@ -1,0 +1,16 @@
+# The public demo on Render's free plan. In the Render dashboard choose
+# New > Blueprint and pick this repository; nothing else needs setting.
+# The free plan sleeps after 15 minutes without visitors, and each wake-up
+# reseeds the demo school, so every visitor starts from the same data.
+services:
+  - type: web
+    name: student-support-demo
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: HR_SECRET_KEY
+        generateValue: true

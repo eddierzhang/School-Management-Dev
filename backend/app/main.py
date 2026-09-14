@@ -43,9 +43,9 @@ app = FastAPI(
         "from the gradebook on read and reported with the named reasons behind it."
     ),
     # The schema is a map of every record the API exposes; it is for developers.
-    docs_url=None if settings.production else "/docs",
+    docs_url=None if settings.public else "/docs",
     redoc_url=None,
-    openapi_url=None if settings.production else "/openapi.json",
+    openapi_url=None if settings.public else "/openapi.json",
 )
 
 
@@ -57,7 +57,23 @@ async def security_headers(request, call_next):
     if request.url.path.startswith("/api/"):
         # Student records must not linger in shared browser or proxy caches.
         response.headers.setdefault("Cache-Control", "no-store")
+    elif settings.static_dir:
+        # The same headers Caddy sets in the production stack (frontend/Caddyfile).
+        for k, v in STATIC_HEADERS.items():
+            response.headers.setdefault(k, v)
     return response
+
+
+STATIC_HEADERS = {
+    "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+    "X-Frame-Options": "DENY",
+    "Permissions-Policy": "camera=(), microphone=(), geolocation=()",
+    "Content-Security-Policy": (
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; "
+        "frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+    ),
+}
 
 
 app.add_middleware(AuditMiddleware)
@@ -80,3 +96,25 @@ for r in (students.router, courses.router, support.router, interventions.router,
           inventory.router, documents.router, finance.router, schedule.router, improvement.router, manager.router,
           study_plans.router, admin.router):
     app.include_router(r, prefix="/api", dependencies=signed_in)
+
+
+if settings.static_dir:
+    # One container for the public demo: the built interface beside the API. Any
+    # path that is not a file is the single-page app's, except under /api.
+    from pathlib import Path
+
+    from fastapi import HTTPException
+    from fastapi.responses import FileResponse
+    from fastapi.staticfiles import StaticFiles
+
+    dist = Path(settings.static_dir).resolve()
+    app.mount("/assets", StaticFiles(directory=dist / "assets"), name="assets")
+
+    @app.get("/{path:path}", include_in_schema=False)
+    def interface(path: str) -> FileResponse:
+        if path == "api" or path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="Not Found")
+        file = (dist / path).resolve()
+        if path and file.is_file() and file.is_relative_to(dist):
+            return FileResponse(file)
+        return FileResponse(dist / "index.html", headers={"Cache-Control": "no-cache"})

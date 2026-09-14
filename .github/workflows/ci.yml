@@ -160,6 +160,45 @@ jobs:
         if: failure()
         run: docker compose -f docker-compose.prod.yml --env-file deploy/.env logs --no-color --tail 200
 
+  demo:
+    name: Public demo image (one container)
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: docker build -t student-support-demo .
+      - name: Start as Render runs it (a PORT, no secret key given)
+        run: |
+          docker run -d --name demo -p 10000:10000 -e PORT=10000 student-support-demo
+          for i in $(seq 1 40); do
+            if curl -fsS http://localhost:10000/api/ready; then break; fi
+            sleep 2
+          done
+          curl -fsS http://localhost:10000/api/ready
+      - name: Interface, API and demo sign-in
+        run: |
+          curl -fsS http://localhost:10000/ | grep -q 'id="root"'
+          curl -fsS http://localhost:10000/students/S-1507 | grep -q 'id="root"'
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:10000/api/students)" = 401
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:10000/api/nope)" = 404
+          # The cookie is Secure (the host serves HTTPS), so curl is told to send it over http here.
+          curl -fsS -c jar -H 'X-Requested-With: ci' -H 'Content-Type: application/json' \
+            -d '{"email":"admin@halverson.example.edu","password":"halverson-demo-2026"}' http://localhost:10000/api/auth/login
+          sed -i 's/\t\/\tTRUE\t/\t\/\tFALSE\t/' jar
+          curl -fsS -b jar http://localhost:10000/api/students | grep -q '"sid"'
+      - name: The worker runs beside the API
+        run: |
+          for i in $(seq 1 20); do
+            if curl -fsS http://localhost:10000/api/ready | grep -q '"worker_alive":true'; then exit 0; fi
+            sleep 2
+          done
+          curl -fsS http://localhost:10000/api/ready
+          exit 1
+      - name: Logs
+        if: always()
+        run: docker logs demo 2>&1 | tail -n 80
+
   frontend:
     name: Frontend typecheck, build and audit
     runs-on: ubuntu-latest

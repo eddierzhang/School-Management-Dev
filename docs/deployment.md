@@ -9,6 +9,26 @@
 - [Running the model](#running-the-model)
 - [Checklist](#checklist)
 
+## The public demo
+
+The `Dockerfile` at the repository root is a different, smaller deployment: the
+fictional school in one container, for showing the product, never for real
+records. At build time it generates the demo roster and builds the interface.
+At start, `deploy/demo-start.sh` reseeds SQLite, starts the worker in the
+background and serves the interface and API on `$PORT`. It runs with
+`HR_APP_ENV=demo`, which allows SQLite and the pinned demo clock, but still needs
+a secret key (generated at start if none is given), marks cookies `Secure` and
+hides the API schema.
+
+**Render (free):** New → Blueprint → this repository. `render.yaml` defines one
+free web service with a generated `HR_SECRET_KEY`, and redeploys on every push
+to `main`. **Anywhere else:** `docker build -t student-support-demo .`, then run
+it behind HTTPS with `PORT` set.
+
+Anyone can sign in with the published demo password, and an administrator can
+change things, so the demo resets on every restart. On Render's free plan that
+happens whenever it wakes from sleep.
+
 ## The production stack
 
 `docker-compose.prod.yml` runs the whole service on one host.

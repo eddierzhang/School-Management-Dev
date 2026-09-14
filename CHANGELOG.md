@@ -4,9 +4,14 @@ All notable changes are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/).
 
-## [Unreleased]
+## [1.1.0] — 2026-09-13
 
 ### Added
+
+- **A free public demo.** A root `Dockerfile` runs the demo school in one
+  container (interface, API and worker on SQLite, reseeded on every start), and
+  `render.yaml` deploys it to Render's free plan. `HR_APP_ENV=demo` and
+  `HR_STATIC_DIR` support it, and CI builds and signs in to the image.
 
 - **Account requests.** "Create an account" on the sign-in screen. A request
   cannot sign in until an administrator approves it, confirming the role, on
@@ -86,3 +91,4 @@ plans, class and study plans, document reading, schedules, the stockroom and
 budget, and the local agent fleet.
 
 [1.0.0]: https://github.com/eddierzhang/School-Management-Dev/releases/tag/v1.0.0
+[1.1.0]: https://github.com/eddierzhang/School-Management-Dev/releases/tag/v1.1.0

@@ -11,7 +11,7 @@ decision accountable.
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.141-009688?logo=fastapi&logoColor=white)
 ![React 18](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)
 ![PostgreSQL 16](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.0.0-00806a)
+![Version](https://img.shields.io/badge/version-1.1.0-00806a)
 
 <img src="docs/images/student-record.png" alt="A student's record: band, standing, their indices over the term with plans marked, and the named reasons they were flagged" width="100%">
 
@@ -162,6 +162,18 @@ account is listed in [docs/development.md](docs/development.md#demo-accounts).
 > `backend/.env.example` pins the clock to that date.
 
 ## Deploying
+
+### A free public demo
+
+The `Dockerfile` at the root runs the demo school in one container: the
+interface, API and worker on SQLite, reseeded every time it starts. On
+[Render](https://render.com)'s free plan, choose **New → Blueprint** and pick
+this repository; `render.yaml` sets everything up. The free plan sleeps after 15
+minutes without visitors and takes about a minute to wake, and each wake-up
+resets the demo. The AI agents need an Ollama host, so they are off in the demo.
+The same image runs on any container host that sets `PORT`.
+
+### A real school
 
 ```bash
 cp deploy/.env.example deploy/.env      # domain, secrets, identity provider, model host
